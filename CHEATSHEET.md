@@ -248,3 +248,23 @@ Pièges : les modèles e5 exigent les préfixes `passage:` (index) et `query:` (
 les ajoutent, ne pas écrire de requête à la main sans eux ; l'index ne se met pas à jour tout seul,
 relancer `indexer.py` après toute modification ; si le noyau SiYuan est arrêté, la source `siyuan`
 revient vide sans erreur (vérifier `manifeste.json`).
+
+## hermes-wp — raccourcis WordPress (prépare, a tester)
+
+`C:\wp-cli\hermes-wp.ps1` enveloppe WP-CLI. Detecte le site depuis le dossier courant
+(`wp-config.php` ou `app\public\wp-config.php` pour Local by Flywheel) et lance `wp.bat`
+depuis celui-ci. Chemin ABSOLU : insensible au fichier vide `wp` de `System32`.
+
+```
+hermes-wp info        version de WordPress, URL, theme actif, extensions, taille de la base, PHP
+hermes-wp plugins     extensions + mises a jour disponibles
+hermes-wp backup      export SQL dans <site>\hermes-backups\ (rien n'est ecrit sans -Oui)
+hermes-wp deploy      verifie ssh / rsync / cibles declarees (n'agit pas)
+hermes-wp <commande>  toute commande WP-CLI
+hermes-wp aide        raccourcis + site detecte
+
+powershell -NoProfile -ExecutionPolicy Bypass -File "C:\wp-cli\hermes-wp.ps1" info
+```
+
+Options : `-NoColor` · `-Oui`. Statut : prepare, a tester sur un vrai site (aucun site Local
+au 15/09/2026). Documentation complete : SiYuan `hermes-skills / hermes-wp`.
