@@ -205,7 +205,8 @@ pas un modèle génératif.
 - **Risques** : sur-ingénierie (entraîner un modèle pour remplacer trois lignes de seuil),
   étiquettes trop rares.
 
-**Verdict : À ESSAYER** (version seuils d'abord, apprentissage seulement si les défauts se
+**Verdict : FAIT le 15/09/2026** — version seuils livrée (`controle_qualite.py`). Apprentissage
+seulement si les défauts se
 diversifient).
 
 ---
@@ -215,7 +216,7 @@ diversifient).
 | Cible | Données dispo | VRAM | Durée | Utilité | Verdict |
 |---|---|---|---|---|---|
 | **Embeddings / RAG** | Abondantes et propres (skills, SiYuan, scripts, docs) | 0 (aucun entraînement) | ½ journée | **5/5** | **FAIT** |
-| Classifieurs d'anomalies vidéo | Métriques oui, étiquettes non | 0 (CPU) | ½ journée | 3/5 | À ESSAYER |
+| Classifieurs d'anomalies vidéo | Métriques oui, étiquettes non | 0 (CPU) | ½ journée | 3/5 | **FAIT** |
 | SDXL LoRA (style visuel) | Quasi nulles, à collecter | 8-10 Go (serré) | 1 journée | 3/5 | À ESSAYER |
 | XTTS fine-tune (voix) | **14 s** de voix réelle | 6-8 Go | 2-4 h/essai, résultat dégradé | 2/5 | À ÉVITER |
 | Whisper fine-tune | Quelques minutes, étiquetage circulaire | 6-8 Go | 2-4 h/époque | 2/5 | À ÉVITER |
@@ -256,7 +257,7 @@ consignée dans `test_diction_v8*.py` et dans les transcriptions du volet 4.
 **Première étape concrète (une seule)** : extraire de `test_diction_v8*.py` le tableau
 « terme → graphie validée » dans un fichier unique réutilisable.
 
-### 3. Contrôle qualité des vidéos par seuils, puis classifieur si nécessaire — **en dernier**
+### 3. Contrôle qualité des vidéos par seuils — **FAIT le 15/09/2026** (classifieur appris : en dernier)
 
 **Pourquoi** : les métriques existent déjà et le seuil MAD a fait le travail sur le volet 4. C'est
 du temps bien investi, mais ce n'est pas ce qui débloque le plus de valeur aujourd'hui.
