@@ -51,6 +51,15 @@ def main():
         print("notebook cree :", notebook)
 
     titre = chemin.strip("/").split("/")[-1]
+    # Un titre contenant une barre oblique fait creer une HIERARCHIE de documents par SiYuan
+    # (constate le 15/09 : « Audit voix - corpus du 15/09/2026 » a cree trois documents :
+    # « Audit voix - corpus du 15 », « 09 » et « 2026 »). On refuse net plutot que de laisser
+    # une trace silencieuse.
+    if "/" in chemin.strip("/"):
+        raise SystemExit("titre refuse : « %s » contient une barre oblique, que SiYuan transformerait "
+                         "en hierarchie de documents. Utiliser un tiret (ex. 15-09-2026)." % chemin)
+    if not chemin.startswith("/"):
+        chemin = "/" + chemin
     existants = api("/api/query/sql", {"stmt": "SELECT id, content FROM blocks WHERE type='d' "
                                                 "AND box='%s'" % nid})["data"]
     for d in existants:
