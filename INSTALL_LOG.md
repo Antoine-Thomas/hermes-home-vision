@@ -247,3 +247,27 @@ Résultats : noyau 3.8.2 en écoute sur 127.0.0.1:6806, `lsNotebooks` → `code 
 interface web protégée (401 sans code), mauvais jeton refusé. Redémarrage sans secret en ligne de
 commande validé (conf.json relu). Script de démarrage : `C:\Users\searc\SiYuan\demarrer_siyuan.cmd`.
 Non-régression revérifiée après coup : inchangée.
+
+## Étape 10 bis — Premiers contenus du second cerveau (15/09/2026)
+
+Import de deux notes depuis `C:\Users\searc\Desktop\skills siYUAN\` :
+```
+notebook hermes-skills (id 20260915170151-gtqknum)
+  Automatisation des réseaux sociaux   id 20260915170217-7rwoqt1  (2814 car., 5 liens, 6 blocs de code)
+  Veille technologique et mise à jour  id 20260915170217-69gqhnp  (2955 car., 3 blocs de code)
+```
+Méthode : script `C:\Users\searc\SiYuan\import_notes.py` (POST JSON, jeton lu dans le `.env`),
+`--remplacer` pour supprimer puis recréer les documents existants du notebook.
+
+Deux pièges rencontrés ici :
+- premier import sans accents (précaution inutile) : SiYuan gère l'UTF-8 nativement, y compris les
+  emojis ; les textes ont été réimportés à l'identique des originaux ;
+- deux documents créés dans la même seconde portent le même horodatage : `ORDER BY created` ne les
+  départage pas. Toujours vérifier par identifiant explicite, pas par tri de date.
+
+Vérifications faites en relisant depuis SiYuan (et non sur la seule réponse de l'API) : titres et
+chemins accentués corrects, corps des deux documents présents et distincts, recherche plein texte
+opérationnelle (`twitter-cli` retrouvé), blocs de code préservés.
+
+Note : ces fichiers sont des NOTES (pas des skills Hermes : aucun frontmatter, contenu rédigé).
+Elles ont donc été déposées dans la base de connaissances, pas dans le dossier des skills.

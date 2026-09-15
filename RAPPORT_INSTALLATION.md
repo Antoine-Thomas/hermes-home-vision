@@ -239,3 +239,10 @@ natif), donc ça tournera, lentement.
 Point à trancher : le code d'accès de l'interface web est celui généré à l'installation et se trouve
 dans `conf.json`. Si tu préfères le choisir toi-même, dis-le et je le remplace dans le fichier (le
 noyau le relit au démarrage).
+
+Premiers contenus déposés dans le second cerveau, sur ta demande : notebook `hermes-skills` avec
+« Automatisation des réseaux sociaux » (les cinq CLI — Twitter, LinkedIn, Discord, Telegram,
+Instagram — avec leurs prompts d'installation et la mise à jour quotidienne) et « Veille
+technologique et mise à jour » (prompt d'auto-mise à jour de Hermes, et la trame du rapport techno
+quotidien). Importés depuis `Desktop\skills siYUAN\`, à l'identique, accents et emojis compris.
+Ce sont des notes, pas des skills Hermes : aucun frontmatter, contenu rédigé.
