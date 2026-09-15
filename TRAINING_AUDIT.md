@@ -80,6 +80,10 @@ Bureau, Vidéos, Téléchargements, D:, F:, H: — introuvable. Aucun autre enre
 - **Utilité réelle : 2/5.** La diction des termes techniques (WP-CLI, nginx, MySQL, Docker) est
   **déjà réglée** par le labo de graphies : 44 phrases passées XTTS → Whisper ont validé
   « double-vé-pé cé-èle-i », « n-jin-x », « Maï-Ess-Cu-Elle », « Dockeur », « Hermesse ».
+  **Ce travail a été transformé en lexique opérationnel le 15/09/2026** : `lexique_diction.json`
+  (10 termes, 5 tournures), `preparer_script_tts.py` (avant synthèse) et
+  `corriger_transcription.py` (après Whisper). Voir le document SiYuan « Lexique de diction et
+  relecture ».
 - **Risques** : sur-apprentissage garanti avec 14 s (le modèle apprend le bruit, la voix se
   dégrade), temps perdu, et le vrai problème — la diction — est traité ailleurs.
 
@@ -210,7 +214,7 @@ diversifient).
 
 | Cible | Données dispo | VRAM | Durée | Utilité | Verdict |
 |---|---|---|---|---|---|
-| **Embeddings / RAG** | Abondantes et propres (skills, SiYuan, scripts, docs) | 0 (aucun entraînement) | ½ journée | **5/5** | **À FAIRE** |
+| **Embeddings / RAG** | Abondantes et propres (skills, SiYuan, scripts, docs) | 0 (aucun entraînement) | ½ journée | **5/5** | **FAIT** |
 | Classifieurs d'anomalies vidéo | Métriques oui, étiquettes non | 0 (CPU) | ½ journée | 3/5 | À ESSAYER |
 | SDXL LoRA (style visuel) | Quasi nulles, à collecter | 8-10 Go (serré) | 1 journée | 3/5 | À ESSAYER |
 | XTTS fine-tune (voix) | **14 s** de voix réelle | 6-8 Go | 2-4 h/essai, résultat dégradé | 2/5 | À ÉVITER |
@@ -240,7 +244,7 @@ section de document, pas par ligne).
 sources en fragments et produit un index local — **sans encore installer de modèle**, en vérifiant
 d'abord le volume exact de fragments et leur taille.
 
-### 2. Le lexique de diction et de relecture — **juste après, et sans entraînement**
+### 2. Le lexique de diction et de relecture — **FAIT le 15/09/2026** (sans entraînement)
 
 **Pourquoi** : cela traite la demande réelle (NGINX, WP-CLI, MySQL, Docker s'écrivent mal) sans
 entraîner quoi que ce soit. Le labo de graphies a déjà validé 44 phrases ; il manque la couche qui
