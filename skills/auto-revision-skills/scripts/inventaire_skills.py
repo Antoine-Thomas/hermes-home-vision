@@ -103,10 +103,19 @@ def est_tronque(chemin, texte):
 
 
 def obsoletes(liste):
+    """Rend les references introuvables. Les chemins coupes par une espace sont signales, pas masques.
+
+    Le detecteur capture les chemins sans espace : « C:\\Program Files\\... » ressort donc comme
+    « C:\\Program ». Plutot que de l'ignorer (ce qui masquerait un vrai dossier disparu dont le nom
+    contient une espace), on l'annote : le lecteur tranche.
+    """
     out = []
     for s in liste:
-        manquants = [f for f in s["fichiers"]
-                     if not os.path.exists(f) and not est_gabarit(f) and not est_tronque(f, s["texte"])]
+        manquants = []
+        for f in s["fichiers"]:
+            if os.path.exists(f) or est_gabarit(f):
+                continue
+            manquants.append(f + (" [peut etre tronque par une espace]" if est_tronque(f, s["texte"]) else ""))
         commandes_absentes = [c for c in s["commandes"]
                               if not c.startswith(("hermes", "wp"))
                               and not any(os.path.exists(os.path.join(os.path.dirname(s["chemin"]), c))

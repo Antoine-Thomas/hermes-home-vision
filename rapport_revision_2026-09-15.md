@@ -1,7 +1,7 @@
 # Revision des skills — 15/09/2026
 
 Inventaire de **97 skills** dans `C:\Users\searc\AppData\Local\hermes\skills`.
-Derniere revision : 2026-09-15 (1 nouveaux skills depuis, 0 jours).
+Derniere revision : 2026-09-15 (0 nouveaux skills depuis, 0 jours).
 
 > Rapport en lecture seule : aucun skill n'a ete modifie, deplace ou supprime.
 
@@ -15,6 +15,12 @@ Proposition : lire les deux, fusionner si le role est identique, garder l'autre 
 
 ## 2. Skills a verifier (references disparues)
 
+- **premiere-montage-comparatif**
+  - fichier introuvable : `C:\Program [peut etre tronque par une espace]`
+- **smll-talk-podcast**
+  - fichier introuvable : `C:\Users\searc\Desktop\the [peut etre tronque par une espace]`
+- **vibevoice-tts**
+  - fichier introuvable : `C:\Users\searc\Desktop\the [peut etre tronque par une espace]`
 - **wordpress-backup-restore**
   - fichier introuvable : `C:\backups`
 - **wordpress-local-flywheel-publishing**
@@ -59,6 +65,6 @@ Proposition : si un de ces scripts est relance a la main plus d'une fois, il mer
 
 | Indicateur | Valeur | Declencheur |
 |---|---|---|
-| Nouveaux skills | 1 | 10 |
+| Nouveaux skills | 0 | 10 |
 | Jours depuis la revision | 0 | 7 |
 
