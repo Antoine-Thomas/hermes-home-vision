@@ -74,7 +74,27 @@ python verifier_v6.py ; python diag_sauts.py <video> <wav> 1200 2400 3600 4800 6
 Skill de référence : `talking-head-video-8gb` (v1.8) — deux branches à ne pas confondre,
 source vidéo (LatentSync) et source photo (LivePortrait/SadTalker/Wav2Lip).
 
-## LTX-2.3 / ComfyUI — INSTALLÉ (validation en attente d'une pièce)
+## LTX-2.3 / ComfyUI — OPÉRATIONNEL (mesuré le 15/09/2026)
+
+Génération texte -> vidéo validée de bout en bout : `640x384, 25 images, 24 i/s, 8 étapes, mode
+distilled, offload=True`. Sortie H.264 **avec audio** (LTX-2.3 est un modèle audio-vidéo).
+
+| | à froid | à chaud |
+|---|---|---|
+| total | 132,79 s | 205,11 s |
+| par image | 5,31 s | 8,20 s |
+| par étape | 16,60 s | 25,64 s |
+
+Soit 127 a 197 fois le temps reel : compter 2 a 3,5 minutes par seconde de video generee.
+
+Piege a connaitre (cout : une journee) : `load_sd` peut remettre **0 cle sur 4444** quand les
+operations de renommage du noeud ne correspondent pas au GGUF. Symptome : 4186 parametres sur le
+disque virtuel, puis `Cannot copy out of meta tensor`. Diagnostic express :
+`grep "Uninitialized parameters" comfyui.log` (le constructeur nomme lui-meme les modules vides),
+puis comparer le nombre de cles du dictionnaire au nombre de parametres du modele. Correctif
+applique dans `LTX2/ltx_core/loader/single_gpu_model_builder.py` (fonction `load_sd`) : relire le
+GGUF sans operations quand le dictionnaire revient vide.
+
 
 Dossier : `C:\Users\searc\ComfyUI-LTX` · ComfyUI portable v0.35.0 · python embarqué 3.13
 `C:\Users\searc\ComfyUI-LTX\ComfyUI_windows_portable\python_embeded\python.exe`

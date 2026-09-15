@@ -183,3 +183,39 @@ Tentatives de correction restées dans le code (utiles même si non concluantes)
 connecteur) et `single_gpu_model_builder.py` (complément par nom depuis le state_dict du GGUF).
 
 Non-régression revérifiée après ces manipulations : inchangée (voir tableau de l'étape 7).
+
+## Étape 4 ter — Résolution : la chaîne LTX-2.3 génère (15/09/2026)
+
+Cause racine, trouvée par la mesure et non par hypothèse : `load_sd` remettait un dictionnaire
+**vide (0 clé sur 4444)** parce que les opérations de renommage du noeud ne s'appliquent pas au
+GGUF d'unsloth, dont les noms bruts correspondent pourtant exactement à ceux du modèle. Résultat :
+4186 paramètres sur 4186 restaient sur le disque virtuel, et torch levait
+`Cannot copy out of meta tensor` au moment de l'échantillonnage.
+
+Trois mesures ont mené au diagnostic :
+```
+grep -a "Uninitialized parameters" comfyui.log   # le constructeur nomme lui-meme les modules vides
+# instrumentation : nombre de cles du dictionnaire vs nombre de parametres du modele
+[correctif] cles modele=4186 cles dictionnaire=0 intersection=0      <- avant
+[correctif] GGUF relu SANS operations de renommage : 4444 cles       <- correctif
+[correctif] cles modele=4186 cles dictionnaire=4444 intersection=4186
+[DIAG setup] parametres=4186 | sur disque virtuel=0                  <- apres
+```
+
+Correctif appliqué (`ComfyUI_LTX2_SM/LTX2/ltx_core/loader/single_gpu_model_builder.py`, `load_sd`,
+branche `use_gguf`) : quand `load_gguf_checkpoint(..., sd_ops=...)` renvoie un dictionnaire vide,
+relire le fichier avec `sd_ops=None`. Instrumentation conservée dans `setup_for_inference` et
+`_initialize_submodule` (comptage des paramètres fantômes, garant de la non-régression).
+
+Résultat mesuré (640x384, 25 images, 24 i/s, 8 étapes, mode distilled, offload=True) :
+```
+execution_success | fichier output/video/ltx_test_00001_.mp4 (89 Ko, H.264 + audio AAC)
+a froid : 132,79 s  -> 5,31 s/image, 16,60 s/etape  (inclut le chargement des 13 Go)
+a chaud : 205,11 s  -> 8,20 s/image, 25,64 s/etape  (modele deja en memoire, nouveau prompt)
+contenu verifie : ecart-type spatial 54,7 puis 75,3 ; mouvement entre images present ;
+                   l'image extraite correspond au prompt (plage au lever du soleil).
+```
+Le second fichier (`ltx_test_00002_.mp4`, 151 Ko) provient d'un prompt different (renard dans la
+neige) : la génération fonctionne, elle n'est pas figée sur un seul résultat.
+
+Aucun téléchargement de 18 Go n'a été nécessaire : les 34,0 Go installés suffisent.

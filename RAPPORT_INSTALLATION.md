@@ -125,41 +125,56 @@ Choix : **LTX-2.3** et non LTX-2.5. Motifs mesurés, pas supposés :
 Contenu installé : voir `INSTALL_LOG.md`, étape 4 (tableau des 6 fichiers + les 3 correctifs
 d'environnement).
 
-**Blocage actuel, étape 2 (après le connecteur)** : le fichier `connector-11.safetensors` (6,34 Go,
-MIT) a bien été téléchargé — total installé **34,0 Go**. En-tête vérifié : 262 tenseurs, dont 129
+**RÉSOLU le 15/09/2026 — la chaîne complète fonctionne.** Deux vidéos générées de bout en bout
+depuis un prompt texte, avec piste audio (le modèle LTX-2.3 est audio-vidéo) :
+
+| Mesure | À froid (1er passage) | À chaud (modèle en mémoire) |
+|---|---|---|
+| Durée totale | 132,79 s | 205,11 s |
+| Secondes par image | 5,31 s | 8,20 s |
+| Secondes par étape (8 étapes) | 16,60 s | 25,64 s |
+| Rapport au temps réel (vidéo de 1,04 s) | ×127 | ×197 |
+
+Réglages du test : 640×384, 25 images, 24 i/s, 8 étapes, mode `distilled`, `offload=True`,
+transformer Q4_K_S sur NVMe. Sorties : `output/video/ltx_test_00001_.mp4` (89 Ko) et
+`_00002_.mp4` (151 Ko), H.264 + AAC. Contenu vérifié, pas seulement l'absence d'erreur : écart-type
+spatial de 54,7 puis 75,3 (une image unie donnerait ~0), mouvement entre images présent, et
+l'image extraite du premier test correspond bien au prompt demandé (plage au lever du soleil,
+océan, vagues, sable, nuages dorés).
+
+**La cause racine était un dictionnaire vide, pas un fichier manquant.** Diagnostic en trois
+mesures : le constructeur du nœud avertissait lui-même
+`Uninitialized parameters or buffers: ['scale_shift_table', 'patchify_proj.weight', ...]` ; le
+modèle comptait 4186 paramètres fantômes sur 4186 ; et l'instrumentation a montré que
+`load_sd` remettait **0 clé sur 4444** parce que les opérations de renommage du nœud vident le
+dictionnaire avec ce GGUF — alors que les noms bruts du fichier correspondent exactement à ceux du
+modèle. Correctif : relire le GGUF sans ces opérations quand le résultat est vide
+(`LTX2/ltx_core/loader/single_gpu_model_builder.py`, fonction `load_sd`). Après correctif :
+4444 clés, intersection de 4186 avec le modèle, **0 paramètre fantôme**.
+
+Autres correctifs de la chaîne (déjà en place) : `transformers<5` (4.57.6), `diffusers==0.36.0`,
+`opencv-python-headless`, et un try/except sur `vision_tower` dans `encoder_configurator.py`.
+
+Méthode de diagnostic à retenir : chercher d'abord `Uninitialized parameters` dans le journal du
+nœud — il nomme lui-même les modules vides — et comparer le nombre de clés du dictionnaire chargé
+au nombre de paramètres du modèle. C'est ce couple de chiffres qui a évité un téléchargement de
+18 Go inutile.
+
+Détail du parcours, conservé parce qu'il documente le piège : le fichier `connector-11.safetensors`
+(6,34 Go, MIT) a été téléchargé et vérifié — total installé **34,0 Go**, 262 tenseurs dont les 129
 clés `video_embeddings_connector.*`, 129 `audio_embeddings_connector.*` et les 4
-`text_embedding_projection.*_aggregate_embed.*` (donc le fichier de 2,31 Go supprimé était bien
-redondant, son contenu est dedans). Effet mesuré : l'encodeur de texte passe désormais (nœuds 1,
-2, 3 et 6 OK), l'erreur s'est déplacée au nœud 7, l'échantillonneur.
-
-Erreur exacte : `NotImplementedError: Cannot copy out of meta tensor; no data!` dans
-`model.py:636 _initialize_submodule()`. Instrumentation du code : le module fautif est un `Linear`
-`weight(4096, 128)` + `bias(4096,)` — c'est `patchify_proj`.
-
-Point important : **ce n'est pas une pièce manquante**. Lecture directe du GGUF : 4444 tenseurs,
-et `patchify_proj.weight`/`bias`, `adaln_single` (48), `proj_out` (4) y sont bel et bien. Le
-lecteur du nœud renvoie aussi les 4444 clés. C'est donc `diffusers.load_model_dict_into_meta` qui
-laisse ces modules hors blocs sur le disque virtuel, et l'objet ensuite déplacé sur le GPU n'est
-pas celui qui a été chargé (vérifié : au moment du chargement, aucun paramètre n'est resté vide,
-donc mon complément par nom n'a rien trouvé à remplir).
-
-Conséquence honnête : **aucun temps de génération n'a pu être mesuré** — le pipeline s'arrête
-avant l'échantillonnage. Les durées vues dans les logs (63 à 71 s) sont des échecs, pas des
-générations.
-
-Trois issues possibles, à trancher ensemble :
-1. Télécharger le transformer appairé par l'auteur du nœud,
-   `smthem/LTX-2.3-test-gguf` -> `ltx23-transformer-distill-1.1-Q6_K.gguf` (18,14 Go, MIT) : c'est
-   le fichier pour lequel `connector-11` a été extrait. Porte l'installation à ~52 Go.
-2. Continuer à patcher le chargeur (aucun téléchargement) : remplir le modèle que reçoit
-   `BlockGPUManager`, celui-là même qui a des paramètres vides. Nécessite des redémarrages de
-   ComfyUI (approbation) et du reverse-engineering.
-3. En rester là : les poids sont en place, la chaîne s'arrête à l'échantillonneur.
+`text_embedding_projection.*_aggregate_embed.*` (le fichier de 2,31 Go supprimé était donc bien
+redondant). Son effet a été réel : l'encodeur de texte est passé. L'erreur s'était alors déplacée à
+l'échantillonneur, sous la forme `NotImplementedError: Cannot copy out of meta tensor; no data!`
+dans `model.py`, sur un `Linear` `weight(4096, 128)` : `patchify_proj`. Trois hypothèses avaient
+été écartées par la mesure — fichier incomplet (les tenseurs sont dans le GGUF), complément par nom
+depuis le dictionnaire (0 rempli), téléchargement du transformer appairé de 18,14 Go — avant que
+le comptage des clés ne désigne le vrai coupable : **le dictionnaire était vide**.
 
 État vérifié du reste de la chaîne : serveur ComfyUI opérationnel, 9 nœuds LTX2 exposés, poids
-présents et lisibles, GPU répond (2,4 à 3,3 Go de VRAM au repos pendant les tests), 35-41 Go de
-RAM libre — la marge est là pour le streaming des 13 Go de transformer annoncé par l'auteur du
-nœud.
+présents et lisibles. Consommation mesurée pendant une génération : la VRAM reste basse (le
+transformer est diffusé par blocs depuis le NVMe), la RAM libre est descendue à 30,8 Go après deux
+générations, contre 42 Go au repos.
 
 ## 10. Optimisation Local — relevé, non appliqué
 
