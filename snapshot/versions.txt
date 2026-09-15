@@ -55,3 +55,7 @@ VAE video             : ltx-2.3-22b-distilled_video_vae.safetensors  1,45 Go
 VAE audio             : ltx-2.3-22b-distilled_audio_vae.safetensors  0,36 Go
 Total telecharge      : 27,7 Go (plafond fixe : 30 Go)
 Manquant (blocage)    : connector-11.safetensors 6,34 Go (MIT) -> porterait le total a 31,7 Go
+Connecteur (blocage 2) : connector-11.safetensors 6,34 Go (MIT) -> models/checkpoints/
+Total installe        : 34,0 Go
+Echec restant        : noeud 7 LTX2_SM_KSampler, patchify_proj reste sur le disque virtuel
+                       (ce n'est PAS une piece manquante : les tenseurs sont dans le GGUF)

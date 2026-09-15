@@ -125,12 +125,36 @@ Choix : **LTX-2.3** et non LTX-2.5. Motifs mesurés, pas supposés :
 Contenu installé : voir `INSTALL_LOG.md`, étape 4 (tableau des 6 fichiers + les 3 correctifs
 d'environnement).
 
-**Blocage actuel (une seule pièce)** : le nœud attend un fichier `connector-11.safetensors`
-(6,34 Go, MIT, non protégé) contenant les clés `...video_embeddings_connector.*` et
-`...audio_embeddings_connector.*`. Le fichier de 2,31 Go téléchargé chez unsloth ne contient que
-4 tenseurs (projections d'agrégation) : il ne peut pas fonctionner, quelle que soit la façon de
-le nommer. Le télécharger porterait le total à 31,7 Go, au-dessus du plafond fixé : **accord
-demandé avant de le faire**, rien n'a été téléchargé de plus.
+**Blocage actuel, étape 2 (après le connecteur)** : le fichier `connector-11.safetensors` (6,34 Go,
+MIT) a bien été téléchargé — total installé **34,0 Go**. En-tête vérifié : 262 tenseurs, dont 129
+clés `video_embeddings_connector.*`, 129 `audio_embeddings_connector.*` et les 4
+`text_embedding_projection.*_aggregate_embed.*` (donc le fichier de 2,31 Go supprimé était bien
+redondant, son contenu est dedans). Effet mesuré : l'encodeur de texte passe désormais (nœuds 1,
+2, 3 et 6 OK), l'erreur s'est déplacée au nœud 7, l'échantillonneur.
+
+Erreur exacte : `NotImplementedError: Cannot copy out of meta tensor; no data!` dans
+`model.py:636 _initialize_submodule()`. Instrumentation du code : le module fautif est un `Linear`
+`weight(4096, 128)` + `bias(4096,)` — c'est `patchify_proj`.
+
+Point important : **ce n'est pas une pièce manquante**. Lecture directe du GGUF : 4444 tenseurs,
+et `patchify_proj.weight`/`bias`, `adaln_single` (48), `proj_out` (4) y sont bel et bien. Le
+lecteur du nœud renvoie aussi les 4444 clés. C'est donc `diffusers.load_model_dict_into_meta` qui
+laisse ces modules hors blocs sur le disque virtuel, et l'objet ensuite déplacé sur le GPU n'est
+pas celui qui a été chargé (vérifié : au moment du chargement, aucun paramètre n'est resté vide,
+donc mon complément par nom n'a rien trouvé à remplir).
+
+Conséquence honnête : **aucun temps de génération n'a pu être mesuré** — le pipeline s'arrête
+avant l'échantillonnage. Les durées vues dans les logs (63 à 71 s) sont des échecs, pas des
+générations.
+
+Trois issues possibles, à trancher ensemble :
+1. Télécharger le transformer appairé par l'auteur du nœud,
+   `smthem/LTX-2.3-test-gguf` -> `ltx23-transformer-distill-1.1-Q6_K.gguf` (18,14 Go, MIT) : c'est
+   le fichier pour lequel `connector-11` a été extrait. Porte l'installation à ~52 Go.
+2. Continuer à patcher le chargeur (aucun téléchargement) : remplir le modèle que reçoit
+   `BlockGPUManager`, celui-là même qui a des paramètres vides. Nécessite des redémarrages de
+   ComfyUI (approbation) et du reverse-engineering.
+3. En rester là : les poids sont en place, la chaîne s'arrête à l'échantillonneur.
 
 État vérifié du reste de la chaîne : serveur ComfyUI opérationnel, 9 nœuds LTX2 exposés, poids
 présents et lisibles, GPU répond (2,4 à 3,3 Go de VRAM au repos pendant les tests), 35-41 Go de

@@ -150,3 +150,36 @@ l'ordre de 0,1 à 1 token/s pour un modèle 70B+, sans bénéfice face à OmniRo
 - `snapshot/versions.txt` et `snapshot/config.yaml.redacted` (valeurs sensibles masquées).
 - Snapshot commité dans le dépôt git local (`C:\Users\searc\Desktop\hermes_install`)
   après chaque étape validée.
+
+## Étape 4 bis — Connecteur téléchargé (autorisé le 15/09)
+
+Commandes :
+```
+curl -L -C - --retry 5 -sS \
+  -o "C:/Users/searc/ComfyUI-LTX/ComfyUI_windows_portable/ComfyUI/models/checkpoints/connector-11.safetensors" \
+  "https://huggingface.co/smthem/LTX-2.3-test-gguf/resolve/main/connector-11.safetensors?download=true"
+# suppression du fichier inutile de 2,31 Go (les deux liens durs)
+```
+- 6,34 Go, 6 344 498 464 octets exactement, licence MIT, non protégé.
+- En-tête lu avant usage : 262 tenseurs = 129 `video_embeddings_connector.*`
+  + 129 `audio_embeddings_connector.*` + les 4 `text_embedding_projection.*_aggregate_embed.*`.
+  Le fichier de 2,31 Go supprimé était donc bien redondant.
+- Total installé : 34,0 Go (plafond autorisé 31,7 Go, dépassement validé).
+
+Effet : l'encodeur de texte passe (nœuds 1, 2, 3, 6 OK). L'échec se déplace au nœud 7
+(`LTX2_SM_KSampler`) : `Cannot copy out of meta tensor; no data!`.
+
+Diagnostic mené, sans rien télécharger de plus :
+- instrumentation du nœud : le module vide est `patchify_proj`, `weight(4096, 128)` + `bias(4096,)` ;
+- lecture du GGUF : 4444 tenseurs, `patchify_proj`, `adaln_single`, `proj_out` présents ;
+- lecture du state_dict par le lecteur du nœud : 4444 clés, dont `patchify_proj.weight` ;
+- complément des paramètres vides depuis le state_dict en mémoire : 0 rempli, donc au moment du
+  chargement plus rien n'est vide — le module vide apparaît après, sur l'objet que reçoit
+  `BlockGPUManager`.
+Ce n'est donc pas une pièce manquante mais un chemin de chargement du nœud.
+
+Tentatives de correction restées dans le code (utiles même si non concluantes) :
+`LTX2/ltx_core/model/transformer/model.py` (diagnostic des modules vides, injection depuis le
+connecteur) et `single_gpu_model_builder.py` (complément par nom depuis le state_dict du GGUF).
+
+Non-régression revérifiée après ces manipulations : inchangée (voir tableau de l'étape 7).
