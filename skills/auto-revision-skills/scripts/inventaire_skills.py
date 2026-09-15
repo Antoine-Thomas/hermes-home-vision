@@ -77,13 +77,41 @@ def doublons(liste, seuil=0.34):
     return sorted(paires, key=lambda p: -p[0])
 
 
+GABARITS = ("<", ">", "...", "\\path\\to", "\\chemin\\", "\\projet\\", "\\folder", "\\dossier\\",
+            "<user>", "<workspace>", "<nom")
+
+
+def est_gabarit(chemin):
+    """Un exemple de documentation n'est pas une reference morte."""
+    return any(g in chemin for g in GABARITS)
+
+
+def est_tronque(chemin, texte):
+    """Le detecteur s'arrete aux espaces : « C:\\Program Files\\... » devient « C:\\Program ».
+
+    Si le caractere suivant dans le texte est une espace, et que le mot qui suit contient une
+    barre oblique inverse, alors le chemin etait coupe par une espace : on l'ignore.
+    """
+    i = texte.find(chemin)
+    if i < 0:
+        return False
+    apres = texte[i + len(chemin):]
+    if not apres.startswith(" "):
+        return False
+    suite = apres[1:].split(maxsplit=1)[0] if len(apres) > 1 else ""
+    return "\\" in suite
+
+
 def obsoletes(liste):
     out = []
     for s in liste:
-        manquants = [f for f in s["fichiers"] if not os.path.exists(f)]
+        manquants = [f for f in s["fichiers"]
+                     if not os.path.exists(f) and not est_gabarit(f) and not est_tronque(f, s["texte"])]
         commandes_absentes = [c for c in s["commandes"]
                               if not c.startswith(("hermes", "wp"))
                               and not any(os.path.exists(os.path.join(os.path.dirname(s["chemin"]), c))
+                                          for c in [c])
+                              and not any(os.path.exists(os.path.join(os.path.dirname(s["chemin"]), "scripts", c))
                                           for c in [c])
                               and shutil.which(c) is None]
         if manquants or commandes_absentes:

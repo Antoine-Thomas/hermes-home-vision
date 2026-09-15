@@ -1,7 +1,7 @@
 # Revision des skills — 15/09/2026
 
-Inventaire de **96 skills** dans `C:\Users\searc\AppData\Local\hermes\skills`.
-Derniere revision : jamais (96 nouveaux skills depuis, n/a jours).
+Inventaire de **97 skills** dans `C:\Users\searc\AppData\Local\hermes\skills`.
+Derniere revision : 2026-09-15 (1 nouveaux skills depuis, 0 jours).
 
 > Rapport en lecture seule : aucun skill n'a ete modifie, deplace ou supprime.
 
@@ -15,27 +15,8 @@ Proposition : lire les deux, fusionner si le role est identique, garder l'autre 
 
 ## 2. Skills a verifier (references disparues)
 
-- **local-flywheel-setup**
-  - fichier introuvable : `C:\Users\<user>\Local`
-- **premiere-montage-comparatif**
-  - fichier introuvable : `C:\Program`
-- **siyuan-second-brain**
-  - fichier introuvable : `C:\...\demarrer_siyuan.cmd`
-  - fichier introuvable : `C:\Users\<user>\SiYuan\<workspace>`
-- **smll-talk-podcast**
-  - fichier introuvable : `C:\Users\searc\Desktop\the`
-- **vibevoice-tts**
-  - fichier introuvable : `C:\Users\searc\Desktop\the`
-- **video-editing-automation**
-  - fichier introuvable : `C:\path\to\folder`
-- **windows-path-handling**
-  - fichier introuvable : `C:\Users\<user>\projet\fichier.md`
-  - fichier introuvable : `C:\home\<user>\projet\fichier.md`
-- **windows-system-backup**
-  - fichier introuvable : `D:\WindowsImageBackup\<computername>\Backup`
 - **wordpress-backup-restore**
   - fichier introuvable : `C:\backups`
-  - fichier introuvable : `C:\chemin\skills\wordpress-backup-restore\scripts\backup_site.py`
 - **wordpress-local-flywheel-publishing**
   - commande introuvable : `validate_skills.py`
   - commande introuvable : `validate_structure.py`
@@ -78,6 +59,6 @@ Proposition : si un de ces scripts est relance a la main plus d'une fois, il mer
 
 | Indicateur | Valeur | Declencheur |
 |---|---|---|
-| Nouveaux skills | 96 | 10 |
-| Jours depuis la revision | n/a | 7 |
+| Nouveaux skills | 1 | 10 |
+| Jours depuis la revision | 0 | 7 |
 
