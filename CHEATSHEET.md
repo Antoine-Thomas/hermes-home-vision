@@ -94,7 +94,7 @@ Poids en place (27,7 Go au total) :
 ```
 ComfyUI/models/gguf/ltx-2.3-22b-distilled-1.1-Q4_K_S.gguf   (12,96 Go, transformer)
 ComfyUI/models/gguf/gemma-3-12b-it-qat-Q4_0.gguf            ( 8,70 Go, encodeur de texte)
-ComfyUI/models/checkpoints/  <- fichier de connecteurs       (ATTENTION : 2,31 Go inutilisables)
+ComfyUI/models/checkpoints/connector-11.safetensors        ( 6,34 Go, connecteurs, MIT)
 ComfyUI/models/vae/ltx-2.3-22b-distilled_video_vae.safetensors (1,45 Go)
 ComfyUI/models/vae/ltx-2.3-22b-distilled_audio_vae.safetensors (0,36 Go)
 ```
