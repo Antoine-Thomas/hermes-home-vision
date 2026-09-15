@@ -68,11 +68,14 @@ Bureau, Vidéos, Téléchargements, D:, F:, H: — introuvable. Aucun autre enre
 
 ### Cible 1 — XTTS : fine-tune sur la voix de l'auteur
 
-- **Données disponibles** : 13,92 s de voix réelle (`source.mp4`), mono-source, qualité correcte
-  mais très courte ; les `voix_xtts_full*.wav` (16 Mo) et `segments/` sont des **sorties de
-  synthèse**, inutilisables pour apprendre la voix.
-- **Données manquantes** : tout. Il faut 30 minutes à plusieurs heures de parole propre, sans
-  musique, une seule prise de parole, idéalement 200+ phrases couvrant les termes techniques visés.
+- **Données disponibles — MESURÉES le 15/09/2026** : le corpus `Desktop\ma voix 12`
+  (2 fichiers Zoom, WAV PCM 24 bits / 48 kHz / stéréo) contient **1 h 43 min d'enregistrement,
+  dont 1 h 36 min de voix utile** (hors silence). Rapport signal/bruit estimé : 25,8 dB pour
+  ZOOM0005 et 13,9 dB pour ZOOM0004. Aucun fond musical (aplatissement spectral 0,003), aucune
+  série de saturation significative (613 échantillons sur ~297 millions), F0 cohérente avec un
+  seul locuteur (132-197 Hz). Détail : `voix/AUDIT_VOIX.md`.
+- **Données manquantes** : rien de bloquant. Restent à vérifier par écoute humaine la **variété
+  d'intonation**, et à traiter le bruit du ZOOM0004 avant l'entraînement.
 - **VRAM / méthode** : fine-tune XTTS ≈ 6-8 Go en LoRA sur les couches GPT, mais la faisabilité
   VRAM n'est pas le facteur limitant — **la donnée l'est**.
 - **Durée estimée** : 2 à 4 h par essai, pour un résultat dégradé — et non exploitable.
@@ -87,7 +90,12 @@ Bureau, Vidéos, Téléchargements, D:, F:, H: — introuvable. Aucun autre enre
 - **Risques** : sur-apprentissage garanti avec 14 s (le modèle apprend le bruit, la voix se
   dégrade), temps perdu, et le vrai problème — la diction — est traité ailleurs.
 
-**Verdict : À ÉVITER** (tant que la donnée n'existe pas). Le levier utile est une couche de
+**Verdict : VIABLE depuis le 15/09/2026** — le corpus mesuré (1 h 36 min utiles, mono-source,
+sans musique) place la cible dans la bande « bon » des seuils communautaires XTTS (1 à 3 h).
+Méthode : LoRA sur XTTS v2, 6-8 Go de VRAM (sans marge), 8 à 30 h d'entraînement estimées, 2-3 Go
+de disque. Aucun entraînement lancé : il attend l'accord de l'utilisateur (`voix/AUDIT_VOIX.md`).
+L'ancienne conclusion — écartée faute de données — datait de 13,92 s de voix réelle. Le lexique de
+diction reste le levier principal pour la diction des termes techniques ;
 correction lexicale appliquée au texte *avant* la synthèse, pas un entraînement.
 
 ### Cible 2 — Whisper : fine-tune français + jargon WordPress
@@ -218,7 +226,7 @@ diversifient).
 | **Embeddings / RAG** | Abondantes et propres (skills, SiYuan, scripts, docs) | 0 (aucun entraînement) | ½ journée | **5/5** | **FAIT** |
 | Classifieurs d'anomalies vidéo | Métriques oui, étiquettes non | 0 (CPU) | ½ journée | 3/5 | **FAIT** |
 | SDXL LoRA (style visuel) | Quasi nulles, à collecter | 8-10 Go (serré) | 1 journée | 3/5 | À ESSAYER |
-| XTTS fine-tune (voix) | **14 s** de voix réelle | 6-8 Go | 2-4 h/essai, résultat dégradé | 2/5 | À ÉVITER |
+| XTTS fine-tune (voix) | **1 h 36 min** utiles, mono-source (mesuré le 15/09) | 6-8 Go | 8-30 h estimées | 4/5 | **VIABLE** (accord utilisateur requis) |
 | Whisper fine-tune | Quelques minutes, étiquetage circulaire | 6-8 Go | 2-4 h/époque | 2/5 | À ÉVITER |
 | LLM 7B QLoRA | 6 Mo de prose non annotée | 6-8 Go (tendu) | 2-3 jours | 1/5 | À ÉVITER |
 | Flux LoRA | — | ≥16 Go | — | — | À ÉVITER |
