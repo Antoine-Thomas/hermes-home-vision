@@ -312,3 +312,66 @@ perdus) : le manifeste sert de contrôle.
 
 La documentation WordPress en ligne (WP-CLI handbook) n'est pas indexée : seule la copie locale du
 dépôt l'est.
+
+## 16. Bouclage de la Phase 1 : mémoire des skills officiels, réindexation automatique, test réel du RAG (15/09/2026)
+
+### 16.1 Recherche automatique dans la documentation officielle
+
+Capacité permanente inscrite à trois endroits :
+
+- **Document SiYuan** `veille / Sources officielles Hermes - skills` : les trois URLs officielles
+  (Skills Hub, création de skill, utilisation des skills) et ce que chacune contient réellement,
+  plus les sources interrogées par `hermes skills search --source` (`official`, `skills-sh`,
+  `github`, `clawhub`, `nousresearch`, `openai`, `nvidia`, `huggingface`, `minimax`…).
+- **Skill** `productivity/recherche-skills-officiels` : la séquence complète — skills locaux, puis
+  RAG, puis outils, puis le Hub ; les commandes exactes (`hermes skills search`, `inspect`,
+  `install`, `/skills search`) ; le format officiel de création d'un skill (frontmatter, sections
+  `When to Use` / `Quick Reference` / `Procedure` / `Pitfalls` / `Verification`) ; les pièges
+  (le Hub n'est pas dans le RAG, `--force` à ne jamais utiliser sans lire, un skill créé n'est pas
+  indexé tout seul).
+- **RAG** : les deux précédents sont indexés. La description du skill est limitée à 60 caractères
+  par le système — le détail est dans le corps, c'est lui qui porte la recherche.
+
+La règle tenue : **avant de dire « je ne sais pas », chercher dans le Hub.** Une compétence
+manquante est un skill à trouver, installer ou créer — jamais un mur.
+
+### 16.2 Tâche planifiée « Hermes - Reindex RAG »
+
+L'index ne se mettait pas à jour tout seul (c'était un piège documenté, non résolu). Il l'est :
+
+- Tâche **utilisateur** `Hermes - Reindex RAG`, déclencheur **quotidien à 03h00**, `StartWhenAvailable`,
+  `MultipleInstances=IgnoreNew`, limite 30 minutes, réveil de la machine autorisé.
+- Script `…\hermes\dataageindex_auto.py` (créé avec `creer_tache_reindex.ps1`) :
+  - ne fait **rien** si le noyau SiYuan ne répond pas sur 6806 (une indexation sans lui perdrait
+    toute la source `siyuan`) et l'écrit dans le journal ;
+  - tient un **verrou** retiré dans tous les cas (`finally`) ; un verrou orphelin dont le PID n'existe
+    plus est nettoyé au démarrage ;
+  - journalise dans `…\hermes\dataageindex.log` : date, début, fragments avant → après,
+    durée, taille de l'index.
+- **Test réel** (déclenchement manuel) :
+  `2026-09-15 19:42:29 | indexation OK en 339 s | fragments 2042 -> 2047 | index 6.3 Mo`
+  Verrou retiré après coup, tâche revenue à l'état `Ready`, prochaine exécution le 16/09 à 03h00.
+
+### 16.3 Test réel du RAG comme outil (skill `rag-second-cerveau`)
+
+Quatre requêtes passées par le seul index local (aucune lecture de fichier en clair), modèle
+`intfloat/multilingual-e5-base`, index à **2047 fragments** :
+
+| Question | Réponse trouvée | Source de tête | Score |
+|---|---|---|---|
+| Comment relancer LatentSync si la cadence tombe à 45 s/lot ? | relancer le **processus** LatentSync, pas la machine | SiYuan `video-ia / Branche A — Pièges` | cos 0,873 |
+| Seuil d'alerte sur les fantômes des lèvres ? | **ALERTE au-delà de 1,5 × la source** (ATTENTION entre 1,25 et 1,5) | SiYuan `video-ia / Contrôle qualité vidéo` | cos 0,867 |
+| Où est le lexique de diction et comment l'utiliser ? | `Desktop\hermes_tuto_v4\lexique_diction.json` + `preparer_script_tts.py` (avant XTTS) et `corriger_transcription.py` (après Whisper) | SiYuan `hermes-skills / Lexique de diction et relecture` | cos 0,846 |
+| Comment créer un skill Hermes ? | procédure + format officiel | skill `productivity/recherche-skills-officiels` | cos 0,911 |
+
+Les quatre sortent en tête. Le skill `rag-second-cerveau` est **opérationnel** : il suffit de
+passer par `chercher.py` pour retrouver une décision, un seuil ou une commande.
+
+### 16.4 Points restants, hors périmètre Hermes
+
+- `C:\Windows\System32\wp` (fichier vide de 0 octet) **est toujours présent** : à supprimer en
+  PowerShell administrateur (`Remove-Item C:\Windows\System32\wp`), sinon il masque
+  `C:\wp-cli\wp.bat`. Action utilisateur.
+- Optimisation Local (`memory_limit` 512M, `innodb_buffer_pool_size` 256M) : relevée en §10, non
+  appliquée. Non urgent, à faire si des sites sont recréés.
+- LoRA SDXL : bloqué sur la collecte de 20-40 images de style. Action utilisateur.
