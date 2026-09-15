@@ -59,3 +59,12 @@ Connecteur (blocage 2) : connector-11.safetensors 6,34 Go (MIT) -> models/checkp
 Total installe        : 34,0 Go
 Echec restant        : noeud 7 LTX2_SM_KSampler, patchify_proj reste sur le disque virtuel
                        (ce n'est PAS une piece manquante : les tenseurs sont dans le GGUF)
+
+--- SiYuan / second cerveau (ajoute le 15/09/2026, etape 10) ---
+SiYuan            : 3.8.2 (winget B3log.SiYuan, installation par utilisateur)
+Noyau             : SiYuan-Kernel 3.8.2 (resources\kernel), pandoc 3.10.1 embarque
+Workspace         : C:\Users\searc\SiYuan\hermes-projects
+Ecoute            : 127.0.0.1:6806 uniquement (accessAuthCode + api.token distincts)
+Demarrage         : C:\Users\searc\SiYuan\demarrer_siyuan.cmd
+Skill Hermes      : productivity/siyuan (depot officiel) + jq 1.8.2 (jqlang.jq)
+.env              : SIYUAN_TOKEN (api.token) + SIYUAN_URL, ajoutes dans %LOCALAPPDATA%\hermes\.env

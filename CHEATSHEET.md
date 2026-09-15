@@ -156,3 +156,44 @@ nvidia-smi --query-gpu=utilization.gpu,memory.used,power.draw --format=csv,nohea
 powershell "Get-CimInstance Win32_OperatingSystem | Select FreePhysicalMemory,TotalVisibleMemorySize"
 netstat -ano | grep LISTENING | awk '{print $2}' | sed 's/.*://' | sort -n -u
 ```
+
+## SiYuan — second cerveau (installé le 15/09/2026)
+
+Version 3.8.2 (winget `B3log.SiYuan`, installation par utilisateur, ~747 Mo). Porte la
+correction de la CVE d'information disclosure des 3.8.1 et antérieures. La 3.8.3 existe mais
+c'est une version de fonctionnalités (Electron, IA), pas un correctif de sécurité.
+
+```
+Noyau     : C:\Users\searc\AppData\Local\Programs\SiYuan\resources\kernel\SiYuan-Kernel.exe
+Workspace : C:\Users\searc\SiYuan\hermes-projects
+Conf      : C:\Users\searc\SiYuan\hermes-projects\conf\conf.json
+Interface : http://127.0.0.1:6806   (protégée par accessAuthCode, port local uniquement)
+Demarrer  : double-clic sur C:\Users\searc\SiYuan\demarrer_siyuan.cmd
+```
+
+ATTENTION, SiYuan a DEUX secrets distincts — c'est le piège de l'installation :
+- `accessAuthCode` (conf.json) : ouvre l'interface web. À saisir dans le navigateur au premier accès.
+- `api.token` (conf.json, section `api`) : c'est LUI que les API acceptent. C'est cette valeur qui
+  va dans `SIYUAN_TOKEN`. Mettre l'accessAuthCode à la place donne `Auth failed [header: Authorization]`.
+
+```
+# .env de Hermes (%LOCALAPPDATA%\hermes\.env), deja en place
+SIYUAN_TOKEN=<api.token de conf.json>
+SIYUAN_URL=http://127.0.0.1:6806
+```
+
+```
+# test de connexion
+curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/notebook/lsNotebooks" \
+  -H "Authorization: Token $SIYUAN_TOKEN" -H "Content-Type: application/json" -d '{}'
+# attendu : {"code":0,"msg":"","data":{"notebooks":[...]}}
+```
+
+Skill : `productivity/siyuan` (dépôt officiel, `hermes skills install official/productivity/siyuan --yes`).
+Prérequis installé : `jq` 1.8.2 (winget `jqlang.jq`) — sans lui toutes les commandes du skill échouent.
+Toutes les routes sont en POST, même en lecture ; seules les requêtes SQL SELECT sont admises.
+
+Piège de la première ouverture : l'application graphique écrit son journal dans
+`%USERPROFILE%\.config\siyuan\` et plante en `ENOENT` si ce dossier n'existe pas (fenêtre blanche,
+noyau jamais lancé). Créer le dossier avant le premier lancement. Le noyau en ligne de commande
+(`serve`) est le chemin fiable et sert aussi l'interface web.

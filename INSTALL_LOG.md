@@ -219,3 +219,31 @@ Le second fichier (`ltx_test_00002_.mp4`, 151 Ko) provient d'un prompt different
 neige) : la génération fonctionne, elle n'est pas figée sur un seul résultat.
 
 Aucun téléchargement de 18 Go n'a été nécessaire : les 34,0 Go installés suffisent.
+
+## Étape 10 — SiYuan 3.8.2 (second cerveau) — 15/09/2026
+
+```
+winget install --id=B3log.SiYuan --exact --version 3.8.2 --accept-package-agreements --accept-source-agreements
+mkdir -p "C:\Users\searc\.config\siyuan"   # sinon l'app plante (voir piege 1)
+winget install --id=jqlang.jq --exact      # requis par le skill
+hermes skills install official/productivity/siyuan --yes
+"<...>\SiYuan-Kernel.exe" serve --workspace="C:\Users\searc\SiYuan\hermes-projects" --port=6806
+```
+
+Piège 1 — fenêtre blanche au premier lancement : l'application Electron écrit son journal dans
+`%USERPROFILE%\.config\siyuan\`, dossier qui n'existe pas sur une installation neuve, et meurt en
+`ENOENT` sans démarrer son noyau. Correctif : créer le dossier. Le noyau (`SiYuan-Kernel serve`)
+est le chemin fiable et sert aussi l'interface web.
+
+Piège 2 — deux secrets, pas un : `accessAuthCode` protège l'interface, `api.token` authentifie les
+API. Le plan indiquait de récupérer « Settings > About > API Token » : c'est bien `api.token` qu'il
+faut mettre dans `SIYUAN_TOKEN`, pas l'accessAuthCode. Test à l'appui, l'un pour l'autre donne
+`Auth failed [header: Authorization]`.
+
+Piège 3 — `jq` absent : le skill en dépend pour toutes ses commandes ; sans lui, aucune sortie
+n'est exploitable.
+
+Résultats : noyau 3.8.2 en écoute sur 127.0.0.1:6806, `lsNotebooks` → `code 0`, SQL → `n=0`,
+interface web protégée (401 sans code), mauvais jeton refusé. Redémarrage sans secret en ligne de
+commande validé (conf.json relu). Script de démarrage : `C:\Users\searc\SiYuan\demarrer_siyuan.cmd`.
+Non-régression revérifiée après coup : inchangée.

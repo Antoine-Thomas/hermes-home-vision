@@ -214,3 +214,28 @@ pas 66 GiB ni 200 Go. Le README officiel recommande `--quantization fp8-cast --o
 en cas de VRAM limitée — ce qui décrit exactement cette machine (8 Go, Ampere sans FP8
 natif), donc ça tournera, lentement.
 
+
+## 12. SiYuan — second cerveau (15/09/2026)
+
+- **Version installée** : 3.8.2 (winget, installation par utilisateur), noyau
+  `SiYuan-Kernel 3.8.2`, `pandoc 3.10.1` embarqué.
+- **Workspace** : `C:\Users\searc\SiYuan\hermes-projects` (conf, data, bases reconstruites).
+- **Sécurité** : le noyau n'écoute que sur `127.0.0.1:6806`, jamais sur `0.0.0.0`. L'interface
+  web exige l'`accessAuthCode` (code généré à l'installation, présent dans
+  `hermes-projects\conf\conf.json`) ; les API exigent `api.token`, un secret distinct, placé dans
+  `%LOCALAPPDATA%\hermes\.env` sous `SIYUAN_TOKEN`. Le refus a été testé : sans jeton, avec un
+  mauvais jeton, et avec l'accessAuthCode à la place du jeton d'API, le noyau répond
+  `Auth failed` — l'authentification est donc réellement active.
+- **Test de connexion** : `POST /api/notebook/lsNotebooks` → `{"code":0,"data":{"notebooks":[]}}`,
+  et `POST /api/query/sql` (`SELECT COUNT(*) FROM blocks`) → `[{"n":0}]`. Vérifié deux fois : une
+  fois avec le noyau lancé avec le secret en ligne de commande, une fois relancé sans lui
+  (conf.json relu) — c'est cette seconde vérification qui prouve que l'installation est durable.
+- **Skill** : `productivity/siyuan` installé depuis le dépôt officiel (verdict d'analyse autorisé),
+  prérequis `jq` installé (1.8.2).
+- **Non fait volontairement** : aucune synchronisation S3/WebDAV (à discuter), aucun notebook créé
+  (proposition en attente de validation), `config.yaml` de Hermes non modifié. Le serveur MCP
+  optionnel mentionné par le skill n'a pas été installé — il exige une modification de `config.yaml`.
+
+Point à trancher : le code d'accès de l'interface web est celui généré à l'installation et se trouve
+dans `conf.json`. Si tu préfères le choisir toi-même, dis-le et je le remplace dans le fichier (le
+noyau le relit au démarrage).
