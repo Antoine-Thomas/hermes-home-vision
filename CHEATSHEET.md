@@ -197,3 +197,35 @@ Piège de la première ouverture : l'application graphique écrit son journal da
 `%USERPROFILE%\.config\siyuan\` et plante en `ENOENT` si ce dossier n'existe pas (fenêtre blanche,
 noyau jamais lancé). Créer le dossier avant le premier lancement. Le noyau en ligne de commande
 (`serve`) est le chemin fiable et sert aussi l'interface web.
+
+### Structure du second cerveau (15/09/2026)
+
+```
+hermes-projets        5 doc.   un par site Local (versions, extensions, sauvegardes, acces)
+hermes-skills        12 doc.   2 notes d'origine + un par skill reellement utilise
+video-ia              3 doc.   branche A LatentSync / B source photo / C LTX-2.3
+apprentissage-continu 0 doc.   vide volontairement (Phase 1)
+journal               1 doc.   panne LTX-2.3 du 15/09
+veille                2 doc.   sources suivies, idees en attente
+```
+
+Convention de chaque document : en-tete `> **Statut**` + `> **Derniere mise a jour**`, puis
+Fait / Reste a faire / Pieges / Commandes.
+
+```
+# reconstruire la structure (n'ecrase rien, ignore ce qui existe deja)
+cd /c/Users/searc/SiYuan && python construire_structure.py --dry   # simulation
+python construire_structure.py                                     # creation
+python gather_sites.py > sites_data.json                           # relire l'etat des sites Local
+```
+
+Code d'acces de l'interface : celui choisi par l'utilisateur, dans `conf.json` (section
+`accessAuthCode`). Pour le changer : arreter le noyau AVANT d'editer le fichier, sinon il le
+reecrit en s'arretant.
+
+Demarrage automatique : tache planifiee utilisateur « SiYuan - noyau second cerveau », a l'ouverture
+de session, qui lance `demarrer_siyuan.cmd`.
+```
+schtasks /query /tn "SiYuan - noyau second cerveau"     # verifier
+powershell -c "Start-ScheduledTask -TaskName 'SiYuan - noyau second cerveau'"   # declencher
+```

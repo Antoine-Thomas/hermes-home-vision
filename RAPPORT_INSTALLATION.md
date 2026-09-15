@@ -246,3 +246,43 @@ Instagram — avec leurs prompts d'installation et la mise à jour quotidienne) 
 technologique et mise à jour » (prompt d'auto-mise à jour de Hermes, et la trame du rapport techno
 quotidien). Importés depuis `Desktop\skills siYUAN\`, à l'identique, accents et emojis compris.
 Ce sont des notes, pas des skills Hermes : aucun frontmatter, contenu rédigé.
+
+## 13. Structure du second cerveau (15/09/2026)
+
+Six notebooks, 23 documents au total (21 créés ce jour, 2 notes d'origine intactes) :
+
+| Notebook | Documents | Contenu |
+|---|---|---|
+| `hermes-projets` | 5 | Un par site Local : oldstyle, reold, searching-murphy, SM, the one |
+| `hermes-skills` | 12 | Les 2 notes d'origine + un document par skill réellement utilisé (10) |
+| `video-ia` | 3 | Une par branche : A LatentSync, B source photo, C LTX-2.3 |
+| `apprentissage-continu` | 0 | Vide volontairement : à remplir avec la Phase 1 |
+| `journal` | 1 | La panne LTX-2.3 du 15/09 (symptôme, mesures, cause, correctif, prévention) |
+| `veille` | 2 | Sources suivies (seulement ce que la note d'origine ne couvre pas), idées en attente |
+
+Les documents `hermes-projets` ne contiennent aucune donnée inventée : versions WordPress / PHP /
+MySQL / nginx lues dans `%APPDATA%\Local\sites.json`, extensions et numéros de version lus dans les
+fichiers des extensions, état actif déduit du dump SQL de sauvegarde (et signalé comme tel), date et
+taille de la dernière sauvegarde lues sur disque. Les documents `hermes-skills` sont extraits
+verbatim des fichiers `SKILL.md` (rôle, version, pièges, commandes) ; le fichier du skill reste la
+référence.
+
+Convention appliquée à chaque document : en-tête `> **Statut**` et `> **Dernière mise à jour**`, puis
+Fait / Reste à faire / Pièges / Commandes.
+
+Le script `C:\Users\searc\SiYuan\construire_structure.py` reconstruit l'ensemble et ne touche à aucun
+document existant ; `gather_sites.py` relit l'état des sites Local.
+
+## 14. Code d'accès et démarrage automatique (15/09/2026)
+
+- Code d'accès de l'interface web remplacé par celui choisi par l'utilisateur (`Hermes@SiYuan2026`),
+  dans `hermes-projects\conf\conf.json`, après sauvegarde du fichier et avec le noyau arrêté (il
+  réécrit sa configuration en s'arrêtant). Le jeton d'API n'a pas été touché.
+  Vérifié : interface sans code → HTTP 401 ; avec le nouveau code → `code 0` ; avec un mauvais code →
+  refus explicite ; API avec le jeton d'API → toujours `code 0`.
+- Tâche planifiée **utilisateur** (pas système, sans privilège élevé) « SiYuan - noyau second
+  cerveau », déclenchée à l'ouverture de session, qui lance `demarrer_siyuan.cmd`. Le script vérifie
+  d'abord que le port 6806 est libre et ne fait rien si le noyau tourne déjà ; la tâche est en
+  `MultipleInstances IgnoreNew` et sans limite de durée.
+  Vérifié en déclenchant réellement la tâche : noyau démarré (nouveau processus en écoute sur
+  6806), API opérationnelle. C'est un test du déclencheur, pas seulement de la création.
