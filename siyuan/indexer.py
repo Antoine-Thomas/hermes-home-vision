@@ -26,12 +26,12 @@ RACINE = os.path.expanduser(os.path.join(os.environ["LOCALAPPDATA"], "hermes", "
 INDEX = os.path.join(RACINE, "index.faiss")
 CHUNKS = os.path.join(RACINE, "chunks.jsonl")
 MANIFESTE = os.path.join(RACINE, "manifeste.json")
-MODELE = "intfloat/multilingual-e5-small"
+MODELE = "intfloat/multilingual-e5-base"   # small insuffisant sur le vocabulaire metier
 SKILLS = os.path.join(os.environ["LOCALAPPDATA"], "hermes", "skills")
 SCRIPTS_V4 = os.path.join(os.environ["USERPROFILE"], "Desktop", "hermes_tuto_v4")
 DEPOT_WP = os.path.join(os.environ["USERPROFILE"], "Code", "hermes-wordpress-skills")
 SIYUAN = "http://127.0.0.1:6806"
-MAX_CAR = 1600          # taille visee d'un fragment
+MAX_CAR = 900           # fragments plus courts : meilleure precision (constate sur la question des levres)
 RECOUVREMENT = 200      # recouvrement pour les textes sans structure
 
 
@@ -134,9 +134,14 @@ def source_scripts():
     out = []
     if not os.path.isdir(SCRIPTS_V4):
         return out
+    # Exclusions demandees : les transcriptions Whisper brutes (timestamps et erreurs de
+    # reconnaissance a nettoyer avant tout usage) et les journaux d'execution (*.log), dont
+    # l'essentiel est deja consigne, formatte, dans les documents SiYuan.
     for f in sorted(os.listdir(SCRIPTS_V4)):
         chemin = os.path.join(SCRIPTS_V4, f)
         if not os.path.isfile(chemin) or os.path.splitext(f)[1].lower() not in (".py", ".sh", ".txt", ".md", ".json"):
+            continue
+        if f.lower().endswith(".log") or "transcript" in f.lower():
             continue
         if os.path.getsize(chemin) > 3_000_000:        # on saute les gros journaux
             continue
