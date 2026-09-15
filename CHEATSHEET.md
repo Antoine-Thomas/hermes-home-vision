@@ -229,3 +229,22 @@ de session, qui lance `demarrer_siyuan.cmd`.
 schtasks /query /tn "SiYuan - noyau second cerveau"     # verifier
 powershell -c "Start-ScheduledTask -TaskName 'SiYuan - noyau second cerveau'"   # declencher
 ```
+
+## RAG local — interroger la documentation (15/09/2026)
+
+```
+cd "%LOCALAPPDATA%\hermes\data\rag"
+./venv/Scripts/python.exe chercher.py "ma question"            # 5 meilleurs fragments
+./venv/Scripts/python.exe chercher.py "ma question" -k 8
+./venv/Scripts/python.exe chercher.py "ma question" -s skill   # siyuan|skill|script_v4|wordpress
+./venv/Scripts/python.exe indexer.py                           # reconstruire (2-3 min)
+./venv/Scripts/python.exe indexer.py siyuan                    # une seule source
+```
+
+1568 fragments · 384 dimensions · index 2,4 Mo · modèle e5-small sur CPU (torch CPU : aucune VRAM
+consommée). Skill : `productivity/rag-second-cerveau`.
+
+Pièges : les modèles e5 exigent les préfixes `passage:` (index) et `query:` (requête) — les scripts
+les ajoutent, ne pas écrire de requête à la main sans eux ; l'index ne se met pas à jour tout seul,
+relancer `indexer.py` après toute modification ; si le noyau SiYuan est arrêté, la source `siyuan`
+revient vide sans erreur (vérifier `manifeste.json`).

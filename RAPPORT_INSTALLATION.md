@@ -286,3 +286,29 @@ document existant ; `gather_sites.py` relit l'état des sites Local.
   `MultipleInstances IgnoreNew` et sans limite de durée.
   Vérifié en déclenchant réellement la tâche : noyau démarré (nouveau processus en écoute sur
   6806), API opérationnelle. C'est un test du déclencheur, pas seulement de la création.
+
+## 15. RAG local — second cerveau interrogeable (15/09/2026)
+
+Recherche vectorielle locale, sans API ni GPU : modèle `intfloat/multilingual-e5-small` sur CPU,
+**1568 fragments**, index de 2,4 Mo, environnement dédié
+`%LOCALAPPDATA%\hermes\data\rag\venv` (torch CPU, sentence-transformers 6.0.1, faiss-cpu 1.15).
+
+Sources indexées : documents SiYuan (107), skills Hermes (969), scripts du volet 4 (404), dépôt
+`hermes-wordpress-skills` (88). 104 doublons retirés automatiquement (les skills WordPress existent
+dans les deux sources).
+
+Pertinence mesurée sur cinq questions réelles, scores de 0,849 à 0,896, avec à chaque fois le bon
+document en tête — y compris le journal de panne LTX-2.3 pour la requête sur l'erreur « Cannot copy
+out of meta tensor ».
+
+Non indexé volontairement : les environnements Python, les vidéos, les modèles (34 Go de LTX,
+75 Go d'Ollama), la base de sessions et les archives de skills.
+
+Deux limites connues, documentées dans le skill `productivity/rag-second-cerveau` : les modèles e5
+exigent les préfixes `passage:`/`query:` (sans quoi la pertinence s'effondre sans erreur), et
+l'index ne se met pas à jour tout seul — il faut relancer `indexer.py` après toute modification des
+sources. Si le noyau SiYuan est arrêté, la source `siyuan` revient vide en silence (107 fragments
+perdus) : le manifeste sert de contrôle.
+
+La documentation WordPress en ligne (WP-CLI handbook) n'est pas indexée : seule la copie locale du
+dépôt l'est.
