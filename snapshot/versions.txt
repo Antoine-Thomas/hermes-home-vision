@@ -1,0 +1,42 @@
+SNAPSHOT DE CONFIGURATION — 2026-09-15 12:29
+
+== systeme ==
+Microsoft Windows 11 Professionnel build 26200
+CPU Intel(R) Core(TM) i7-8700 CPU @ 3.20GHz (6c/12t)
+RAM 63,9 Go
+NVIDIA GeForce RTX 3070 Ti, 8192 MiB, 616.56
+
+== outils ==
+Hermes Agent v0.21.2 (2026.9.11) · upstream 6bc0e9e6
+Local 10.1.2.0
+git version 2.55.0.windows.5
+v24.15.0
+12.0.2
+11.24.0
+gh version 2.100.0 (2026-09-03)
+Docker version 29.7.2, build a7dcaa6
+ffmpeg version 8.1-essentials_build-www.gyan.dev Copyright (c) 2000-2026 the FFmpeg developers
+Python 3.11.16
+Python 3.14.7
+CUDA nvcc: 13.4
+
+== Local : services et sites ==
+mailpit-1.24.1+0
+mariadb-10.11.18+0
+mysql-8.4.0+2
+nginx-1.26.1+3
+php-8.2.29+0
+oldstyle
+reold
+searching-murphy
+sm
+the-one
+
+== WP-CLI ==
+WP-CLI 2.12.0
+
+== skills Hermes (categories) ==
+_analyse_redondance.md _index.md _inventaire.json _inventaire.md _merge_log.md _rapport_consolidation_20260910.md _skill_frontmatter_summary.json ai-video-pipeline apple autonomous-ai-agents creative data-science devops email github hermes-operations media mlops note-taking photo premiere-montage-comparatif productivity record red-teaming research skill_frontmatter_clean.json skill-curator social-media software-development surveillance-control web windows-system-backup wordpress yuanbao 
+
+== ports en ecoute (hors ephemeres) ==
+135 139 445 2179 3000 3111 5040 7680 10086 
