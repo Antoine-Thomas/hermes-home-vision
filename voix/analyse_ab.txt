@@ -1,0 +1,26 @@
+ANALYSE DU TEST A/B
+
+Phrase p1 : WordPress en local avec Local by Flywheel.
+  actuel  : Cours-presse en local, avec local, flywheel.
+            termes reconnus : 1/10 -> Flywheel
+  affine  : Her Press en local, avec local, by Flywheel. Ouais ouais.
+            termes reconnus : 1/10 -> Flywheel
+
+Phrase p2 : J'installe WooCommerce et je lance WP-CLI pour configurer nginx et MySQL.
+  actuel  : J'installe au commerce et je lance WP Client pour configurer un JANX MXQN.
+            termes reconnus : 0/10 -> 
+  affine  : J'installe WooCommerce Et j'ense WPCM pour configurer N-Junks et mis ce qu'il y a le petit
+            termes reconnus : 1/10 -> WooCommerce
+
+Phrase p3 : La sauvegarde s'execute par cronne, puis Docker synchronise les fichiers.
+  actuel  : sauvegarde s'execute par crône, puis Docker synchronise le fichier.
+            termes reconnus : 2/10 -> Docker, sauvegarde
+  affine  : La sauvegarde s'execute par crône, puis Docker synchronise les fichiers.
+            termes reconnus : 2/10 -> Docker, sauvegarde
+
+Phrase p4 : Abonnez-vous pour ne pas rater le prochain volet.
+  actuel  : Abonnez-vous pour ne pas rater le prochain volet.
+            termes reconnus : 1/10 -> abonnez
+  affine  : Abonnez-vous pour ne pas rater le prochain volet.
+            termes reconnus : 1/10 -> abonnez
+

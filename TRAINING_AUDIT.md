@@ -90,8 +90,12 @@ Bureau, Vidéos, Téléchargements, D:, F:, H: — introuvable. Aucun autre enre
 - **Risques** : sur-apprentissage garanti avec 14 s (le modèle apprend le bruit, la voix se
   dégrade), temps perdu, et le vrai problème — la diction — est traité ailleurs.
 
-**Verdict : VIABLE depuis le 15/09/2026** — le corpus mesuré (1 h 36 min utiles, mono-source,
-sans musique) place la cible dans la bande « bon » des seuils communautaires XTTS (1 à 3 h).
+**Verdict : TESTE le 15/09/2026 — gain marginal, cible refermee.** Un essai court a ete mene: 10 min
+de corpus (ZOOM0005 seul), 1 950 pas en 2 h, perte -7 %, puis test A/B sur 4 phrases avec
+transcription Whisper: **4 termes techniques reconnus sur 40 -> 5 sur 40**. Aucun gain sur
+WordPress, WP-CLI, MySQL, cron. Le modele affine parle 13 a 22 % plus lentement et ajoute parfois
+des mots. Le lexique de diction reste la bonne reponse — il corrige ces termes la ou le fine-tune
+echoue. Pour rouvrir la cible: 5 h de voix. Detail: `voix/../corpus_test/RAPPORT_ESSAI_XTTS.md`.
 Méthode : LoRA sur XTTS v2, 6-8 Go de VRAM (sans marge), 8 à 30 h d'entraînement estimées, 2-3 Go
 de disque. Aucun entraînement lancé : il attend l'accord de l'utilisateur (`voix/AUDIT_VOIX.md`).
 L'ancienne conclusion — écartée faute de données — datait de 13,92 s de voix réelle. Le lexique de
@@ -226,7 +230,7 @@ diversifient).
 | **Embeddings / RAG** | Abondantes et propres (skills, SiYuan, scripts, docs) | 0 (aucun entraînement) | ½ journée | **5/5** | **FAIT** |
 | Classifieurs d'anomalies vidéo | Métriques oui, étiquettes non | 0 (CPU) | ½ journée | 3/5 | **FAIT** |
 | SDXL LoRA (style visuel) | Quasi nulles, à collecter | 8-10 Go (serré) | 1 journée | 3/5 | À ESSAYER |
-| XTTS fine-tune (voix) | **1 h 36 min** utiles, mono-source (mesuré le 15/09) | 6-8 Go | 8-30 h estimées | 4/5 | **VIABLE** (accord utilisateur requis) |
+| XTTS fine-tune (voix) | 1 h 36 min utiles (mesuré) | 8 Go (saturé) | **2 h réelles** pour 1 950 pas | 2/5 | **TESTÉ — gain marginal** (lexique conservé) |
 | Whisper fine-tune | Quelques minutes, étiquetage circulaire | 6-8 Go | 2-4 h/époque | 2/5 | À ÉVITER |
 | LLM 7B QLoRA | 6 Mo de prose non annotée | 6-8 Go (tendu) | 2-3 jours | 1/5 | À ÉVITER |
 | Flux LoRA | — | ≥16 Go | — | — | À ÉVITER |
