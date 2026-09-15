@@ -271,3 +271,27 @@ opérationnelle (`twitter-cli` retrouvé), blocs de code préservés.
 
 Note : ces fichiers sont des NOTES (pas des skills Hermes : aucun frontmatter, contenu rédigé).
 Elles ont donc été déposées dans la base de connaissances, pas dans le dossier des skills.
+
+## Étape 10 ter — Structure complète + finitions (15/09/2026)
+
+Décisions actées et exécutées :
+
+1. Code d'accès de l'interface remplacé par le choix de l'utilisateur. Ordre impératif : arrêter le
+   noyau D'ABORD (il réécrit `conf.json` en s'arrêtant), sauvegarder le fichier, éditer, redémarrer.
+   Le `api.token` n'a pas été touché.
+2. Tâche planifiée utilisateur (`Register-ScheduledTask`, déclencheur `AtLogon`, `MultipleInstances
+   IgnoreNew`, sans limite de durée) qui lance `demarrer_siyuan.cmd`. Testée en la déclenchant.
+3. Structure : 6 notebooks, 21 documents créés (5 sites, 10 skills, 3 branches vidéo, 1 journal,
+   2 veille), `apprentissage-continu` laissé vide comme demandé.
+
+Données des documents « projets » : toutes lues sur disque (`sites.json`, fichiers d'extension,
+dump SQL de sauvegarde) — aucune valeur inventée ; l'état actif des extensions est signalé comme
+déduit du dump et non d'une instance en cours. Documents « skills » : extraits verbatim des
+`SKILL.md`.
+
+Curation demandée ensuite : le document « Sources suivies » a été réduit à ce que la note
+« Veille technologique » ne contient pas (dépôts suivis, versions à surveiller) et renvoie à elle
+pour la liste des sources, au lieu de la recopier.
+
+Non-régression revérifiée après coup : Hermes 0.21.2, WP-CLI 2.12.0, torch CUDA, les 7 venvs IA,
+les 5 sites Local, 7 certificats SSL — inchangé.
