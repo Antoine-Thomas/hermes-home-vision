@@ -57,6 +57,8 @@ laissé à ta décision.
 | CUDA / driver | toolkits 13.2-13.3-13.4 (nvcc 13.4) · driver 616.56 |
 | torch (venv Hermes) | 2.4.1+cu118, CUDA opérationnel |
 | Ollama | installé, 74 Go de modèles, serveur arrêté |
+| ComfyUI (portable, dossier `C:\Users\searc\ComfyUI-LTX`) | **v0.35.0** — python 3.13.14, torch 2.13.0+cu130, transformers 4.57.6, diffusers 0.36.0, opencv-python-headless 5.0.0.93 |
+| LTX-2.3 (GGUF) | **poids installés (27,7 Go)**, validation en attente (voir section 10) |
 
 Sites Local : oldstyle, reold, searching-murphy, sm, the-one (certificats SSL locaux présents).
 
@@ -67,8 +69,8 @@ Sites Local : oldstyle, reold, searching-murphy, sm, the-one (certificats SSL lo
 | OmniRoute (LLM par défaut de Hermes) | http://127.0.0.1:20128/v1 | déclaré, port en écoute |
 | Ollama (provider déclaré) | http://127.0.0.1:11434/v1 | déclaré, serveur arrêté |
 | Repli Hermes | deepseek / deepseek-flash | configuré |
-| AirLLM (8000) | — | non installé, port libre |
-| LTX-2 / ComfyUI | — | non installé |
+| AirLLM (8000) | — | écarté sur décision (port libre) |
+| LTX-2.3 / ComfyUI | http://127.0.0.1:8188 | installé, serveur testé plusieurs fois |
 
 ## 6. Skills installés et état
 
@@ -102,13 +104,54 @@ Sites Local : oldstyle, reold, searching-murphy, sm, the-one (certificats SSL lo
    faire avant la prochaine mise à jour majeure — le skill `wordpress-backup-restore` le fait
    en une commande.
 
-## 8. Décisions en attente
+## 8. Décisions prises par l'utilisateur
 
-1. LTX-2 : ComfyUI + GGUF Q4/Q5 (~25-35 Go) / poids complets (~66 GiB) / ComfyUI seul / rien.
-2. AirLLM : installer / tester un 7B seulement / ne pas installer.
-3. Suppression du fichier vide `C:\Windows\System32\wp` : autorisée ou non.
+1. LTX-2 : **ComfyUI portable + GGUF Q4_K_S**, chemin `C:\Users\searc\ComfyUI-LTX`, ≤30 Go.
+2. AirLLM : **ne pas installer**.
+3. `C:\Windows\System32\wp` : **l'utilisateur s'en occupe**, je n'y touche pas.
 
-## 9. Vérification des liens et des chiffres du plan LTX-2 (faite le 15/09)
+## 9. LTX-2.3 — installation détaillée
+
+Choix : **LTX-2.3** et non LTX-2.5. Motifs mesurés, pas supposés :
+- LTX-2.5 n'existe pas en GGUF chez un éditeur non protégé pour la partie encodeur
+  (`elix3r/gemma4-12b-with-proj-ltx-2.5-GGUF` est **gated**), et son transformer seul fait
+  15,33 Go : avec un encodeur de 8,4 Go et les VAE, l'ensemble sort du plafond de 30 Go.
+- LTX-2.3 est la ligne que ComfyUI v0.35 prend en charge nativement et pour laquelle le nœud
+  `ComfyUI_LTX2_SM` documente exactement la disposition des fichiers GGUF.
+- Le transformer retenu (unsloth, 12,96 Go) est la **même famille de licence** (« other » = LTX)
+  que les fichiers Abiray ou QuantStack proposés dans le plan, en 4 Go plus léger, et il vient
+  du même dépôt que les VAE, ce qui garantit la cohérence des versions.
+
+Contenu installé : voir `INSTALL_LOG.md`, étape 4 (tableau des 6 fichiers + les 3 correctifs
+d'environnement).
+
+**Blocage actuel (une seule pièce)** : le nœud attend un fichier `connector-11.safetensors`
+(6,34 Go, MIT, non protégé) contenant les clés `...video_embeddings_connector.*` et
+`...audio_embeddings_connector.*`. Le fichier de 2,31 Go téléchargé chez unsloth ne contient que
+4 tenseurs (projections d'agrégation) : il ne peut pas fonctionner, quelle que soit la façon de
+le nommer. Le télécharger porterait le total à 31,7 Go, au-dessus du plafond fixé : **accord
+demandé avant de le faire**, rien n'a été téléchargé de plus.
+
+État vérifié du reste de la chaîne : serveur ComfyUI opérationnel, 9 nœuds LTX2 exposés, poids
+présents et lisibles, GPU répond (2,4 à 3,3 Go de VRAM au repos pendant les tests), 35-41 Go de
+RAM libre — la marge est là pour le streaming des 13 Go de transformer annoncé par l'auteur du
+nœud.
+
+## 10. Optimisation Local — relevé, non appliqué
+
+Chemins réels : `%APPDATA%\Local\run\<hash>\conf\php\php.ini` et `...\conf\mysql\my.cnf`.
+
+| Réglage | Actuel | Cible proposée | Motif |
+|---|---|---|---|
+| `memory_limit` | 256M | 512M | WooCommerce et les migrations réclament plus que 256M |
+| `max_execution_time` | 1200 | inchangé | déjà large |
+| `post_max_size` / `upload_max_filesize` | 1000M / 300M | inchangé | suffisant |
+| `innodb_buffer_pool_size` | 32M | 256M | 64 Go de RAM disponibles, 32M étrangle les requêtes |
+
+Non appliqué : ces fichiers sont générés par Local et peuvent être réécrits par l'application ;
+le changement exige un redémarrage des 5 sites. À valider avant d'y toucher.
+
+## 11. Vérification des liens et des chiffres du plan LTX-2 (faite le 15/09)
 
 Les 11 liens du plan répondent tous en HTTP 200 (docs Hermes, dépôt Hermes, skills WordPress,
 localwp.com et /releases, WP-CLI, AirLLM, Lightricks/LTX-2, ComfyUI_LTX2_SM, comfyui-mcp,

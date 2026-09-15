@@ -74,10 +74,45 @@ python verifier_v6.py ; python diag_sauts.py <video> <wav> 1200 2400 3600 4800 6
 Skill de référence : `talking-head-video-8gb` (v1.8) — deux branches à ne pas confondre,
 source vidéo (LatentSync) et source photo (LivePortrait/SadTalker/Wav2Lip).
 
-## LTX-2 / ComfyUI — NON INSTALLÉS
+## LTX-2.3 / ComfyUI — INSTALLÉ (validation en attente d'une pièce)
 
-Rien à documenter tant que l'installation n'est pas faite. Éléments vérifiés avant de lancer :
-1 094 Go libres sur C:, VRAM 8 Go, RAM 63,9 Go. Installer sur C: (NVMe) et non sur F:/H:.
+Dossier : `C:\Users\searc\ComfyUI-LTX` · ComfyUI portable v0.35.0 · python embarqué 3.13
+`C:\Users\searc\ComfyUI-LTX\ComfyUI_windows_portable\python_embeded\python.exe`
+
+```
+# lancer le serveur (port 8188)
+cd /c/Users/searc/ComfyUI-LTX/ComfyUI_windows_portable
+./python_embeded/python.exe -s ComfyUI/main.py --listen 127.0.0.1 --port 8188
+# interface web
+http://127.0.0.1:8188
+# test texte -> video par l'API (petit format pour valider)
+cd /c/Users/searc/ComfyUI-LTX
+"$LOCALAPPDATA/hermes/hermes-agent/venv/Scripts/python.exe" ltx_test.py 640 384 25 8
+```
+
+Poids en place (27,7 Go au total) :
+```
+ComfyUI/models/gguf/ltx-2.3-22b-distilled-1.1-Q4_K_S.gguf   (12,96 Go, transformer)
+ComfyUI/models/gguf/gemma-3-12b-it-qat-Q4_0.gguf            ( 8,70 Go, encodeur de texte)
+ComfyUI/models/checkpoints/  <- fichier de connecteurs       (ATTENTION : 2,31 Go inutilisables)
+ComfyUI/models/vae/ltx-2.3-22b-distilled_video_vae.safetensors (1,45 Go)
+ComfyUI/models/vae/ltx-2.3-22b-distilled_audio_vae.safetensors (0,36 Go)
+```
+
+VRAM limitée (cas de cette machine, 8 Go, Ampere sans FP8 natif) :
+- le nœud `LTX2_SM_Model` a un paramètre **`offload`** : le laisser à `True` (streaming des
+  couches), c'est l'équivalent du `--offload cpu` de la version Python d'origine ;
+- les quantifications GGUF remplacent la quantification fp8 : Q4_K_S tient en VRAM/streaming,
+  Q8_0 non ;
+- les poids doivent rester sur le NVMe (`C:`), pas sur les SSD externes.
+
+Ne pas confondre les trois branches vidéo (`talking-head-video-8gb`) : A = source vidéo
+tournée (LatentSync), B = source photo (LivePortrait/SadTalker/Wav2Lip), C = génération IA
+(LTX-2.3 ici). La boucle ping-pong, le découpage et le recadrage des lèvres n'existent QU'en A.
+
+Versions imposées dans le python portable (ne pas « mettre à jour » sans raison) :
+transformers 4.57.6 (le nœud casse en 5.x), diffusers 0.36.0 (0.40 exige huggingface-hub>=1.23,
+incompatible), opencv-python-headless 5.0.0.93, torch 2.13.0+cu130 (d'origine).
 
 ## AirLLM — NON INSTALLÉ
 
