@@ -1,0 +1,1 @@
+Bonjour. Ceci est un essai court du pipeline complet, de bout en bout. WordPress, WP-CLI, nginx et MySQL passent par le lexique de diction. Docker et Hermes aussi. Fin de l'essai.
