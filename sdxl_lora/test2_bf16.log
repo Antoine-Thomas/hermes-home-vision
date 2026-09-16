@@ -35,4 +35,4 @@ C:\Users\searc\AppData\Local\hermes\data\sdxl_lora\venv\Lib\site-packages\transf
 09/16/2026 15:14:22 - INFO - __main__ -   Total optimization steps = 3
 Steps:   0%|          | 0/3 [00:00<?, ?it/s]C:\Users\searc\AppData\Local\hermes\data\sdxl_lora\venv\Lib\site-packages\torch\utils\checkpoint.py:1399: FutureWarning: `torch.cpu.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cpu', args...)` instead.
   with device_autocast_ctx, torch.cpu.amp.autocast(**cpu_autocast_kwargs), recompute_context:  # type: ignore[attr-defined]
-Steps:   0%|          | 0/3 [03:15<?, ?it/s, loss=0.245, lr=0]
+Steps:   0%|          | 0/3 [03:15<?, ?it/s, loss=0.245, lr=0]Steps:   0%|          | 0/3 [06:28<?, ?it/s, loss=0.0409, lr=0]Steps:   0%|          | 0/3 [09:38<?, ?it/s, loss=0.288, lr=0] Steps:  33%|███▎      | 1/3 [12:46<25:33, 766.93s/it, loss=0.288, lr=0]Steps:  33%|███▎      | 1/3 [12:46<25:33, 766.93s/it, loss=0.0146, lr=1e-6]Steps:  33%|███▎      | 1/3 [16:01<25:33, 766.93s/it, loss=0.0132, lr=1e-6]Steps:  33%|███▎      | 1/3 [18:29<25:33, 766.93s/it, loss=0.276, lr=1e-6] 
