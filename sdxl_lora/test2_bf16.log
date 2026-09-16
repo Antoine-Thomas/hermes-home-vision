@@ -1,0 +1,38 @@
+The following values were not passed to `accelerate launch` and had defaults used instead:
+	`--num_machines` was set to a value of `1`
+	`--dynamo_backend` was set to a value of `'no'`
+To avoid this warning pass in values for each of the problematic parameters or run `accelerate config`.
+09/16/2026 15:13:44 - INFO - __main__ - Distributed environment: DistributedType.NO
+Num processes: 1
+Process index: 0
+Local process index: 0
+Device: cuda
+
+Mixed precision type: bf16
+
+You are using a model of type clip_text_model to instantiate a model of type . This is not supported for all configurations of models and can yield errors.
+You are using a model of type clip_text_model to instantiate a model of type . This is not supported for all configurations of models and can yield errors.
+{'variance_type', 'thresholding', 'dynamic_thresholding_ratio', 'clip_sample_range'} was not found in config. Values will be initialized to default values.
+All model checkpoint weights were used when initializing AutoencoderKL.
+
+All the weights of AutoencoderKL were initialized from the model checkpoint at C:\Users\searc\AppData\Local/hermes/data/sdxl_lora/sdxl_base_diffusers.
+If your task is similar to the task the model of the checkpoint was trained on, you can already use AutoencoderKL for predictions without further training.
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]Loading checkpoint shards:  50%|█████     | 1/2 [00:03<00:03,  3.83s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:05<00:00,  2.29s/it]Loading checkpoint shards: 100%|██████████| 2/2 [00:05<00:00,  2.52s/it]
+All model checkpoint weights were used when initializing UNet2DConditionModel.
+
+All the weights of UNet2DConditionModel were initialized from the model checkpoint at C:\Users\searc\AppData\Local/hermes/data/sdxl_lora/sdxl_base_diffusers.
+If your task is similar to the task the model of the checkpoint was trained on, you can already use UNet2DConditionModel for predictions without further training.
+09/16/2026 15:14:17 - WARNING - __main__ - Unsupported choice of optimizer: adafactor.Supported optimizers include [adamW, prodigy].Defaulting to adamW
+C:\Users\searc\AppData\Local\hermes\data\sdxl_lora\venv\Lib\site-packages\transformers\integrations\sdpa_attention.py:96: UserWarning: 1Torch was not compiled with flash attention. (Triggered internally at C:\actions-runner\_work\pytorch\pytorch\builder\windows\pytorch\aten\src\ATen\native\transformers\cuda\sdp_utils.cpp:555.)
+  attn_output = torch.nn.functional.scaled_dot_product_attention(
+09/16/2026 15:14:22 - INFO - __main__ - ***** Running training *****
+09/16/2026 15:14:22 - INFO - __main__ -   Num examples = 15
+09/16/2026 15:14:22 - INFO - __main__ -   Num batches each epoch = 15
+09/16/2026 15:14:22 - INFO - __main__ -   Num Epochs = 1
+09/16/2026 15:14:22 - INFO - __main__ -   Instantaneous batch size per device = 1
+09/16/2026 15:14:22 - INFO - __main__ -   Total train batch size (w. parallel, distributed & accumulation) = 4
+09/16/2026 15:14:22 - INFO - __main__ -   Gradient Accumulation steps = 4
+09/16/2026 15:14:22 - INFO - __main__ -   Total optimization steps = 3
+Steps:   0%|          | 0/3 [00:00<?, ?it/s]C:\Users\searc\AppData\Local\hermes\data\sdxl_lora\venv\Lib\site-packages\torch\utils\checkpoint.py:1399: FutureWarning: `torch.cpu.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cpu', args...)` instead.
+  with device_autocast_ctx, torch.cpu.amp.autocast(**cpu_autocast_kwargs), recompute_context:  # type: ignore[attr-defined]
+Steps:   0%|          | 0/3 [03:15<?, ?it/s, loss=0.245, lr=0]
