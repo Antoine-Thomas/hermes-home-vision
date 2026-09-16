@@ -68,3 +68,14 @@ Ecoute            : 127.0.0.1:6806 uniquement (accessAuthCode + api.token distin
 Demarrage         : C:\Users\searc\SiYuan\demarrer_siyuan.cmd
 Skill Hermes      : productivity/siyuan (depot officiel) + jq 1.8.2 (jqlang.jq)
 .env              : SIYUAN_TOKEN (api.token) + SIYUAN_URL, ajoutes dans %LOCALAPPDATA%\hermes\.env
+
+== PREPARATION UPDATE 2026-09-16 ==
+Hermes v0.21.2 upstream 6bc0e9e6, 1246 commits behind origin/main au 16/09/2026 18h.
+--check : "Update available: 1246 commits behind origin/main"
+--plan   : install git; profiles default+watch; services = gateway(default), gateway(watch), serve(default).
+Snapshots stores dans snapshot/ (config.yaml.pre_update.redacted, env.pre_update.redacted, skills, taches).
+state.db (420 Mo) copie locale non-commitée (snapshot/state.db.pre_update, gitignore).
+Changements notables upstream (HEAD..origin/main) :
+  - gateway.multiplex_profiles default=on (config.yaml passe true par défaut; ma config n'a pas la cle -> defaut)
+  - fix(update) garde la config-migration dans le fail-open guard
+  - test(config) rejette la cle legacy auto_migrate

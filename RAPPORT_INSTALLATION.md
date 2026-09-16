@@ -446,3 +446,62 @@ un seul noyau, une seule ecoute — le garde-fou de port fonctionne.
 | Ecoute | `127.0.0.1:9119` en LISTENING (PID 26696) |
 | Reponse HTTP | le port repond (voir test curl) |
 | `hermes serve --status` | **ne le detecte pas** — la commande cherche un fichier de PID que ce mode de lancement n'ecrit pas. Verifier par le processus ou le port, pas par `--status`. |
+
+---
+
+## 2. Préparation de la mise à jour — 16/09/2026
+
+### Contexte
+
+`hermes update` est prévu (60 min après la préparation). Au moment du `--check` :
+**1246 commits behind origin/main**.
+
+### Snapshot de sécurité
+
+| Fichier | Snapshot | Taille |
+|---|---|---|
+| config.yaml | `snapshot/config.yaml.pre_update` | ~1 KB |
+| .env (secrets inclus) | `snapshot/env.pre_update` | ~24 KB |
+| memories/ | `snapshot/memories.pre_update/` | ~36 KB |
+| state.db | `snapshot/state.db.pre_update` | 420 Mo |
+
+**Note** : `env.pre_update` contient des secrets (SIYUAN_TOKEN, clés API...). Il NE
+doit PAS être commité tel quel — il est dans `snapshot/` et je nettoierai avant le commit.
+
+### Changelog — alertes détectées (HEAD..origin/main)
+
+Le plus important, un **changement de défaut config** :
+
+- **`feat(gateway): gateway.multiplex_profiles defaults to on, gated by a boot-time serve guard`**
+  (a10bbf95bb) — la config passe désormais `gateway.multiplex_profiles: true` par défaut.
+  Impact : les profiles `default` + `watch` pourraient être multiplexés au prochain boot,
+  sous réserve du preflight `hermes gateway migrate --multiplex`. Si un blocage est détecté,
+  le gateway démarre standalone comme avant (log warning uniquement). `--standalone` force false.
+  Ma config.yaml actuelle n'a **pas** de clé multiplex → le défaut s'appliquera.
+
+- **`fix(update): keep the config-migration purge and reload inside the fail-open guard`**
+  (8e0b1a2e47) — la migration de config reste dans le fail-open pendant l'update.
+
+- **`test(config): reject leftover auto_migrate key`** (3bb44dc7b6) — l'ancienne clé
+  `auto_migrate` sera rejetée.
+
+Le `hermes update --yes` accepte les prompts de config-migration automatiquement.
+
+### Services à redémarrer (plan)
+
+| Service | Profile | PID | Redémarrage |
+|---|---|---|---|
+| gateway | default | 12280 | `hermes gateway restart` |
+| gateway | watch | 24348 | `hermes -p watch gateway restart` |
+| serve | default | 26696 | stop avant swap, relaunch avec args enregistrés |
+
+### Rollback
+
+Script : `rollback_update.ps1` à la racine de `hermes_install`.
+
+Usage : `powershell -NoProfile -ExecutionPolicy Bypass -File rollback_update.ps1`
+
+Il restaure config.yaml, .env, memories/, state.db depuis `snapshot/`. Après le script,
+restaurer le code git (voir le script) puis relancer les services.
+
+**Perte de données** : toute session créée entre le snapshot et le rollback est perdue.
