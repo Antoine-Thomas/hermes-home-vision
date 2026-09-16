@@ -505,3 +505,33 @@ Il restaure config.yaml, .env, memories/, state.db depuis `snapshot/`. Après le
 restaurer le code git (voir le script) puis relancer les services.
 
 **Perte de données** : toute session créée entre le snapshot et le rollback est perdue.
+
+---
+
+# Mise à jour Hermes — 16/09/2026 (0.21.2 → 0.21.3)
+
+## Avant
+- Hermes v0.21.2 (2026.9.11), config v44, 1253 commits derrière origin/main
+- state.db **corrompu** au matin → réparé (FTS trigram rebuild + purge backups, ~815 Mo libérés)
+- USER.md saturé (1375/1300) → condensé à 1171/1300, archive complète dans SiYuan
+- Avertissement doctor : mixed sys.modules (update précédent non redémarré)
+
+## Précautions appliquées (avant l'update)
+1. `gateway.multiplex_profiles: false` ajouté dans config.yaml (commit b90f5d15 dans hermes-agent)
+   — évite le conflit de multiplexage default+watch au prochain boot
+2. Snapshot frais complet dans `snapshot/` (config.yaml, MEMORY.md 1534, USER.md 1171,
+   state.db 192 Mo integrity ok, skills 101, .env) — commit 17341f7 « Snapshot pré-update final »
+3. Tous les gateways arrêtés + vérification process (ps + wmic : vide), services stoppés
+
+## Après
+- **v0.21.3** (2026.9.14), config v45 (auto-migration, aucune valeur custom perdue)
+- Dépendances : 548 paquets npm réinstallés, venv Python 3.11.16
+- Gateway par Task Scheduler (PID 21928) — le cold-start updater a été tué par le Job Object
+  Windows à la sortie (#91675, récupéré avec `schtasks /Run /TN Hermes_Gateway`)
+- Profil watch relancé (PID 22876), tâche schedulée désactivée
+- state.db : integrity_check ok, quick_check ok, 40 005 messages, 398 sessions
+- Mémoire : MEMORY.md 1534, USER.md 1171 — inchangés
+- Skills : 101 — intact
+- config.yaml : base_url/eco/omniroute/deepseek conservés (diff = commentaires migration)
+- Avertissements restants doctor : vuln npm (browser 2, web 6, whatsapp 4) + API keys manquantes
+  — non bloquants
