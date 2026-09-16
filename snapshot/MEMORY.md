@@ -4,10 +4,11 @@
 - Dev: WSL, tmux, MSYS_NO_PATHCONV=1, docker. Shell haute intégrité
 
 ## Hermes
-- Config: %LOCALAPPDATA%\hermes\config.yaml (model eco/omniroute)
+Hermes v0.21.3 (2026.9.14), config v45. Gateway: default PID via schtasks Hermes_Gateway, watch PID via Hermes_Gateway_watch (tâche désactivée → relancer par hermes -p watch gateway start). multiplex_profiles=false explicite.
 - Mémoire native: %LOCALAPPDATA%\hermes\memories\ (MEMORY.md + USER.md)
 - Backend/gateway: 9119. Toolsets: hermes-cli, web, fichiers, terminal, browser
 - Tâches: Reindex RAG 03h00, check memory 08h00, désaturer mémoire dim 04h00
+- RAG reindexé post-update (2307 frag.) via data\rag\indexer.py
 - Skills: %LOCALAPPDATA%\hermes\skills\. Archive: .archive/. hermes curator archive
 - WP-CLI: C:\wp-cli\wp.bat (PHP Local). Local 10.1.2 (PHP 8.2.29/MySQL 8.4)
 
@@ -28,3 +29,6 @@
 ## Règles transversales
 - transformers < 5 obligatoire. Vérifier pviol + mclk au repos avant benchmark IA
 - Jamais de téléchargement sans validation. Nouvelle info: SiYuan d'abord
+
+## Vidéo
+- Vidéo: fond bois/logo+CTA. Skill: talking-head-video-8gb (branche A=LatentSync, branche B=LivePortrait/SadTalker). VRAM 8Go: check avant rendu. Outils: data/video_youtube/. Projet: Desktop/hermes_tuto_v4/ → livrable "hermes tuto/". XTTS: data/xtts/venv.
