@@ -341,12 +341,16 @@ L'index ne se mettait pas à jour tout seul (c'était un piège documenté, non 
 
 - Tâche **utilisateur** `Hermes - Reindex RAG`, déclencheur **quotidien à 03h00**, `StartWhenAvailable`,
   `MultipleInstances=IgnoreNew`, limite 30 minutes, réveil de la machine autorisé.
-- Script `…\hermes\dataageindex_auto.py` (créé avec `creer_tache_reindex.ps1`) :
+- Script `…\hermes\data
+ag
+eindex_auto.py` (créé avec `creer_tache_reindex.ps1`) :
   - ne fait **rien** si le noyau SiYuan ne répond pas sur 6806 (une indexation sans lui perdrait
     toute la source `siyuan`) et l'écrit dans le journal ;
   - tient un **verrou** retiré dans tous les cas (`finally`) ; un verrou orphelin dont le PID n'existe
     plus est nettoyé au démarrage ;
-  - journalise dans `…\hermes\dataageindex.log` : date, début, fragments avant → après,
+  - journalise dans `…\hermes\data
+ag
+eindex.log` : date, début, fragments avant → après,
     durée, taille de l'index.
 - **Test réel** (déclenchement manuel) :
   `2026-09-15 19:42:29 | indexation OK en 339 s | fragments 2042 -> 2047 | index 6.3 Mo`
@@ -375,3 +379,31 @@ passer par `chercher.py` pour retrouver une décision, un seuil ou une commande.
 - Optimisation Local (`memory_limit` 512M, `innodb_buffer_pool_size` 256M) : relevée en §10, non
   appliquée. Non urgent, à faire si des sites sont recréés.
 - LoRA SDXL : bloqué sur la collecte de 20-40 images de style. Action utilisateur.
+
+## 17. Demarrage silencieux du noyau SiYuan (15/09/2026)
+
+La console du noyau apparaissait dans la barre des taches. Cause mesuree : `demarrer_siyuan.cmd`
+lance le noyau avec `start /min`, ce qui **cree** une console — minimisee, mais visible
+(mesure : `ConsoleWindowClass visible=True`).
+
+**Ce qui a ete fait**
+
+- Nouveau `C:\Users\searc\SiYuan\demarrer_siyuan_silencieux.vbs` : verifie le port 6806 par un appel
+  cache, puis lance le noyau directement en mode 0 (fenetre cachee).
+- Tache « SiYuan - noyau second cerveau » : l'action passe de `demarrer_siyuan.cmd` a
+  `wscript.exe "C:\Users\searc\SiYuan\demarrer_siyuan_silencieux.vbs"`. Declencheur inchange
+  (ouverture de session).
+- `demarrer_siyuan.cmd` **inchange** ; tache « Hermes - Reindex RAG » **non touchee**.
+
+**Pourquoi le VBS seul ne suffisait pas** : le mode 0 de `Run` masque la console du `.cmd`, mais le
+`.cmd` en cree une seconde pour le noyau via `start /min`. Mesure avant/apres, meme methode
+(enumeration des fenetres du processus + `IsWindowVisible`) :
+
+| Etat | Fenetre du noyau |
+|---|---|
+| Avant (`.cmd` via la tache) | `ConsoleWindowClass visible=True` — console minimisee visible |
+| Apres (`.vbs` -> noyau en mode 0) | `ConsoleWindowClass visible=False` — **invisible** |
+
+**Verifications** : noyau relance, port 6806 en ecoute, API `{"code":0,"data":"3.8.2"}`, un seul
+processus `SiYuan-Kernel.exe`. Relance de la tache avec le noyau deja actif : PID identique (26052),
+un seul noyau, une seule ecoute — le garde-fou de port fonctionne.

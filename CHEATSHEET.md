@@ -268,3 +268,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "C:\wp-cli\hermes-wp.ps1" in
 
 Options : `-NoColor` · `-Oui`. Statut : prepare, a tester sur un vrai site (aucun site Local
 au 15/09/2026). Documentation complete : SiYuan `hermes-skills / hermes-wp`.
+
+## Demarrer le noyau SiYuan (sans aucune fenetre)
+
+Lance automatiquement a l'ouverture de session par la tache « SiYuan - noyau second cerveau » :
+
+    wscript.exe "C:\Users\searc\SiYuan\demarrer_siyuan_silencieux.vbs"
+
+**A la main**, meme commande : aucun console, aucune fenetre. Le .vbs verifie d'abord si le port
+6806 repond (verification cachee) : si le noyau tourne deja, il ne fait RIEN — relancer la tache ne
+cree jamais un second noyau.
+
+`demarrer_siyuan.cmd` reste en place et inchange (utile pour voir les messages en direct), mais ne
+pas l'utiliser pour un demarrage silencieux : son `start /min` cree une console minimisee mais
+visible.
