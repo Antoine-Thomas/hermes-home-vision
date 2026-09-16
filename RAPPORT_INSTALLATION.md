@@ -535,3 +535,35 @@ restaurer le code git (voir le script) puis relancer les services.
 - config.yaml : base_url/eco/omniroute/deepseek conservés (diff = commentaires migration)
 - Avertissements restants doctor : vuln npm (browser 2, web 6, whatsapp 4) + API keys manquantes
   — non bloquants
+
+---
+
+# Réduction skills — 16/09/2026
+
+## Avant / après
+- Skills installés : 101 → 104 (97 actifs + 7 désactivés)
+- Méta-skills créés : 3 (video-pipeline-complet, wordpress-site-complet, second-cerveau-complet)
+- Fragments RAG : 2307 → 2340
+
+## Désactivés (7) — usage nul, sans dépendance
+box, competitor-news-monitor, grounded-citations, recherche-skills-officiels,
+windows-background-services, windows-system-backup, yuanbao
+
+Mécanisme : `skills.disabled` dans config.yaml (backup : `config.yaml.bak_pre_disable`).
+Réversible : `hermes skills config` (ou retrait de la clé).
+
+## Fusions : aucune
+Les 2 doublons proposés par `auto-revision-skills` sont des faux positifs vérifiés :
+- `lora-training` (procédure générique) ≠ `sdxl-face-lora` (cas mesuré 8 Go) — complémentaires
+- `photo` (JPG) ≠ `record` (MP4 30-60 s) — mécanique et commandes slash distinctes
+
+Les vraies redondances étaient déjà absorbées par les 26 umbrellas (10/09).
+
+## Méta-skills (3)
+| Skill | Orchestre |
+|---|---|
+| video-pipeline-complet | tts-voice-cloning → talking-head-video-8gb → video-assembly |
+| wordpress-site-complet | 5 skills WordPress (flywheel → management → suite → backup → deploy) |
+| second-cerveau-complet | siyuan-second-brain + rag-second-cerveau + hermes-memory |
+
+Détail complet : SiYuan `apprentissage-continu / Reduction skills - 2026-09-16`.

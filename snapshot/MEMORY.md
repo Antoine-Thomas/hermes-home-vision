@@ -32,3 +32,4 @@ Hermes v0.21.3 (config v45). Gateway: default + watch via schtasks. multiplex_pr
 
 ## Vidéo
 - Vidéo: fond bois/logo+CTA. Skill: talking-head-video-8gb (branche A=LatentSync, branche B=LivePortrait/SadTalker). VRAM 8Go: check avant rendu. Outils: data/video_youtube/. Projet: Desktop/hermes_tuto_v4/ → livrable "hermes tuto/". XTTS: data/xtts/venv.
+- Skills: 97 actifs (7 désactivés, 3 méta-skills) — cf. SiYuan / Réduction skills 2026-09-16
