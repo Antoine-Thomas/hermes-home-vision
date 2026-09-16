@@ -407,3 +407,42 @@ lance le noyau avec `start /min`, ce qui **cree** une console — minimisee, mai
 **Verifications** : noyau relance, port 6806 en ecoute, API `{"code":0,"data":"3.8.2"}`, un seul
 processus `SiYuan-Kernel.exe`. Relance de la tache avec le noyau deja actif : PID identique (26052),
 un seul noyau, une seule ecoute — le garde-fou de port fonctionne.
+
+## 18. Architecture du second cerveau : services et taches planifiees (16/09/2026)
+
+| Service | Port | Tache planifiee | Etat |
+|---|---|---|---|
+| SiYuan kernel | 6806 | `SiYuan - noyau second cerveau` (ouverture de session, lanceur `.vbs` silencieux) | actif |
+| Index RAG | — | `Hermes - Reindex RAG` (chaque nuit a 03h00) | actif — 2 194 fragments |
+| API RAG | 8200 | aucune (lancement manuel : `serveur_rag.py`) | a la demande |
+| Gateway messagerie | — | `Hermes_Gateway` (deja installe, deja en place) | actif — PID 12280 |
+| Backend Hermes (`serve`) | **9119** | **`Hermes - serve backend`** (ouverte de session) | actif depuis le 16/09 |
+
+### Ce qui a ete fait
+
+- **`hermes gateway install` n'a pas ete execute** : `hermes gateway status` a montre qu'un gateway
+  etait deja enregistre et en cours d'execution (`Hermes_Gateway`, PID 12280). Le gateway est le
+  service de **messagerie** (Telegram, Discord...) : le reinstaller aurait pu interrompre les bots en
+  service. Rien n'a ete touche.
+- **Backend headless cree** pour l'objectif reel (« que le second cerveau soit disponible sans
+  lancer la console Hermes ») : `hermes serve` — « Run the Hermes backend server, headless: it never
+  opens a browser UI ».
+  - Lanceur `C:\Users\searc\AppData\Local\hermes\gateway-service\Hermes_Serve.vbs`, construit sur le
+    modele de `Hermes_Gateway.vbs` : memes variables (`HERMES_HOME`, `VIRTUAL_ENV`, `PYTHONPATH`),
+    `CurrentDirectory` fixe, `Run(..., 0, False)` = **aucune fenetre**.
+  - Tache utilisateur `Hermes - serve backend`, declencheur a l'ouverture de session,
+    `MultipleInstances=IgnoreNew`, sans limite de duree. Script de creation :
+    `gateway-service\creer_tache_serve.ps1`.
+  - Note : `hermes.cmd` n'existe pas sur cette machine — le lanceur du gateway existant
+    (`python.exe -m hermes_cli.main ...`) a ete repris, ce qui est la forme reellement supportee.
+
+### Verification (test reel)
+
+| Controle | Resultat |
+|---|---|
+| Tache creee et declenchee | `Etat : Ready`, `dernier resultat : 0` |
+| Processus | 2 (lanceur + serveur), demarres a 13:43:59, toujours vivants 45 s plus tard |
+| Fenetre | `MainWindowHandle = 0` — **aucune fenetre** |
+| Ecoute | `127.0.0.1:9119` en LISTENING (PID 26696) |
+| Reponse HTTP | le port repond (voir test curl) |
+| `hermes serve --status` | **ne le detecte pas** — la commande cherche un fichier de PID que ce mode de lancement n'ecrit pas. Verifier par le processus ou le port, pas par `--status`. |
