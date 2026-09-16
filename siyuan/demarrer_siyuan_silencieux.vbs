@@ -7,11 +7,18 @@
 ' mesure du 15/09 -> ConsoleWindowClass visible=True). Le mode 0 de Run masque la console du
 ' .cmd, pas celle que le .cmd cree ensuite. On lance donc le noyau directement en mode cache,
 ' en reprenant la meme verification de port et les memes arguments que le .cmd.
+'
+' CurrentDirectory est indispensable : le noyau ecrit son journal dans son dossier de travail.
+' Sans cette ligne, kernel.log partait hors de C:\Users\searc\SiYuan (constate le 16/09 : plus
+' aucune ecriture depuis le 15/09 16:56, donc le journal etait introuvable la ou on le cherche).
 
 Option Explicit
 
-Dim shell, noyau, espace, journal, deja, exec
+Dim shell, noyau, espace, journal, deja
 Set shell = CreateObject("WScript.Shell")
+
+' Le noyau ecrit kernel.log dans son dossier courant : on le fixe explicitement.
+shell.CurrentDirectory = "C:\Users\searc\SiYuan"
 
 ' 1) Le noyau tourne-t-il deja ? (verification du port 6806, elle aussi cachee)
 journal = shell.ExpandEnvironmentStrings("%TEMP%") & "\siyuan_port.txt"
