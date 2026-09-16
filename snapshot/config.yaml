@@ -446,9 +446,9 @@ delegation:
   api_mode: ''
   inherit_mcp_toolsets: true
   max_iterations: 250
-  child_timeout_seconds: 600
+  child_timeout_seconds: 120
   reasoning_effort: ''
-  max_concurrent_children: 10
+  max_concurrent_children: 3
   max_spawn_depth: 1
   orchestrator_enabled: true
   subagent_auto_approve: false
@@ -480,6 +480,14 @@ skills:
   guard_agent_created: false
   write_approval: false
   creation_nudge_interval: 15
+  disabled:
+    - box
+    - competitor-news-monitor
+    - grounded-citations
+    - recherche-skills-officiels
+    - windows-background-services
+    - windows-system-backup
+    - yuanbao
 curator:
   enabled: true
   interval_hours: 168
@@ -660,7 +668,7 @@ paste_collapse_threshold_fallback: 5
 paste_collapse_char_threshold: 2000
 computer_use:
   cua_telemetry: false
-_config_version: 44
+_config_version: 45
 group_sessions_per_user: true
 platform_toolsets:
   cli:
@@ -668,6 +676,7 @@ platform_toolsets:
     - clarify
     - code_execution
     - computer_use
+    - connections
     - cronjob
     - delegation
     - file
@@ -713,6 +722,7 @@ known_builtin_toolsets:
     - clarify
     - code_execution
     - computer_use
+    - connections
     - context_engine
     - cronjob
     - delegation
