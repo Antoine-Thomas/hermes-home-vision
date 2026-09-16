@@ -4,7 +4,7 @@
 - Dev: WSL, tmux, MSYS_NO_PATHCONV=1, docker. Shell haute intégrité
 
 ## Hermes
-Hermes v0.21.3 (2026.9.14), config v45. Gateway: default PID via schtasks Hermes_Gateway, watch PID via Hermes_Gateway_watch (tâche désactivée → relancer par hermes -p watch gateway start). multiplex_profiles=false explicite.
+Hermes v0.21.3 (config v45). Gateway: default + watch via schtasks. multiplex_profiles=false. RAG 2307 frag.
 - Mémoire native: %LOCALAPPDATA%\hermes\memories\ (MEMORY.md + USER.md)
 - Backend/gateway: 9119. Toolsets: hermes-cli, web, fichiers, terminal, browser
 - Tâches: Reindex RAG 03h00, check memory 08h00, désaturer mémoire dim 04h00
