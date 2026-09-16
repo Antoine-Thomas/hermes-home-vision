@@ -1,0 +1,911 @@
+[
+ {
+  "name": "ai-video-pipeline",
+  "cat": "",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-15 (×25)",
+  "verdict": "garder"
+ },
+ {
+  "name": "autonomous-ai-agents",
+  "cat": "",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-10 (×5)",
+  "verdict": "garder"
+ },
+ {
+  "name": "github",
+  "cat": "",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-09-12 (×10)",
+  "verdict": "garder"
+ },
+ {
+  "name": "hermes-operations",
+  "cat": "",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-16 (×24)",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "photo",
+  "cat": "",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-10 (×4)",
+  "verdict": "garder"
+ },
+ {
+  "name": "premiere-montage-comparatif",
+  "cat": "",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-12 (×10)",
+  "verdict": "garder"
+ },
+ {
+  "name": "record",
+  "cat": "",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-10 (×4)",
+  "verdict": "garder"
+ },
+ {
+  "name": "skill-curator",
+  "cat": "",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-10 (×10)",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "surveillance-control",
+  "cat": "",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-11 (×8)",
+  "verdict": "garder"
+ },
+ {
+  "name": "windows-system-backup",
+  "cat": "",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "yuanbao",
+  "cat": "",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "agent-tooling",
+  "cat": "autonomous-ai-agents",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-12 (×1)",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "computer-use",
+  "cat": "autonomous-ai-agents",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-27 (×4)",
+  "verdict": "garder"
+ },
+ {
+  "name": "hermes-agent",
+  "cat": "autonomous-ai-agents",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-09-16 (×51)",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "ascii-suite",
+  "cat": "creative",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "comfyui",
+  "cat": "creative",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-07-27 (×3)",
+  "verdict": "garder"
+ },
+ {
+  "name": "design-system",
+  "cat": "creative",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "diagram-suite",
+  "cat": "creative",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "humanizer",
+  "cat": "creative",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-27 (×3)",
+  "verdict": "garder"
+ },
+ {
+  "name": "manim-video",
+  "cat": "creative",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-27 (×2)",
+  "verdict": "garder"
+ },
+ {
+  "name": "nle-video-assembly",
+  "cat": "creative",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-09 (×8)",
+  "verdict": "garder"
+ },
+ {
+  "name": "p5js",
+  "cat": "creative",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-27 (×2)",
+  "verdict": "garder"
+ },
+ {
+  "name": "pretext",
+  "cat": "creative",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-07-27 (×2)",
+  "verdict": "garder"
+ },
+ {
+  "name": "smll-talk-podcast",
+  "cat": "creative",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-04 (×4)",
+  "verdict": "garder"
+ },
+ {
+  "name": "songwriting-and-ai-music",
+  "cat": "creative",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-27 (×5)",
+  "verdict": "garder"
+ },
+ {
+  "name": "knowledge-ops",
+  "cat": "data-science",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "auto-heal",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-13 (×1)",
+  "verdict": "garder (faible usage)"
+ },
+ {
+  "name": "fallback-intelligent",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-08 (×9)",
+  "verdict": "garder"
+ },
+ {
+  "name": "hermes-install-troubleshooting",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-16 (×25)",
+  "verdict": "garder"
+ },
+ {
+  "name": "kanban-system",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "omniroute-gateway",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-16 (×61)",
+  "verdict": "garder"
+ },
+ {
+  "name": "omniroute-suite",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-16 (×21)",
+  "verdict": "garder"
+ },
+ {
+  "name": "python-dependency-guard",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-16 (×1)",
+  "verdict": "garder (faible usage)"
+ },
+ {
+  "name": "security-monitoring",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-12 (×6)",
+  "verdict": "garder"
+ },
+ {
+  "name": "security-ops",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "ssl-monitoring",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "supply-chain-hardening",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-14 (×3)",
+  "verdict": "garder"
+ },
+ {
+  "name": "telegram-bot-polling",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-10 (×16)",
+  "verdict": "garder"
+ },
+ {
+  "name": "windows-background-services",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "windows-ops",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-16 (×5)",
+  "verdict": "garder"
+ },
+ {
+  "name": "windows-path-handling",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-16 (×4)",
+  "verdict": "garder"
+ },
+ {
+  "name": "windows-performance-tuning",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-07 (×14)",
+  "verdict": "garder"
+ },
+ {
+  "name": "wordpress-local-flywheel-publishing",
+  "cat": "devops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-14 (×2)",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "email-suite",
+  "cat": "email",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "media-analysis",
+  "cat": "media",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "photo",
+  "cat": "media",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-10 (×4)",
+  "verdict": "garder"
+ },
+ {
+  "name": "talking-head-video",
+  "cat": "media",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-14 (×74)",
+  "verdict": "garder"
+ },
+ {
+  "name": "talking-head-video-8gb",
+  "cat": "media",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-15 (×13)",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "video-assembly",
+  "cat": "media",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-15 (×4)",
+  "verdict": "garder"
+ },
+ {
+  "name": "video-editing-automation",
+  "cat": "media",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-10 (×23)",
+  "verdict": "garder"
+ },
+ {
+  "name": "diffusion-lora-training",
+  "cat": "mlops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-16 (×1)",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "llm-ops",
+  "cat": "mlops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-16 (×1)",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "lora-training",
+  "cat": "mlops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "model-ops",
+  "cat": "mlops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-15 (×2)",
+  "verdict": "garder"
+ },
+ {
+  "name": "sdxl-face-lora",
+  "cat": "mlops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "segment-anything",
+  "cat": "mlops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "tts-voice-cloning",
+  "cat": "mlops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-16 (×28)",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "vibevoice-tts",
+  "cat": "mlops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-12 (×13)",
+  "verdict": "garder"
+ },
+ {
+  "name": "weights-and-biases",
+  "cat": "mlops",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-07-27 (×1)",
+  "verdict": "garder (faible usage)"
+ },
+ {
+  "name": "action-items",
+  "cat": "productivity",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "airtable",
+  "cat": "productivity",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-05 (×1)",
+  "verdict": "garder (faible usage)"
+ },
+ {
+  "name": "auto-revision-skills",
+  "cat": "productivity",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "box",
+  "cat": "productivity",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "google-workspace",
+  "cat": "productivity",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-22 (×8)",
+  "verdict": "garder"
+ },
+ {
+  "name": "hermes-memory",
+  "cat": "productivity",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-16 (×8)",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "maps",
+  "cat": "productivity",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-14 (×1)",
+  "verdict": "garder (faible usage)"
+ },
+ {
+  "name": "notion",
+  "cat": "productivity",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "office-documents",
+  "cat": "productivity",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "planning-ops",
+  "cat": "productivity",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "product-price-monitor",
+  "cat": "productivity",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-09-07 (×1)",
+  "verdict": "garder (faible usage)"
+ },
+ {
+  "name": "prospecting-suite",
+  "cat": "productivity",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "rag-second-cerveau",
+  "cat": "productivity",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-16 (×8)",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "recherche-skills-officiels",
+  "cat": "productivity",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "siyuan",
+  "cat": "productivity",
+  "source": "official",
+  "trust": "official",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "siyuan-second-brain",
+  "cat": "productivity",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-16 (×5)",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "teams-meeting-pipeline",
+  "cat": "productivity",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-20 (×1)",
+  "verdict": "garder (faible usage)"
+ },
+ {
+  "name": "godmode",
+  "cat": "red-teaming",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "arxiv",
+  "cat": "research",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-05 (×1)",
+  "verdict": "garder (faible usage)"
+ },
+ {
+  "name": "competitor-news-monitor",
+  "cat": "research",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "grounded-citations",
+  "cat": "research",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "llm-wiki",
+  "cat": "research",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-27 (×1)",
+  "verdict": "garder (faible usage)"
+ },
+ {
+  "name": "research-content",
+  "cat": "research",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "rss-feeds",
+  "cat": "research",
+  "source": "official",
+  "trust": "official",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "reddit-reading",
+  "cat": "social-media",
+  "source": "official",
+  "trust": "official",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "code-quality",
+  "cat": "software-development",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "codebase-inspection",
+  "cat": "software-development",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-08-25 (×4)",
+  "verdict": "garder"
+ },
+ {
+  "name": "detector-calibration",
+  "cat": "software-development",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-08-25 (×2)",
+  "verdict": "garder"
+ },
+ {
+  "name": "dogfood",
+  "cat": "software-development",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-27 (×2)",
+  "verdict": "garder"
+ },
+ {
+  "name": "inspecting-hermes-desktop-dom",
+  "cat": "software-development",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "désactiver"
+ },
+ {
+  "name": "kimi-k3",
+  "cat": "software-development",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-08-11 (×10)",
+  "verdict": "garder"
+ },
+ {
+  "name": "planning-workflow",
+  "cat": "software-development",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-15 (×2)",
+  "verdict": "garder"
+ },
+ {
+  "name": "simplify-code",
+  "cat": "software-development",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-27 (×5)",
+  "verdict": "garder"
+ },
+ {
+  "name": "systematic-debugging",
+  "cat": "software-development",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-09-03 (×8)",
+  "verdict": "garder"
+ },
+ {
+  "name": "test-driven-development",
+  "cat": "software-development",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-07-27 (×5)",
+  "verdict": "garder"
+ },
+ {
+  "name": "wordpress-suite",
+  "cat": "software-development",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "2026-09-12 (×1)",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "blocked-page-recovery",
+  "cat": "web",
+  "source": "builtin",
+  "trust": "builtin",
+  "status": "enabled",
+  "usage": "2026-09-13 (×1)",
+  "verdict": "garder (faible usage)"
+ },
+ {
+  "name": "local-flywheel-setup",
+  "cat": "wordpress",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "wordpress-backup-restore",
+  "cat": "wordpress",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "wordpress-deployment",
+  "cat": "wordpress",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "wordpress-site-management",
+  "cat": "wordpress",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "garder (protection)"
+ },
+ {
+  "name": "wp-cli-automation",
+  "cat": "wordpress",
+  "source": "local",
+  "trust": "local",
+  "status": "enabled",
+  "usage": "—",
+  "verdict": "garder (protection)"
+ }
+]
