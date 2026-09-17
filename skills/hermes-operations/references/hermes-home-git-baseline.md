@@ -96,19 +96,54 @@ motifs : `\b[0-9]{8,12}:[A-Za-z0-9_-]{30,45}\b` (bot Telegram), `sk-[A-Za-z0-9_-
   chez le fournisseur avant tout push**, et ne presenter la purge d'historique que comme une option
   (elle reecrit les SHA et invalide les identifiants cites dans les rapports).
 
-### 3 bis. Avant de publier (push) : contrôles bloquants et pièges de dépôt
+### 3 ter. Auditer TOUT l'historique, pas seulement HEAD
 
-Sur **chaque** dépôt, dans cet ordre — un seul rouge arrête la publication :
+`git ls-files` et `git grep` ne voient que l'arbre **courant**. Un secret peut vivre dans des blobs
+anciens — copie de `.env` de-suivie, `state.db` de plusieurs centaines de Mo, `.env.avant_*` — qui
+partent **quand meme** sur le depot distant. Le scan de HEAD ne les montre pas.
 
-1. **Fichiers sensibles suivis** (les modèles d'environnement sont des exceptions *nommées*) :
+```bash
+python scripts/scan_history_secrets.py "C:/Users/<user>/Desktop/<depot>" --purge-cmds
+```
+
+Le script (`scripts/scan_history_secrets.py` de ce skill) enumere chaque blob de chaque commit
+(`rev-list --objects --all` + `cat-file --batch-check`, puis `cat-file --batch` en flux binaire),
+cherche les motifs dans le contenu et rend `blob / chemin / taille / occurrences / sha256[:16]`.
+Code de sortie 1 des qu'un motif matche : utilisable comme gate. Aucune valeur n'est affichee.
+
+- **Ordre de grandeur observe** : un brief annoncait « le secret est dans UN fichier » ; le scan en a
+trouve **6 blobs** porteurs (une copie complete de `.env`, une `state.db` de 192 Mo totalisant 21
+jetons de bot et 54 cles API, un `.env.avant_*`). Purger le seul fichier cite aurait laisse partir le
+jeton **encore vivant** et ~57 cles. La liste des blobs decide, pas la citation du brief.
+- **Planifier la purge en UNE passe** : chaque passe oubliee = une reecriture de SHA de plus. Lister
+tous les chemins porteurs, puis un seul
+`git filter-repo --force --invert-paths --path <p1> --path <p2> …`. Effet de bord utile : purger
+`state.db` et les `.env` fait tomber un `.git` de 80 Mo a ~4 Mo.
+- **Verifier la purge avec le MEME scanner**, jamais avec `git log -p | grep` : un blob de 192 Mo ne se
+prouve pas par un grep de flux (et `git log -p` sur un tel blob est impayable). Attendu apres purge :
+0 blob pour chaque motif.
+- **Le runtime se scanne aussi.** Un seul motif `sk-` dans tout l'historique du home peut n'etre qu'un
+placeholder de documentation (`sk-EXAMPLE-…`) : trier par empreinte et par vivacite avant de conclure
+ou de purger quoi que ce soit.
+- `pip install git-filter-repo` suffit (outil mono-fichier, se pose dans le venv actif, s'appelle
+`git filter-repo`). Il **retire les remotes** et **reecrit les tags** : re-creer les tags de securite
+apres la purge, et verifier le nombre de commits (`rev-list --count` identique, SHA differents).
+
+### 3 quater. Avant de publier (push) : controles bloquants et pieges de depot
+
+Sur **chaque** depot, dans cet ordre — un seul rouge arrete la publication :
+
+1. **Fichiers sensibles suivis** (les modeles d'environnement sont des exceptions *nommees*) :
    `git ls-files | grep -E '\.env|state\.db|auth\.json|\.pem$|\.key$|token|secret' | grep -v '\.example$'`
    → vide. Les hits restants sont des docs de skills (`token-leak-audit.md`…) : le justifier par le
    scan de contenu, pas par le nom.
 2. **Contenu des fichiers suivis** : `git grep -I -n -E '<motifs>'` (jeton Telegram, `AIza`, `sk-`,
    `ghp_`, `hf_`, PEM) → 0.
-3. **Aucun fichier suivi > 50 Mo**, et `du -sh .git` annonce ce qu'on pousse (un `.git` de plusieurs
+3. **Tout l'historique** (§3 ter) → 0 blob. C'est le controle qui autorise le push d'un depot
+   `docs/` ou d'un snapshot.
+4. **Aucun fichier suivi > 50 Mo**, et `du -sh .git` annonce ce qu'on pousse (un `.git` de plusieurs
    dizaines de Mo vient de blobs dé-suivis encore présents dans l'historique).
-4. **`.gitattributes`** : `* text=auto eol=lf`, `*.ps1`/`*.cmd`/`*.bat` en `crlf`, binaires déclarés
+5. **`.gitattributes`** : `* text=auto eol=lf`, `*.ps1`/`*.cmd`/`*.bat` en `crlf`, binaires déclarés
    (`*.png`, `*.jpg`, `*.pdf`). Sans lui, `git status` s'allume tout seul après un ajout (renormalisation
    des fins de ligne) et on croit à tort à une modification de contenu.
 
@@ -129,6 +164,11 @@ Sur **chaque** dépôt, dans cet ordre — un seul rouge arrête la publication 
   laisser l'opérateur l'exécuter.
 - Un dépôt privé n'est pas un coffre : ce qui y entre reste dans l'historique. Passage en public =
   purge (`git filter-repo --path <f> --invert-paths`) **et** rotation de tout secret déjà poussé.
+- **Verifier l'existence du depot distant AVANT de planifier le push** :
+  `gh api repos/<owner>/<nom>` → 404 = il reste a creer (une etape bloquante, pas une verification).
+- **La sauvegarde `.git` d'un depot qu'on reecrit se pose HORS du depot.** Un `cp -r .git
+  backups/…` a l'interieur du depot apparait en non-suivi, et un `git add -A` peut ensuite indexer
+  des dizaines de Mo d'objets git qui contiennent les secrets qu'on venait de purger.
 
 ### 4. Ordre de grandeur
 
@@ -155,3 +195,35 @@ interchangeable.
    pretendre recreer), et vestiges desactives (a ne pas recreer).
 5. **Nouvelles cles par machine** : bots Telegram, cle du routeur, jeton SiYuan. Reutiliser celles de la
    machine d'origine casse l'isolation des profils et fait repondre deux machines sur un meme bot.
+
+### 6. Fusionner deux depots en un seul (runtime + docs)
+
+Objectif courant : un depot prive unique contenant le runtime **et** la documentation rangee sous
+`docs/`, avec l'historique des deux preserve.
+
+1. **Ne jamais fusionner dans l'arbre vivant.** Cloner le runtime dans un dossier de travail
+   (`git clone <home> <scratch>`), y faire la fusion, puis avancer le runtime en `--ff-only`. Une
+   fusion faite sur place **materialise** les fichiers de l'autre depot dans le runtime — dont une
+   copie `skills/` perimee qui ecrase ou duplique les skills vivants.
+2. **Precalculer les collisions** : `comm -12 <(git ls-files) des deux depots` donne la liste exacte
+   des chemins presents des deux cotes. Resoudre par `git checkout --ours -- <chemin>` quand les copies
+   du second depot sont des versions perimees (`git diff --stat` sur chacune pour le prouver), et
+   compter les **identiques** : un `.gitattributes` pose des deux cotes ne demande aucun arbitrage.
+3. `git merge --allow-unrelated-histories --no-commit <ref-distante>` puis resolution, puis commit.
+   Verifier le total : `rev-list --count` = A + B + 1 **calcule en direct** (les deux comptes bougent
+   entre la redaction du brief et l'execution).
+4. **Un chemin resolu en `--ours` disparait de l'arbre** (le README du second depot, typiquement) : le
+   restaurer depuis sa propre histoire dans le commit de rangement —
+   `git show <ref-distante>:README.md > docs/README.md`.
+5. **Ranger sous `docs/` dans un commit ULTERIEUR** : `git mv` sur la liste des entrees de
+   `git ls-tree --name-only <ref-distante>`, en **excluant les dossiers dupliques** (le `skills/` d'un
+   depot de docs). Aucune reecriture de chemin n'est necessaire — c'est ce qui garde les SHA d'origine
+   lisibles par les rapports qui les citent.
+6. **Les fichiers NON suivis du second depot ne bougent pas** (`.env` reels, `state.db`, caches) : ils
+   resteraient dans le runtime comme surface de fuite. `git status --short --ignored` liste ce qu'un
+   deplacement physique traînerait — un depot de docs peut peser 700 Mo dont 613 non suivis.
+7. Le depot fusionne se pousse **apres** l'audit de son historique (§3 ter) : le controle porte sur le
+   resultat de la fusion, pas sur les deux depots d'origine.
+8. Ne rien supprimer du second depot avant d'avoir compare les inventaires
+   (`git ls-files docs/ | wc -l` vs `git -C <second> ls-files | grep -v '^skills/' | wc -l`) et propose
+   de le renommer en `*.archive` plutot que de le supprimer.

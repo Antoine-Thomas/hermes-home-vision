@@ -593,6 +593,14 @@ la ligne du scheduler dans `agent.log`.
   filtre par nom donne des faux positifs (docs de skills parlant de jetons) et laisse passer ce qu'on
   cherche. Le contrôle qui tranche : `git grep -I -n -E '<motifs>'` sur les fichiers suivis, hit trié
   par vivacité (200 = à révoquer tout de suite, 401 = inerte).
+- **Auditer l'HISTORIQUE, pas seulement HEAD.** `git ls-files` et `git grep` ne voient que l'arbre
+  courant : un jeton encore vivant peut être dans trois blobs anciens (copie `.env` dé-suivie,
+  `state.db` de 192 Mo, `.env.avant_*`) qui partent quand même au push. Scanner **tous** les blobs avec
+  `scripts/scan_history_secrets.py <dépôt> --purge-cmds`, planifier la purge en **UNE** passe
+  (`git filter-repo --force --invert-paths --path …` : une passe oubliée = une réécriture de SHA de
+  plus), puis **re-vérifier avec le même scanner** — `git log -p | grep` ne prouve rien sur un blob de
+  192 Mo. La liste des blobs décide, pas le fichier cité par un brief. Détail :
+  `references/hermes-home-git-baseline.md` §3 ter (audit d'historique) et §6 (fusion de deux dépôts).
 - **Tout secret collé dans le chat est déjà une fuite** : il est écrit en clair dans `.hermes_history`
   et dans `pastes/`. Le signaler dans le même tour avec son empreinte et sa ligne, et proposer la
   rotation — nettoyer ne suffit pas tant que le secret est valide.
@@ -630,6 +638,16 @@ de <commandes> », livrer les sorties brutes dans l'ordre demandé — pas de r�
 contrôle, pas de commit pour cette partie. Commenter uniquement les écarts par rapport à l'attendu,
 et requalifier ce qui est **préexistant** (vulnérabilités npm du doctor, tâche planifiée désactivée)
 au lieu de le présenter comme une régression de la session. Quand la passe découvre un **service mort** (port muet, tâche sans prochaine exécution), ne pas se contenter de le signaler : trancher « encore utile ou vestige » en interrogeant le **consommateur** — jamais un grep de config — puis livrer des options numérotées avec une recommandation, et attendre la décision avant toute action. Recette : `references/local-service-triage.md`.
+
+**Un plan ou un brief fourni de l'extérieur se MESURE avant d'être exécuté.** Convertir chaque
+affirmation factuelle du brief en contrôle d'assertion et l'exécuter d'abord : compteurs réels
+(`git rev-list --count`, `du -sh`), listes de fichiers calculées (`comm` des `git ls-files`),
+remplacement d'un état supposé par l'état mesuré (`git status`, `git tag -l`), existence réelle du
+dépôt distant (`gh api repos/<owner>/<nom>` → 404 = à créer). Les chiffres du brief deviennent les
+critères de vérification, et chaque écart se dit dans le même tour : un brief qui annonce « un seul
+fichier contient le secret » ou « le dépôt existe » oriente vers une action partielle ou impossible.
+Les gates explicites demandés par l'opérateur (« attends ma validation avant X ») se respectent à la
+lettre : exécuter la phase préparatoire, s'arrêter à la phase nommée, et rapporter ce qui bloque.
 
 **Chantier explicitement reporté à une session dédiée** : ne pas le relancer depuis une session
 multi-chantiers, ne pas en rejouer les tests. Relever seulement son état — `git status` sur
@@ -673,7 +691,12 @@ procédure : une tentative de patch upstream échouée sur du code frais se rejo
 - `references/hermes-home-git-baseline.md` — versionner le home (`skills/`, `profiles/`, `config.yaml`)
   sans y laisser de secret : motifs d'exclusion par catégorie (jetons tiers, sessions WhatsApp/MCP,
   binaires, tickers cron), le fichier `nul` qui fait échouer `git add -A`, le scan par empreinte (yc le
-  piège de la clé réelle cachée dans un exemple `curl` d'une doc de skill), les **contrôles bloquants
-  avant un push** (fichiers sensibles, contenu, > 50 Mo, `.gitattributes`), le piège `.env.*` qui avale
-  `.env.example`, et la **restauration sur une autre machine** (installeur Hermes d'abord, puis
-  `git init`/`fetch`/`checkout` par-dessus — jamais `git clone` dans un dossier non vide).
+  piège de la clé réelle cachée dans un exemple `curl` d'une doc de skill), **l'audit de TOUT
+  l'historique et la purge en une passe**, les **contrôles bloquants avant un push** (fichiers
+  sensibles, contenu, > 50 Mo, `.gitattributes`), le piège `.env.*` qui avale `.env.example`, la
+  **restauration sur une autre machine** (installeur Hermes d'abord, puis `git init`/`fetch`/`checkout`
+  par-dessus — jamais `git clone` dans un dossier non vide) et la **fusion de deux dépôts en un seul**
+  (clone de travail puis `--ff-only`, collisions précalculées, rangement sous `docs/`).
+- `scripts/scan_history_secrets.py` — scanner rejouable de **tout l'historique** d'un dépôt
+  (`rev-list --objects --all` + `cat-file --batch`), qui rend blob / chemin / taille / occurrences /
+  `sha256[:16]`, propose la liste `--purge-cmds` et sort en 1 si un motif matche (gate utilisable).

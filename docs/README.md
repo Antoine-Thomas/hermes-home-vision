@@ -1,74 +1,44 @@
-# Hermes — documentation et rapports
+# docs — documentation de l'installation Hermes
 
-Dépôt de **documentation** de l'installation Hermes décrite dans le dépôt principal (le runtime
-`%LOCALAPPDATA%\hermes`). Séparé volontairement : les rapports de session, snapshots et procédures
-n'ont rien à faire dans le runtime, et inversement le runtime ne doit pas transporter des dizaines de
-rapports dans son historique.
+Ce dossier contient **la documentation, les rapports et les références** de l'installation décrite à
+la racine de ce dépôt. Il provient de l'ancien dépôt `hermes_install`, fusionné ici le 17/09/2026
+(historique préservé, secret purgé — détail plus bas).
 
-Version de référence : **Hermes Agent v0.21.3 (2026.9.14)**, upstream `97962358`.
-Aucun secret dans ce dépôt : les valeurs sont remplacées par des empreintes `sha256[:16]` ou des
-placeholders. Audit de secrets rejoué le 17/09/2026 : 0 occurrence.
+- Ce n'est **pas** un dépôt à cloner seul : la racine est le runtime Hermes, `docs/` est sa
+  documentation. Le dépôt `hermes-home-vision` se clone en une fois et restaure l'ensemble.
+- L'ordre d'installation est décrit dans le **README à la racine** (`../README.md`) : les trois
+  `.env` à créer, les tâches planifiées à recréer, les services à démarrer dans l'ordre, puis les
+  vérifications.
 
----
+## Contenu
 
-## Rôle
-
-| Ce dépôt contient | Ce dépôt ne contient pas |
+| Chemin | Contenu |
 |---|---|
-| l'architecture consolidée, les décisions et les points ouverts | la configuration vivante (`config.yaml`, `.env`) |
-| les rapports de session et les procédures de reprise | les bases de sessions (`state.db`) |
-| les snapshots de référence (configs, baseline T0) | les skills, scripts du runtime (ils vivent dans le dépôt principal) |
-| les scripts d'installation : `bootstrap.ps1`, `restore-from-github.md`, `push-to-github.md` | les gros volumes (`data/`, venvs, modèles) |
+| `ARCHITECTURE_HERMES.md` | architecture consolidée : les 3 profils, scripts source de vérité, tâches planifiées, points de fuite connus, dette A2A (11 points), points ouverts, mode observation 24 h |
+| `A2A_PREPARATION.md` | procédure complète d'activation A2A (préparée, **non activée**) : checklist, blocs de config, commandes uniques, rollback, points d'attention |
+| `architecture_2_agents.md` | décision d'architecture du pair local (bureau ↔ veille) : pourquoi A2A plutôt que `delegate_task`, périmètre du plugin |
+| `RAPPORT_*.md`, `INSTALL_LOG.md` | rapports de session et journal d'installation, commande par commande avec les résultats réels |
+| `snapshot/` | baselines et copies de référence : `baseline_T0.json`, `config.yaml`, `config.watch.yaml`, `config.veille.yaml`, scripts livrés, diffs, `git_log_*` |
+| `scripts/` | `baseline_t0.py` (mesure la référence), `scan_secrets_history.py` (scanne tout l'historique git d'un dépôt), `push-to-github.md` (publication) |
 
----
+## Notes de fusion
 
-## Documents clés
+- **Les 10 fichiers `skills/` de l'ancien dépôt de documentation n'ont pas été repris** : c'étaient
+  des copies figées de skills vivants (`hermes-memory`, `omniroute-gateway`, `veille-2-agent`,
+  `auto-revision-skills`…), en retard sur la version servie par le runtime. Elles restent
+  consultables dans l'historique de l'ancien dépôt, dont un backup complet est conservé hors dépôt
+  (`Desktop\hermes_install_GIT_BACKUP_20260917_170506_AVANT_PURGE`). Les réintroduire ici
+  dupliquerait des skills actifs — ne pas le faire.
+- **Trace d'une fuite purgée** : `snapshot/env.pre_update.redacted` est un **placeholder** (aucune
+  valeur). L'original contenait un jeton Telegram actif et des clés API ; le blob et les autres
+  fichiers sensibles du même dépôt (`snapshot/.env`, `snapshot/state.db`, copies `.env`) ont été
+  retirés de **tout l'historique** par `git filter-repo` avant la fusion. Détail en
+  `ARCHITECTURE_HERMES.md` §4 et dans le README racine §8.
+- Le contrôle est reproductible : `python scripts/scan_secrets_history.py --repo ..`
+  (0 occurrence attendue sur les 6 motifs : jeton Telegram, clé Google, `sk-`, `ghp_`, `hf_`, PEM).
 
-| Document | Contenu |
-|---|---|
-| `ARCHITECTURE_HERMES.md` | architecture des 3 profils, scripts source de vérité, tâches planifiées, points de fuite connus, dette A2A (11 points), points ouverts (§7) et mode observation 24 h (§10) |
-| `A2A_PREPARATION.md` | procédure complète d'activation A2A : état mesuré, checklist des 11 points, blocs `a2a_agents`, clés de config, commandes uniques, rollback, points d'attention |
-| `architecture_2_agents.md` | décision d'architecture (pair local bureau ↔ veille), why A2A plutôt que `delegate_task`, périmètre du plugin |
-| `RAPPORT_PREREQUIS_VEILLE_2026-09-17.md` | rapport de session : mise en place du profil `veille`, prérequis et écarts |
-| `RAPPORT_CHANTIERS_A2A_2026-09-17.md` | rapport de session : chantiers A2A (préparation, script, dette) |
-| `RAPPORT_INSTALLATION.md`, `INSTALL_LOG.md` | journal d'installation détaillé, commande par commande, avec les résultats réels |
-| `snapshot\` | baselines et copies de référence : `baseline_T0.json`, `config.yaml`, `config.watch.yaml`, `config.veille.yaml`, scripts livrés, diffs des scripts modifiés, `git_log_*` |
-| `profil_veille.md`, `ARBITRAGE_SKILLS_*.md`, `historique_qualite.md` | documents de travail du parc |
-| `scripts\` | `baseline_t0.py` (mesure la baseline), `bootstrap.ps1` (restaure une machine vierge), `restore-from-github.md`, `push-to-github.md` |
+## Règle
 
----
-
-## Comment utiliser ce dépôt
-
-**Ce n'est pas un dépôt à cloner sur une nouvelle machine pour réinstaller Hermes.** C'est la
-documentation de l'installation existante.
-
-Pour réinstaller ailleurs :
-
-```powershell
-cd $env:TEMP
-git clone https://github.com/<ton-user>/hermes-install.git
-cd hermes-install
-.\scripts\bootstrap.ps1 -RepoUrl https://github.com/<ton-user>/hermes-home.git
-```
-
-Le bootstrap installe Hermes, pose la configuration du dépôt principal, crée les `.env` vides,
-recrée les tâches planifiées, démarre les services et dit précisément ce qui reste à faire à la main
-(bots Telegram, clé OmniRoute, jeton SiYuan, bot). Détail pas-à-pas :
-`scripts\restore-from-github.md`. Publication des dépôts : `scripts\push-to-github.md`.
-
-### Ordre d'installation recommandé
-
-1. `iex (irm https://hermes-agent.nousresearch.com/install.ps1)` — crée `%LOCALAPPDATA%\hermes`.
-2. Poser la configuration du dépôt principal (`git init` + `fetch` + `checkout`, jamais `git clone`
-   dans un dossier non vide).
-3. Créer les `.env` depuis les `.env.example`, puis les remplir.
-4. Recréer les tâches planifiées et démarrer les services (`bootstrap.ps1`).
-5. Vérifier (`verif_24h.ps1`, `hermes profile list`, `hermes doctor`).
-
-### Règle de sécurité
-
-Un dépôt **privé** n'est pas un coffre : ce qui y entre reste dans l'historique même après
-suppression. Avant tout passage en public, purger l'historique (`git filter-repo`, commande en
-`ARCHITECTURE_HERMES.md` §8) **et** considérer tout secret déjà poussé comme compromis — donc le
-révoquer.
+Rien qui doive rester hors dépôt ne va ici : ce dossier est **versionné**. Les `.env`, les `state.db`
+et les sauvegardes de secrets sont exclus par `docs/.gitignore`, mais un fichier de secret ne doit pas
+être créé ici « pour plus tard » — il finirait dans un commit.

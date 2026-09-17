@@ -161,6 +161,26 @@ les modeles sont casses alors que c'est la cle de la connexion :
 Un modele du catalogue sans connexion pour son prefixe n'est pas « a tester » : verifier d'abord
 `GET /api/providers`.
 
+### Taille du pool de comptes : la vraie limite des routes gratuites
+
+Le log écrit `gemini | all N active accounts cooling down for model <m> (reset after Ns)` : le routeur
+gère un **pool de comptes par provider** et fait tourner les credentials, donc **un pool de 1 compte
+n'a aucune rotation possible** pendant le cooldown — la cible est écartée et le combo retombe sur ses
+cibles 128 K (ou sur le payant). C'est ce qui rend une route gratuite « fiable sur petit prompt,
+abandonnée en session longue ».
+
+- **Diagnostiquer la taille du pool** : `grep -o "all [0-9]* active accounts cooling down" app.log |
+  sort | uniq -c` — le nombre annoncé est la taille **réelle** du pool. Ne pas la déduire du nombre de
+  connexions affichées par le dashboard : seule la ligne du log l'annonce.
+- **Élargir une route gratuite** : déclarer une **seconde connexion du même provider**, adossée à un
+  **AUTRE compte** du fournisseur (`POST /api/providers {"name":"<Prov> Account 2", "provider":
+  "<même providerId>", "authType":"apikey", "apiKey":"<clé du second compte>"}`). Une seconde clé du
+  **même** compte ne change rien : le quota est par compte, pas par clé.
+- **Valider par le log, pas par `/api/providers`** : `all 1 active accounts` → `all 2 active accounts`
+  est la seule preuve que la rotation survit à un cooldown (relire après un `429` réel).
+- **Aucun réglage du combo dans ce cas** : `eco` continue de pointer `gemini/<modèle>` ; c'est la
+  résolution de compte à l'intérieur du provider qui change, pas la liste des cibles.
+
 ## Fallback payant — canonique DeepSeek V4.1 Flash
 
 DeepSeek V4.1 Flash (552B MoE, 10/09/2026) — nom canonique `deepseek-flash` (version-less, futur-proof). `deepseek-v4-flash` n'est qu'un alias de compatibilite ; `deepseek-v4-pro` sera route vers Flash apres le 14/09/2026 12:00 Pekin. Toujours configurer `model: deepseek-flash` (pas l'alias) dans `fallback_providers` et dans l'alias `flash:` du config.yaml.
