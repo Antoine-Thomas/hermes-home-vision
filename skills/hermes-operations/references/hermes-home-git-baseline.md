@@ -51,6 +51,18 @@ git -C <chemin NATIF> remote -v                                            # auc
 - Correctif : `git rm --cached <fichier>` + motifs larges (`.env*`, `*.env`, `state.db*`), puis purge
   d'historique seulement si le depot a ete pousse ou copie ailleurs. Sans remote, le risque reste
   **local** (un zip du dossier suffit) : ca change l'urgence, pas le correctif du suivi.
+- **Aucun `.env` ne se versionne, sous aucune forme** — ni brut, ni `.avant_*`, ni `.bak`. Ce qui se
+  committe, c'est un **config redacte** produit exprès pour le depot (empreintes `sha256[:16]` a la
+  place des valeurs). Un motif generique ne suffit pas : nommer chaque chemin reellement present
+  (`snapshot/.env`, `snapshot/state.db*`, `backups/**/*.env*`, `**/*.db-wal`, `**/*.db-shm`) et
+  verifier le resultat par `git ls-files | grep -E '\.env|state\.db'` **vide**.
+- **Chiffrer la purge avant de la proposer, et ne pas la lancer d'office.** Le `.git/` d'un depot de
+  snapshot pese ce que pese son plus gros blob (ici ~80 Mo pour une copie de `state.db` de 192 Mo) :
+  le mesurer (`git count-objects -vH`) et le dire. Le cout reel n'est pas le disque mais la
+  **reecriture des SHA** : les identifiants de commit deja cites dans les rapports deviennent
+  invalides. Annoncer le nombre de commits touches, laisser l'operateur trancher, et si la decision
+  est de reporter, documenter la commande (`git filter-repo --path <f> --invert-paths`) comme
+  « disponible si le depot est un jour partage » plutot que de la garder en tete.
 - **`git -C` exige un chemin NATIF** (`C:/Users/...`) : un chemin MSYS `/c/Users/...` est refuse
   (`fatal: cannot change to ... No such file or directory`), ce qui fait conclure a tort « ce n'est pas
   un depot git » alors que `.git/` existe. Verifier avec `ls -la <dossier>/.git` avant de le declarer

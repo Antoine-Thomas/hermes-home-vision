@@ -64,9 +64,23 @@ Les seules routes gratuites vivantes sont Gemini (cle perso) et le proxy NIM loc
 `~/AppData/Local/hermes/scripts/probe_omniroute.py` (job `5c9dd16aaa37`) probe les
 modeles gratuits et maintient le combo `eco` (modele par defaut de Hermes).
 
-- Le script doit etre **additif** : il ajoute en tete les modeles nouvellement
-  vivants absents du combo et **ne retire jamais** un modele existant. Un modele
-  qui rate un probe est souvent juste rate-limite, pas mort.
+- Le script est **additif + elagage** : il ajoute en tete les modeles nouvellement vivants absents du
+  combo, et ne retire une cible qu'apres **N echecs consecutifs a code TERMINAL** (`401/402/403/404` =
+  acces ferme ou modele retire du catalogue). Un modele qui rate un probe est souvent juste rate-limite :
+  les echecs **transitoires** (`429` cooldown, `502/504`, timeout, `200` a contenu vide) n'incrementent
+  pas le compteur et ne le remettent pas a zero — **seul un succes remet le compteur a zero**. Reference :
+  `PRUNE_AFTER = 3`, etat persistant dans `data/omniroute/probe_omniroute_state.json` (hors depot git :
+  `data/` est ignore), donc les compteurs survivent entre deux passages horaires.
+- **Plancher obligatoire** : refuser tout elagage qui ferait descendre le combo sous `FLOOR_MODELS = 2`
+  cibles, et evaluer ce plancher sur la liste **fusionnee** (pas sur les seuls vivants du moment). Sans
+  ce garde-fou, un elagage agressif reproduit le scenario catastrophique decrit juste apres (combo reduit
+  a 1 cible -> tout le trafic part sur le fallback payant).
+- **Tester l'elagage sans attendre N heures** : relancer le script N fois de suite simule N ticks ; relire
+  ensuite `GET /api/combos` (nombre de cibles) et le fichier d'etat (compteurs par modele). **Ne pas
+  enchainer une rafale puis conclure sur un `503`** : plusieurs passes en quelques minutes saturent les
+  quotas gratuits et le combo repond `503 all targets were skipped by pre-dispatch filters` pendant
+  quelques minutes — re-sonder 2-3 min plus tard avant de declarer le combo casse. Cadence prevue :
+  1 passe/heure.
 - Interdit : reconstruire `eco` a partir des seuls modeles "vivants du moment".
   Si aucun ne passe le seuil (tous rate-limites), `eco` tombe a 1 modele, celui-ci
   echoue aussi et **tout le trafic Hermes part sur le fallback payant DeepSeek**.
@@ -176,6 +190,13 @@ Ne jamais scraper de tokens communautaires — violation ToS et meme pool deja e
 - Edit via Python line-by-line iteration instead: read lines, on a header line skip its indented block (lines starting `  -` or `    `), emit replacement. This is precise and leaves unrelated lines untouched.
 - ALWAYS back up `config.yaml` before touching it (rely on the auto-update `.bak.update_YYYYMMDD_HHMMSS` Hermes drops before updates). Restore is trivial when an edit nukes the file; the damaged file is otherwise unrecoverable by hand.
 - After editing, validate with `python -c "import yaml; c=yaml.safe_load(open('<path>',encoding='utf-8')); print(c['model']['default'], c['fallback_providers'])"` and confirm the file still has ~its original line count, not a few dozen.
+- **Preserver les fins de ligne** : lire et ecrire avec `newline=""` (ou en binaire). Un `open(...).read()`
+  en mode texte traduit CRLF -> LF et l'ecriture qui suit normalise **tout** le fichier : ~1 octet par
+  ligne en moins, ce qui ressemble a une perte de contenu (`wc -c` qui chute de plusieurs centaines
+  d'octets pour 3 lignes ajoutees) et fait perdre du temps en investigation. Comparer le contenu avec un
+  diff qui retire les CR (`diff <(sed 's/\r$//' avant) <(sed 's/\r$//' apres)`), et savoir que git
+  (autocrlf) stocke en LF et n'affichera pas la conversion : le controle honnete est le diff ligne a
+  ligne plus `python -c "import yaml; ..."`, pas la taille du fichier.
 - Default Hermes model lives at `model.default` (`auto/best-chat` = premium; `eco` = free) plus per-provider `default_model`. `fallback_providers: []` makes the setup 100% free.
 
 ## Relaunch watchdog — piege TIME_WAIT (no-op silencieux)
