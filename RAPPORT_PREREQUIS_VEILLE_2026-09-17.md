@@ -164,6 +164,101 @@ mais inutilisables.
 
 Aucune action n'a été effectuée : lecture seule. Décision opérateur requise.
 
+### DÉCISION OPÉRATEUR : option A retenue (relancer et durcir)
+
+#### 1a — Relance : FAIT
+
+| Contrôle | Avant | Après |
+|---|---|---|
+| Port 20200 | aucun listener | `127.0.0.1:20200 LISTENING` (PID 19300) |
+| `GET /health` | injoignable | `{"status":"ok"}` |
+| Process | 0 | 2 (25244 = shim venv, 19300 = serveur) |
+| Test OmniRoute `POST /api/providers/<id>/test` | — | `valid:true`, `latencyMs:113`, `testedAt 2026-09-17T10:15:19Z` |
+
+#### 1b — Durcissement de la tâche : FAIT
+
+Backup XML avant modification dans `data/nvidia/backups/` **et** `hermes_install/backups/taches/`,
+md5 identiques (`a632db4e…`). Un second backup est pris automatiquement par le script.
+
+| Champ | Avant | Après |
+|---|---|---|
+| `StartWhenAvailable` | `False` | **`True`** |
+| Déclencheur | `LogonTrigger` seul | `LogonTrigger` **conservé** (`StartBoundary` inchangé) **+ `Repetition`** |
+| Répétition | — | **`Interval = PT15M`**, `StopAtDurationEnd = true`, pas de `Duration` → répétition sans fin |
+| `MultipleInstancesPolicy` | `IgnoreNew` | `IgnoreNew` (inchangé) |
+| `ExecutionTimeLimit` | `PT72H` | `PT72H` (inchangé) |
+| Action | `wscript.exe nvidia-nim-launch.vbs` | identique |
+
+Script ré-exécutable livré : `data/nvidia/creer_tache_nim_proxy.ps1` (source de vérité de l'état
+cible, rejouable après incident). Test `Start-ScheduledTask` : `LastTaskResult=0`, le VBS idempotent
+n'a pas créé de doublon (1 seul listener, 1 seule instance).
+
+**Nuance importante** : `NextRunTime` reste vide après la modification. La répétition d'un
+déclencheur *logon* ne s'arme qu'à compter du prochain logon. Autrement dit le durcissement est
+correct mais **inerte jusqu'au prochain logon** : si le proxy meurt maintenant, il ne sera relancé
+qu'à la prochaine session utilisateur. Voir la proposition de correctif ci-dessous.
+
+#### 1d — Vérification end-to-end
+
+| Appel | Résultat |
+|---|---|
+| Direct proxy `POST /v1/chat/completions` (lightning) | **HTTP 200**, réponse NVIDIA réelle (9,6 s à froid, puis 12,0 s) |
+| Via OmniRoute `openai/nvidia/nemotron-3.5-lightning-30b-a3b` | **HTTP 200 en 1,42 s** |
+| Via OmniRoute `openai/nvidia/nemotron-3-super-120b-a12b` | **HTTP 200 en 0,66 s** |
+| Via OmniRoute `openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | **HTTP 200 en 2,21 s** |
+| `ECONNREFUSED 127.0.0.1:20200` depuis la relance (10:20Z) | **0** dans `proxy_logs`, **0** dans `call_logs` |
+
+#### Deux défauts distincts découverts en vérifiant (non corrigés)
+
+**Défaut 1 — le combo `nvidia-stack` est mal câblé.** Ses 3 modèles sont déclarés
+`"nvidia/nemotron-…"` avec `providerId: "openai"`. OmniRoute résout le provider par le *préfixe du
+nom de modèle*, pas par `providerId` : `nvidia/…` part vers un provider `nvidia` sans credentials →
+`401 No active credentials for provider: nvidia`, et appelé par le nom du combo → `502` avec un
+message imbriqué. Ce n'est **pas** le proxy : les mêmes modèles passent en `200` dès qu'on les
+appelle sous leur forme préfixée `openai/nvidia/…` (la forme que le proxy documente dans son
+en-tête). Correctif : préfixer les 3 entrées du combo par `openai/`.
+
+**Défaut 2 — le proxy est mono-thread et se bloque.** `nvidia-nim-proxy.py` instancie
+`HTTPServer` (mono-thread). Un appel abandonné en cours de route (exactement ce que fait OmniRoute
+quand sa deadline locale de 15 s expire) bloque le serveur : il cesse de répondre à **tout** le
+monde — `GET /health` reste sans réponse pendant ~30-60 s, la connexion traîne en `CLOSING`. Le
+process reste vivant et le port reste `LISTENING`, donc rien ne se voit. Reproduit en session :
+appel direct normal → `200`, puis appel client coupé à 1 s → `/health` muet, puis retour à la
+normale après la fin de l'appel amont. `resilienceSettings.requestQueue.maxWaitMs=15000` côté
+OmniRoute (réglage local, pas un timeout amont) rend ce scénario fréquent : les premiers appels à
+un modèle Nemotron durent 9-12 s à froid.
+
+Ces deux défauts sont **hors du périmètre initial des 4 phases** : soumis à décision.
+
+#### 1c — Observabilité : proposition soumise, NON écrite
+
+Le script `nvidia-nim-proxy.py` **n'accepte aucun paramètre de log** : `argparse` n'expose que
+`--port` et `--host`. Il écrit sur `stdout` (`[PROXY] …`, `[NIM Proxy] Listening…`) avec
+`flush=True`. Fenêtre masquée par le VBS → sortie perdue, d'où 4 jours d'invisibilité.
+
+Proposition : modification minimale du **VBS** (une ligne de redirect, aucune modification du
+Python). Nouveau `nvidia-nim-launch.vbs` :
+
+```vbs
+' NVIDIA NIM proxy auto-launch for Hermes — hidden window (no console flash)
+Option Explicit
+Dim sh, rc, py, script, logPath
+Set sh = CreateObject("WScript.Shell")
+py      = "C:\Users\searc\AppData\Local\hermes\hermes-agent\venv\Scripts\python.exe"
+script  = "C:\Users\searc\AppData\Local\hermes\data\nvidia\nvidia-nim-proxy.py"
+logPath = "C:\Users\searc\AppData\Local\hermes\data\nvidia\proxy.log"
+' Idempotent: if port 20200 is already listening, do nothing.
+rc = sh.Run("cmd /c netstat -an | findstr /r "":20200 "" >nul", 0, True)
+If rc = 0 Then WScript.Quit 0
+' Launch detached, hidden, stdout+stderr appended to proxy.log
+sh.Run "cmd /c """"" & py & """ """ & script & """ >> """ & logPath & """ 2>&1""", 0, False
+```
+
+La commande générée est exactement :
+`cmd /c ""…python.exe" "…nvidia-nim-proxy.py" >> "…proxy.log" 2>&1"` — vérifiable, les variables ne
+changent que la lisibilité. Le log s'accumule sans rotation (à borner plus tard si besoin).
+
+
 
 ## Phase 2 — Cohérence Hermes_Gateway_watch
 
