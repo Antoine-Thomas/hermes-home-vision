@@ -157,6 +157,12 @@ cd "$LOCALAPPDATA/hermes" && git log --oneline -5 && git status --short
 6. Le scanner de secrets (`data\rag\scan_secrets.py`) **n'a pas de mode export/redaction** : `snapshot\config.yaml.redacted` ne peut pas être régénéré proprement — à implémenter ou à abandonner volontairement.
 7. **A2A : préparé, NON activé (17/09)** — `scripts\activer_a2a.ps1` est désormais paramétrable (`-LocalProfile`/`-LocalPort`/`-Profile`/`-Port`/`-PeerToken`/`-WriteEnvKeys`) et affiche le diff avant écriture ; `desactiver_a2a.ps1` est symétrique ; les deux passent `-SelfTest` sans toucher au `config.yaml` (md5 identique). Jetons par paire **générés mais non posés** (`%TEMP%\a2a_tokens_*.txt`, empreintes seules : bureau `9885f0a0ee963974`, veille `394117de841c207f`). `a2a_agents` **non déclaré**, plugin off, 9900/9901 muets, 0 clé `A2A_*`. Procédure complète et checklist : `A2A_PREPARATION.md`. **Correction à retenir** : `a2a_agents` est une **table indexée par nom de pair**, pas une liste `- name:` (vérifié dans `plugins/platforms/a2a/tools.py`).
 8. **Observation 24 h en cours** → voir §10. La décision d'activer A2A ou non se prend **après** cette fenêtre.
+9. **Le serveur RAG (8200) n'a AUCUN lanceur** : aucune tâche planifiée, aucun script du parc ne référence
+   `data\rag\serveur_rag.py` (vérifié le 17/09 : seul le fichier lui-même contient ce nom). Il tourne
+   aujourd'hui parce qu'il a été démarré à la main (PID constaté) — **après un redémarrage, le RAG ne
+   revient pas** et `verif_24h.ps1` le signalera (`/sante` injoignable). À trancher : créer un lanceur
+   silencieux + tâche `StartWhenAvailable` avec répétition (même modèle que `Hermes_NVIDIA_NIM_Proxy`),
+   ou assumer le démarrage manuel. Non corrigé ici : c'est une décision de parc, pas un nettoyage.
 
 ### 7.1 Piste 2ᵉ clé Google — procédure (documentation seule, aucune action effectuée)
 
