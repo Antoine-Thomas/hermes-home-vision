@@ -1,7 +1,7 @@
 # Journal d'installation — 15/09/2026
 
 Machine : Windows 11 Pro build 26200, i7-8700 (6c/12t), 63,9 Go RAM, RTX 3070 Ti 8 Go (driver 616.56)
-Dossier de travail : C:\Users\searc\Desktop\hermes_install
+Dossier de travail : C:\Users\searc\docs
 
 Chaque commande ci-dessous a été exécutée réellement ; les résultats sont ceux renvoyés par la machine.
 
@@ -148,7 +148,7 @@ l'ordre de 0,1 à 1 token/s pour un modèle 70B+, sans bénéfice face à OmniRo
 - `CHEATSHEET.md` : commandes des trois branches vidéo + WP-CLI + Hermes + LTX-2.
 - `RAPPORT_INSTALLATION.md` : état initial, actions, versions, blocages, recommandations.
 - `snapshot/versions.txt` et `snapshot/config.yaml.redacted` (valeurs sensibles masquées).
-- Snapshot commité dans le dépôt git local (`C:\Users\searc\Desktop\hermes_install`)
+- Snapshot commité dans le dépôt git local (`C:\Users\searc\docs`)
   après chaque étape validée.
 
 ## Étape 4 bis — Connecteur téléchargé (autorisé le 15/09)

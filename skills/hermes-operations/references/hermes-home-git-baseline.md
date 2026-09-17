@@ -37,7 +37,7 @@ volumineuses ou sensibles, donc c'est le `.gitignore` qui porte la politique.
 
 ### 2 bis. Auditer un depot de snapshot DEJA existant
 
-Un depot de sauvegarde vit a cote de la config (ici `Desktop\hermes_install`). Y committer du neuf
+Un depot de sauvegarde vit a cote de la config (ici `docs`). Y committer du neuf
 n'autorise pas a le croire propre : **l'ensemble suivi est la seule verite**, pas son `.gitignore`.
 
 ```bash

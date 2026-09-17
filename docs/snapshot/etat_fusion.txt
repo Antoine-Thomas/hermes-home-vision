@@ -1,0 +1,43 @@
+=== arborescence de 1er niveau ===
+.env.example
+.gitattributes
+.gitignore
+.npm_lock_hash_0c4e5b5c1eb6
+.restart_last_processed.json
+.update_check
+README.md
+SOUL.md
+combos_backup_20260908_175625.json
+config.yaml
+config.yaml.bak_nemotron
+config.yaml.bak_pre_disable
+context_length_cache.yaml
+cron
+desktop-build-stamp.json
+docs
+eco3_raw.txt
+eco_resp.json
+gateway-service
+head_animation_config.yaml
+hermes_install
+install_id
+lsp
+memories
+node
+omniroute-launch.cmd
+omniroute-launch.cmd.bak_20260916_2210
+omniroute-launch.vbs
+omniroute-launch.vbs.bak_20260916_2210
+profiles
+recovery_runbook.md
+restart_gateway.cmd
+restart_gateway.ps1
+scripts
+skills
+web-ui-build-stamp.json
+
+=== volumetrie ===
+commits : 110
+fichiers suivis : 2513
+docs/ : 166 fichiers
+5,1M	.git

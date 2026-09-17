@@ -32,8 +32,8 @@ active. Le gate réel des outils sortants est `a2a_agents` non vide **ou** `A2A_
 | Script de rollback symétrique | `%LOCALAPPDATA%\hermes\scripts\desactiver_a2a.ps1` (264 lignes) | `-SelfTest` → `exit=0`, mêmes contrôles (`snapshot\desactiver_a2a_diff.txt`, +119/-51) |
 | Sauvegardes avant modification | `%LOCALAPPDATA%\hermes\backups\chantier_triple_p2a_20260917_162652\` | contient les deux scripts d'origine + `config.yaml.bureau.avant` + `md5_config_avant.txt` |
 | Jetons par pair (générés, **non posés**) | `%TEMP%\a2a_tokens_20260917_162721.txt` (559 o, à supprimer après pose) | `bureau` — len 54, sha256[:16] `9885f0a0ee963974` · `veille` — len 54, sha256[:16] `394117de841c207f` |
-| Architecture A2A | `Desktop\hermes_install\architecture_2_agents.md` | document de préparation, 8 sections |
-| Dette A2A en 11 points | `Desktop\hermes_install\ARCHITECTURE_HERMES.md` §5 | état vérifié |
+| Architecture A2A | `docs\architecture_2_agents.md` | document de préparation, 8 sections |
+| Dette A2A en 11 points | `docs\ARCHITECTURE_HERMES.md` §5 | état vérifié |
 
 Le script accepte désormais : `-Profile` (pair), `-Port` (port du pair), `-PeerToken`, `-LocalProfile`,
 `-LocalPort`, `-PeerCaps`, `-WriteEnvKeys`, plus `-Force`, `-SelfTest`, `-SkipGateway`, `-ConfigPath`.

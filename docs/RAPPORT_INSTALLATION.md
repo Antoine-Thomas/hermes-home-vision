@@ -24,7 +24,7 @@ D: HDD 7,4 To (2 317 Go libres), F: SSD 894 Go (150 libres), H: SSD 224 Go (180 
    `local-flywheel-setup`, `wordpress-site-management`, `wp-cli-automation`,
    `wordpress-backup-restore`, `wordpress-deployment`. Frontmatter vérifié, skills
    découverts par Hermes.
-3. **Snapshot de configuration versionné** dans `C:\Users\searc\Desktop\hermes_install` :
+3. **Snapshot de configuration versionné** dans `C:\Users\searc\docs` :
    `snapshot/versions.txt`, `snapshot/config.yaml.redacted` (2 valeurs sensibles masquées —
    aucune clé n'est copiée en clair dans le dépôt), dépôt git local initialisé.
 4. **Documentation** : `INSTALL_LOG.md`, `CHEATSHEET.md`, ce rapport.

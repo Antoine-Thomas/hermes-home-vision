@@ -8,8 +8,8 @@ Date : 2026-09-17 · Hermes v0.21.3 (2026.9.14), upstream 97962358 · A2A **non 
 
 | Chantier | Livrable | Emplacement | Commit |
 |---|---|---|---|
-| 1 | Architecture 2 agents | `Desktop\hermes_install\architecture_2_agents.md` | `50fc1ba` |
-| 2 | Profil `veille` créé + documenté, non activé | `profiles\veille\` + `Desktop\hermes_install\profil_veille.md` | `f37a1f4` |
+| 1 | Architecture 2 agents | `docs\architecture_2_agents.md` | `50fc1ba` |
+| 2 | Profil `veille` créé + documenté, non activé | `profiles\veille\` + `docs\profil_veille.md` | `f37a1f4` |
 | 3 | Skill de veille | `skills\research\veille-2-agent\SKILL.md` (copie versionnée : `skills/veille-2-agent/`) | `c2041ab` |
 | 4 | Cas d'usage A2A stratégiques | `skills\hermes-operations\SKILL.md` § « A2A — cas d'usage stratégiques » (copie versionnée : `skills/hermes-operations/`) | `e743382` |
 | — | Rapport | ce fichier | — |

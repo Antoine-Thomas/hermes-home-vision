@@ -173,7 +173,7 @@ Register-ScheduledTask -TaskName '<nom>' -Action $action -Trigger $trigger -Sett
 
 ### Snapshot git de la config (`Desktop/hermes_install`)
 
-La copie versionnée du config live est `Desktop\hermes_install\snapshot\config.yaml` — il n'y a
+La copie versionnée du config live est `docs\snapshot\config.yaml` — il n'y a
 **pas** de `hermes_install\config.yaml` à la racine du dépôt. « Resynchroniser
 hermes_install/config.yaml » désigne donc ce fichier-là : le dire avant d'agir, plutôt que de
 supposer que la racine contient la copie.

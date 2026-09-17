@@ -1,11 +1,14 @@
-# Publier les deux dépôts sur GitHub (privé)
+# Publier le dépôt sur GitHub (privé)
 
-Deux dépôts, deux rôles :
+**Un seul dépôt désormais** : `hermes-home-vision`
+(`https://github.com/Antoine-Thomas/hermes-home-vision`). Il contient le runtime Hermes à la racine
+**et** sa documentation sous `docs/` — la fusion des deux anciens dépôts a eu lieu le 17/09/2026
+(historique préservé, secret purgé).
 
-| Dépôt local | Nom GitHub proposé | Contenu |
+| Élément local | Où | Contenu |
 |---|---|---|
-| `%LOCALAPPDATA%\hermes` | `hermes-home` | configuration vivante : `config.yaml`, `skills/`, `profiles/`, `scripts/`, `cron/`, `memories/` |
-| `%USERPROFILE%\Desktop\hermes_install` | `hermes-install` | documentation, rapports, snapshots, scripts d'installation |
+| Runtime | `%LOCALAPPDATA%\hermes` (racine) | `config.yaml`, `skills/`, `profiles/`, `scripts/`, `cron/`, `memories/`, `gateway-service/` |
+| Documentation | `%LOCALAPPDATA%\hermes\docs\` | rapports, architecture, snapshots, scripts d'installation |
 
 **Rien de tout ceci n'est automatique : ce guide s'exécute à la main, dans PowerShell.**
 
@@ -14,93 +17,124 @@ Deux dépôts, deux rôles :
 ## 0. Avant tout push — contrôles bloquants
 
 ```powershell
-# 1) aucun fichier de secret suivi (les .env.example sont des MODELES, sans valeur)
 cd $env:LOCALAPPDATA\hermes
-git ls-files | Select-String -Pattern '\.env|state\.db|auth\.json|\.pem$|\.key$' | Select-String -NotMatch '\.example$'
-cd $env:USERPROFILE\Desktop\hermes_install
+
+# 1) aucun fichier de secret suivi (les .env.example sont des MODELES, sans valeur)
 git ls-files | Select-String -Pattern '\.env|state\.db|auth\.json|\.pem$|\.key$' | Select-String -NotMatch '\.example$'
 # attendu : AUCUNE ligne
 
-# 2) aucun motif de secret dans le CONTENU des fichiers suivis (doit etre vide)
-cd $env:LOCALAPPDATA\hermes
-git grep -I -n -E '[0-9]{8,12}:[A-Za-z0-9_-]{30,40}|AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{36}|hf_[A-Za-z0-9]{30,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'
-cd $env:USERPROFILE\Desktop\hermes_install
-git grep -I -n -E '[0-9]{8,12}:[A-Za-z0-9_-]{30,40}|AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{36}|hf_[A-Za-z0-9]{30,}|-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----'
+# 2) aucun secret dans TOUT l'historique (pas seulement HEAD) — c'est le controle qui compte
+python docs\scripts\scan_secrets_history.py --repo .
+# attendu : "aucune valeur de secret reelle dans l'historique" (les placeholders sont signales a part)
 
 # 3) aucun fichier suivi de plus de 50 Mo
 git ls-files | ForEach-Object { if ((Test-Path $_) -and ((Get-Item $_).Length -gt 50MB)) { $_ } }
+
+# 4) arbre propre (sinon figer la derive du runtime en un commit avant de pousser)
+git status --short
 ```
 
-> **Si un secret apparaît : ne pas pusher.** Le neutraliser dans le fichier, commiter la correction,
-> **révoquer le secret aupres du fournisseur** (BotFather `/revoke`, régénération de clé…), et
-> seulement ensuite publier. Supprimer la ligne ne suffit pas : le blob reste dans les commits
-> précédents.
+> **Si un secret apparaît : ne pas pusher.** Le retirer du fichier **et le purger de l'historique**
+> (`git filter-repo`, cf. §5), puis révoquer le secret auprès du fournisseur. Supprimer la ligne ne
+> suffit jamais : le blob reste dans les commits précédents et `git clone` le ramène.
 
 ---
 
-## 1. Créer les deux dépôts privés
+## 1. Le dépôt existe-t-il ?
 
 ```powershell
-gh auth status                      # doit afficher un compte connecte
-gh repo create hermes-home    --private --description "Hermes Agent - configuration personnelle (3 profils, skills, scripts)"
-gh repo create hermes-install --private --description "Hermes Agent - documentation, rapports et scripts d'installation"
+gh api repos/Antoine-Thomas/hermes-home-vision --jq '"\(.name) private=\(.private) size=\(.size)"'
 ```
 
-Variante sans `gh` : créer les deux dépôts à la main sur <https://github.com/new>
-(**Private**, sans README ni .gitignore, pour ne pas créer de commit divergent).
-
-> Un dépôt privé reste un dépôt : l'historique conserve tout ce qui y a été poussé. Ne jamais passer
-> l'un des deux en public sans purge d'historique (`git filter-repo`, commande dans
-> `ARCHITECTURE_HERMES.md` §8) **et** sans considérer comme compromis tout secret déjà poussé.
+- `404 Not Found` alors que le dépôt existe dans le navigateur → **problème de portée du jeton**, voir §2.
+- `size > 0` → le dépôt contient déjà quelque chose (un README créé à la main, par exemple) : un
+  `push` sera refusé en non-fast-forward. Le vider ou cloner puis fusionner avant de pousser.
+- Créer le dépôt à la main : <https://github.com/new> → nom `hermes-home-vision`, **Private**,
+  ne cocher **ni** README **ni** .gitignore **ni** licence (sinon un commit divergent apparaît).
 
 ---
 
-## 2. Pousser `hermes-home`
+## 2. Si le jeton ne voit pas le dépôt (cas rencontré le 17/09)
+
+Symptôme : `gh repo list` ne montre que des dépôts **publics** et `gh api repos/.../hermes-home-vision`
+répond `404`. `gh auth status` indique un `github_pat_…` (jeton **fine-grained**).
+
+Cause : un PAT fine-grained n'a accès qu'aux dépôts listés dans sa portée. Un dépôt privé créé après
+la génération du jeton n'y figure pas — il est donc invisible **et** imprenable en écriture (403 au
+`push`).
+
+Deux sorties, par ordre de simplicité :
+
+1. **Éditer le jeton existant** (30 s, aucun risque) — Settings → *Developer settings* →
+   *Personal access tokens* → *Fine-grained tokens* → le jeton → **Repository access** : ajouter
+   `hermes-home-vision` (ou choisir *All repositories*) ; **Permissions** : `Contents: Read and write`
+   (et `Administration: Read` si on veut lister/configurer). Enregistrer.
+2. **Se reconnecter avec un jeton classique** ayant la portée `repo` :
+   ```powershell
+   gh auth login --scopes repo
+   ```
+
+Vérification après correction :
+```powershell
+gh api repos/Antoine-Thomas/hermes-home-vision --jq '.private, .size'   # true, 0
+```
+
+---
+
+## 3. Pousser
 
 ```powershell
 cd $env:LOCALAPPDATA\hermes
-git branch -M main                       # les depots locaux sont sur 'master' ; renommer si vous visez 'main'
-git remote add origin https://github.com/<ton-user>/hermes-home.git
+git branch -M main                       # le depot local est sur 'master' ; le README documente 'main'
+git remote add origin https://github.com/Antoine-Thomas/hermes-home-vision.git
 git push -u origin main
 ```
 
-Sans renommage, pousser la branche existante : `git push -u origin master`.
+Sans renommage, pousser la branche existante : `git push -u origin master` — mais alors adapter le
+`git fetch --depth 1 origin main` des instructions d'installation du README.
 
-## 3. Pousser `hermes-install`
-
-```powershell
-cd $env:USERPROFILE\Desktop\hermes_install
-git branch -M main
-git remote add origin https://github.com/<ton-user>/hermes-install.git
-git push -u origin main
-```
+Durée : quelques secondes. Après la purge, le dépôt pèse **~5 Mo** (`.git`), pas 80.
 
 ---
 
 ## 4. Vérifications après le premier push
 
 ```powershell
-gh repo view <ton-user>/hermes-home --json visibility,name,defaultBranchRef
-git ls-remote --heads origin             # la branche attendue est en tete
+gh repo view Antoine-Thomas/hermes-home-vision --json visibility,name,defaultBranchRef
+git ls-remote --heads origin              # 'main' en tete, bon SHA
+git ls-files | Measure-Object -Line       # nombre de fichiers pousses, a comparer au local
 ```
 
-Puis, dans l'interface GitHub : parcourir l'onglet **Code** et confirmer visuellement qu'aucun
-fichier `.env`, `.db`, `auth.json` ou rapport sensible n'est présent.
+Puis dans l'interface GitHub : onglet **Code** — vérifier la présence de `README.md`, `config.yaml`,
+`profiles/`, `skills/`, `scripts/` **et** `docs/` ; confirmer visuellement qu'aucun `.env`, `.db` ou
+`auth.json` n'apparaît.
+
+Contrôle de l'historique en ligne : l'onglet **Commits** doit montrer les deux lignées (le commit de
+fusion « fusion depots A+B (historique preserve, secret purge) »).
 
 ---
 
 ## 5. Notes d'exploitation
 
-- **Taille poussée** : `hermes-home` ≈ 4 Mo de `.git` ; `hermes-install` ≈ 80 Mo de `.git` — ce
-  volume vient de blobs anciens dé-suivis (`snapshot/state.db` de 192 Mo compressé) encore présents
-  dans l'historique. Ils sont **retirables** par purge d'historique si la taille gêne, au prix d'un
-  changement de tous les SHA (traçabilité des rapports).
-- **Fins de ligne** : `.gitattributes` est en place dans les deux dépôts (`* text=auto eol=lf`,
-  `*.ps1/*.cmd/*.bat` en `crlf`). Si `git status` signale des fichiers modifiés juste après l'ajout,
-  c'est la renormalisation : la traiter une fois (`git add --renormalize .`) dans un commit dédié
-  plutôt que de la laisser traîner.
-- **Après un `git pull` sur la machine de travail** : relire `git status` avant de relancer une
-  session — les fichiers de runtime (`.env`, `config.yaml`) ne sont pas dans le dépôt, donc un
-  `checkout` ne les touche pas ; en revanche `skills/` et `scripts/` le sont.
+- **Purge d'historique (déjà faite une fois, à savoir refaire)** : retirer un chemin de *tout*
+  l'historique, puis vérifier par re-scan :
+  ```powershell
+  git filter-repo --force --invert-paths --path <chemin>
+  python docs\scripts\scan_secrets_history.py --repo .
+  ```
+  Une purge **change tous les SHA** ; les identifiants de commit cités dans les rapports deviennent
+  des références historiques, pas des adresses.
+- **Fins de ligne** : `.gitattributes` est unique, à la racine (`* text=auto eol=lf`, `*.ps1/*.cmd/*.bat`
+  en `crlf`). Si `git status` signale des fichiers modifiés juste après, c'est la renormalisation :
+  la traiter une fois (`git add --renormalize .`) dans un commit dédié.
+- **Le runtime dérive en permanence** (`skills/.usage.json`, `cron/jobs.json`, `cron/usage_audit.jsonl`
+  sont réécrits par le gateway). Un `git status` non vide n'est pas une anomalie : figer en un commit
+  avant de pousser.
 - **Ne pas commiter** : `hermes-agent/` (dépôt upstream imbriqué), `data/`, `logs/`, `cache/`,
-  `state.db*`, les `.env` réels, `auth.json`, `pastes/`, `mcp-tokens/`.
+  `state.db*`, les `.env` réels, `auth.json`, `pastes/`, `mcp-tokens/`, `whatsapp/`, `pairing/`.
+- **Un dépôt privé n'est pas un coffre** : ne jamais le passer en public sans re-scan complet de
+  l'historique (`scan_secrets_history.py`) et sans considérer comme compromis tout secret déjà poussé.
+- **Sauvegardes conservées hors dépôt après la fusion** :
+  `Desktop\hermes_install_GIT_BACKUP_20260917_170506_AVANT_PURGE` (état **avant** purge, 80 Mo, contient
+  les anciens blobs — à garder hors de tout dépôt) et
+  `Desktop\hermes_install.archive` (l'ancien dépôt de documentation, dé-suivi de son rôle).

@@ -70,7 +70,7 @@ SK="%LOCALAPPDATA%\hermes\skills\productivity\auto-revision-skills\scripts\inven
 
 python "%SK%" --etat                                   # ou en est le declencheur
 python "%SK%"                                          # rapport du jour
-python "%SK%" --sortie "C:\Users\searc\Desktop\hermes_install\rapport_revision.md"
+python "%SK%" --sortie "C:\Users\searc\docs\rapport_revision.md"
 
 # appliquer une proposition, seulement apres validation
 hermes curator archive <nom-du-skill>

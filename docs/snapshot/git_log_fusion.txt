@@ -1,0 +1,30 @@
+ddd080f runtime: Fig compteurs d'usage et skills patches apres fusion
+83dd259 fusion: documentation rangee sous docs/ (164 fichiers + README/.gitignore de la doc), copies perimees de skills/ retirees, dossier parasite hermes_install/ retire du suivi
+2465f3f fusion depots A+B (historique preserve, secret purge)
+964db79 docs: trace du fichier purge (placeholder, 0 secret)
+b04fa35 scripts: scanner de secrets d'historique (tout objet du depot, pas seulement HEAD) - outil de controle avant push
+105dd94 cron: compteurs et audit d'usage figes avant fusion
+d0881c5 skills: reparation du paragraphe schtasks/MSYS (hermes-operations) + references git-baseline + compteurs d'usage - arbre propre avant fusion
+28343c6 ARCHITECTURE SS7.9 : le serveur RAG 8200 n'a aucun lanceur (ni tache, ni script) - perdu a chaque redemarrage, a trancher
+06c41e3 Phase 5 : snapshot final (git logs, listes de fichiers suivis, tailles .git des 2 depots) + ARCHITECTURE SS4 : fuite du jeton Telegram documentee (neutralisee, rotation requise avant push)
+9c12c05 gitignore: etat du curateur (.curator_state) - regeneré a chaque revue, hors depot
+bf76d80 gitignore: sauvegardes locales du .gitignore hors suivi
+c7eb694 skills + etat runtime : lecons elagage eco (omniroute-gateway), versionnement du home (hermes-home-git-baseline), compteurs cron/skills a jour - arbre propre avant publication
+4b96271 docs: README (role du depot, documents cles, ordre d'installation) + guide push-to-github (2 depots prives, controles bloquants, notes de purge) + .gitattributes + .gitignore defensif - aucun secret versionne
+c94765c docs: README d'installation + 3 .env.example (noms de variables seuls) + .gitattributes (fins de ligne) + .gitignore (exceptions !.env.example) - aucun secret versionne
+e43e7fe snapshot : skills mis a jour apres le chantier (lecons windows-path-handling + hermes-operations)
+eab4f8e skills : lecons du chantier triple (windows-path-handling: ecriture en mode texte = fins de ligne reecrites, $"\r$" non fiable, octet de controle apres insertion de chemin ; hermes-operations: battement horaire du healthcheck + piege du marqueur d'idempotence non reporte + a2a_agents est une table, scripts A2A parametres)
+92a05be scripts : activer/desactiver_a2a parametres par profil et port (diff avant ecriture, SelfTest vert), healthcheck avec battement horaire, nouveau verif_24h.ps1 (rapport T+24h vs baseline T0)
+8fcec4d Phase 3 (observation 24h) : healthcheck avec battement horaire (1 ligne/heure, etat preserve entre ticks), verif_24h.ps1 (teste sur baseline synthetique, non lance sur le vrai T0), ARCHITECTURE_HERMES.md SS2/SS7/SS9/SS10 (mode observation + criteres), snapshot final (configs + scripts + diffs + git log)
+feb98db veille-2-agent (2 copies) : verification obligatoire du premier run automatique de lundi 08h00 (document SiYuan, livraison Telegram, duree du run)
+4f7aa26 Phase 2 (preparation A2A, non activee) : activer_a2a.ps1 parametre (-Profile/-Port/-PeerToken/-LocalProfile/-LocalPort/-WriteEnvKeys) + diff avant ecriture, desactiver_a2a.ps1 rendu symetrique, SelfTest des deux = ok (md5 config.yaml inchange), jetons par paire generes (empreintes seules), A2A_PREPARATION.md (correction: a2a_agents est une table indexee par nom, pas une liste)
+b813fd5 Phase 1 (consolidation) : EMAIL_PASSWORD partage tranche -> option A (6 lignes EMAIL_* retirees de profiles/watch/.env, gateway watch redemarre = 1 plateforme, hermes profile list muet) ; SS7.1 piste 2e cle Google documentee (preuve: 'all 1 active accounts cooling down' dans app.log) ; baseline T0 mesuree (scripts/baseline_t0.py -> snapshot/baseline_T0.json)
+263b15f eco: elagage des cibles mortes (3 echecs terminaux consecutifs, plancher 2 cibles); veille: repli gratuit concret (nemotron-super); watch: jeton bureau retire du .env
+53431a8 ARCHITECTURE_HERMES.md + snapshot : decisions du 17/09 (eco option A appliquee, veille corrigee, watch .env nettoye, purge reportee)
+a1d0d7b profil watch: cle OmniRoute dediee hermes_watch, modele nvidia-stack, repli gratuit (nemotron-super -> auto/best-free -> deepseek)
+003c5b3 Snapshot final 17/09 : config.yaml bureau + config.yaml watch (cle dediee, nvidia-stack, repli gratuit), git log/status, ARCHITECTURE_HERMES.md a jour (SS7 eco, SS8 depot externe, SS9 consolidation)
+8bc5a25 gitignore: retirer secrets et DB du suivi
+14dff96 ARCHITECTURE_HERMES.md : point de fuite du depot externe precise (.env et state.db suivis, aucun remote)
+6a71eb4 Snapshot 17/09 : config.yaml bureau (repli gratuit nvidia-stack avant DeepSeek), .gitignore du depot skills, git log, ARCHITECTURE_HERMES.md (3 profils, scripts, taches, fuites, dette A2A)
+c3e5223 skills: lecons du 17/09 (hermes-operations: execute_code en cron, artefacts doubles; siyuan: config IA par API, moveDocsByID)
+aac90d5 config bureau: repli gratuit nvidia-stack avant deepseek-flash

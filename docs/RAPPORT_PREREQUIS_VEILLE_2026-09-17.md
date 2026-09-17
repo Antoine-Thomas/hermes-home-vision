@@ -51,7 +51,7 @@ dépendance manquante (A2A volontairement désactivé).
 - Services : backend 9119 → HTTP 200 ✓ ; RAG 8200 → HTTP 404 sur `/` (serveur vivant) ✓ ;
   SiYuan 6806 → HTTP 401 (auth requise, service vivant) ✓ ; OmniRoute 20128 → HTTP 307 ✓.
 - `ESTOP` : absent ✓ (fonctionnement normal).
-- Dépôts git : `Desktop/hermes_install` propre ; `hermes-agent` propre (aucun diff = patch annulé,
+- Dépôts git : `docs/` propre ; `hermes-agent` propre (aucun diff = patch annulé,
   pas de patch à moitié appliqué).
 
 ### Observations hors périmètre (état trouvé, aucune action prise)

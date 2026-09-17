@@ -45,10 +45,10 @@ proxy NIM local `127.0.0.1:20200`, SiYuan `127.0.0.1:6806`, RAG `127.0.0.1:8200`
 | `scripts\desaturer_memoire.py` | désaturation hebdomadaire (tâche dimanche 04 h) | écriture contrôlée |
 | `scripts\check_gateways.ps1`, `audit_tasks.ps1`, `fix_monitoring.ps1` | santé des gateways, audit des tâches, veilleurs | lecture seule |
 | `scripts\verif_24h.ps1` | rapport T+24h : compare l'état courant à la baseline T0 (SiYuan, RAG, cron, ticks horaires du healthcheck, 3 gateways vivants, alertes, A2A OFF) → résumé + `snapshot\verif_24h_<date>.txt`, exit 1 si un contrôle est rouge | lecture seule (`-NoReport` pour ne rien écrire) |
-| `Desktop\hermes_install\scripts\baseline_t0.py` | produit `snapshot\baseline_T0.json` : l'état de référence mesuré (SiYuan, RAG, services, gateways, cron, healthcheck, A2A) | lecture seule |
+| `docs\scripts\baseline_t0.py` | produit `snapshot\baseline_T0.json` : l'état de référence mesuré (SiYuan, RAG, services, gateways, cron, healthcheck, A2A) | lecture seule |
 | `scripts\activer_a2a.ps1` / `desactiver_a2a.ps1` | activation / retour arrière A2A, **paramétrés par profil et par port** (`-LocalProfile`, `-LocalPort`, `-Profile`, `-Port`, `-PeerToken`, `-WriteEnvKeys`), avec affichage du diff avant écriture | `-SelfTest` valide add/remove sur une copie (md5 du config réel identique) sans rien toucher |
 | `scripts\hidden_SecurityMonitoring-*.vbs` | 4 veilleurs (alertes, log, ports, mises à jour) | service |
-| `Desktop\hermes_install\historique_qualite.py`, `rollback_update.ps1` | historique qualité, retour arrière de mise à jour | — |
+| `docs\historique_qualite.py`, `rollback_update.ps1` | historique qualité, retour arrière de mise à jour | — |
 
 ---
 
@@ -77,7 +77,7 @@ proxy NIM local `127.0.0.1:20200`, SiYuan `127.0.0.1:6806`, RAG `127.0.0.1:8200`
 |---|---|---|
 | `%LOCALAPPDATA%\hermes\auth.json` | jetons de plateformes et OAuth, **unique pour l'install** (pas de `auth.json` par profil) | exclu du dépôt ; à considérer comme partagé entre profils |
 | `profiles\watch\.env` | **nettoyé le 17/09** : jeton Telegram du bureau retiré, puis **bloc `EMAIL_*` (6 lignes) retiré** → plus aucun credential partagé avec `default`, `hermes profile list` n'avertit plus. Restent le jeton du bot propre (`8967117033`, `@Omaths2_watch_bot`) et la clé OmniRoute dédiée `hermes_watch`. En revanche `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`, `KIMI_API_KEY`, `NVIDIA_API_KEY_GEMMA4` et `WHATSAPP_*` restent **identiques à `default`** (mêmes comptes) : ce ne sont pas des identités de canal — la détection de collision ne les voit pas — mais ils partagent les mêmes budgets d'API | ok : plus d'identité de canal partagée ; la migration multiplex n'est plus refusée pour ce motif |
-| `Desktop\hermes_install` — dépôt git **externe** | **nettoyé le 17/09** : `snapshot\.env`, `snapshot\state.db` (192,1 Mo) et les copies `backups\veille\.env*` sont **dé-suivis** (`git rm --cached`) et exclus par motifs. Vérifié : plus aucun `.env` ni `state.db` suivi | les blobs subsistent dans `.git/` (80 Mo) : **purge d'historique non faite** → voir §8 |
+| `docs` — dépôt git **externe** | **nettoyé le 17/09** : `snapshot\.env`, `snapshot\state.db` (192,1 Mo) et les copies `backups\veille\.env*` sont **dé-suivis** (`git rm --cached`) et exclus par motifs. Vérifié : plus aucun `.env` ni `state.db` suivi | les blobs subsistent dans `.git/` (80 Mo) : **purge d'historique non faite** → voir §8 |
 | `cache\terminal\hermes-snap-*.sh` | snapshots du shell : le sandbox y déverse l'environnement du profil (`declare -x SIYUAN_TOKEN=…`) | renouvelé à chaque commande → toute passe de nettoyage doit inclure ce dossier |
 | `.hermes_history` | historique de saisie : un secret **collé** dans le chat y atterrit en clair, dans un fichier de blocs `# horodatage` + `+texte` | nettoyé aujourd'hui ; reste un point d'entrée à surveiller après chaque collage |
 | `state.db` (+ index FTS `messages_fts`, `messages_fts_trigram`) | conserve messages et **sorties d'outils** : un dump de config y recrée la fuite | nettoyé aujourd'hui (`UPDATE` + `rebuild`), même vigilance |
@@ -186,7 +186,7 @@ Gemini d'OmniRoute ne contient **qu'un seul compte** : dès que ce compte prend 
 
 ---
 
-## 8. Dépôt externe (`Desktop\hermes_install`) — règle et état
+## 8. Dépôt externe (`docs`) — règle et état
 
 - **Règle : ni `.env`, ni `state.db` — jamais, même masqués.** Motifs ajoutés au `.gitignore` du dépôt :
   `.env`, `.env.*`, `**/.env`, `**/.env.*`, `**/state.db`, `snapshot/state.db*`, `**/*.db-wal`, `**/*.db-shm`, `backups/**/*.env*`.

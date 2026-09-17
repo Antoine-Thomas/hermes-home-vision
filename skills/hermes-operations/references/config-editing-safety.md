@@ -115,7 +115,7 @@ relecture. Vaut pour SiYuan, la config, les tâches planifiées.
 
 ## 7. Versionner les scripts livrés
 
-Les scripts créés dans `%LOCALAPPDATA%\hermes\scripts\` sont copiés dans `Desktop\hermes_install` :
+Les scripts créés dans `%LOCALAPPDATA%\hermes\scripts\` sont copiés dans `docs` :
 `siyuan/` pour la mémoire et le RAG (`desaturer_memoire.py`, `creer_tache_*.ps1`), `hermes/` pour la
 plateforme et le gateway (`activer_a2a.ps1`). Confirmer `md5sum` identique des deux côtés avant de
 committer, et ne jamais committer le journal d'exécution.

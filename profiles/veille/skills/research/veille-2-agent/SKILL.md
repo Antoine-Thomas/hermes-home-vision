@@ -19,8 +19,8 @@ agent via A2A. **État au 17/09/2026 : profil `veille` en service sur son propre
 activé.** Ce skill décrit le partage des rôles, la cadence réelle (§6) et le protocole A2A à
 activer (§7).
 
-Préparation côté architecture : `Desktop\hermes_install\architecture_2_agents.md`.
-Profil côté machine : `Desktop\hermes_install\profil_veille.md`.
+Préparation côté architecture : `docs\architecture_2_agents.md`.
+Profil côté machine : `docs\profil_veille.md`.
 
 ## 1. Rôles
 

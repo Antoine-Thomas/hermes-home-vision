@@ -142,3 +142,6 @@ skills_backup_*/
 
 # --- Etat d'execution du curateur (regenere a chaque revue) ---
 **/.curator_state
+
+# --- Vestige de l ancien depot externe (copie locale, jamais versionnee) ---
+hermes_install/

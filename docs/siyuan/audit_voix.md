@@ -85,5 +85,5 @@ La Phase 2 (chantiers 2 à 5) reprend après cet audit, quelle que soit la déci
 
 ---
 
-*Note : ce rapport est écrit dans `Desktop\hermes_install\voix\` et non dans le dossier du corpus,
+*Note : ce rapport est écrit dans `docs\voix\` et non dans le dossier du corpus,
 qui est en lecture seule. Le corpus n'a pas été touché.*

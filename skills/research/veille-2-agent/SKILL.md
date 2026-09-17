@@ -17,8 +17,8 @@ Second agent Hermes dédié à la veille techno continue et à la recherche, app
 agent via A2A. **État : profil `veille` créé, A2A et gateway non activés.** Ce skill décrit le
 partage des rôles et le protocole ; il ne décrit pas une installation en service.
 
-Préparation côté architecture : `Desktop\hermes_install\architecture_2_agents.md`.
-Profil côté machine : `Desktop\hermes_install\profil_veille.md`.
+Préparation côté architecture : `docs\architecture_2_agents.md`.
+Profil côté machine : `docs\profil_veille.md`.
 
 ## 1. Rôles
 
