@@ -139,3 +139,6 @@ skills_backup_*/
 # ne peut pas etre versionne (il ne contient que des NOMS de variables).
 !.env.example
 !**/.env.example
+
+# --- Etat d'execution du curateur (regenere a chaque revue) ---
+**/.curator_state
