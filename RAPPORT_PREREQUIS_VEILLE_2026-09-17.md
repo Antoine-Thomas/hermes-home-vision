@@ -258,6 +258,128 @@ La commande générée est exactement :
 `cmd /c ""…python.exe" "…nvidia-nim-proxy.py" >> "…proxy.log" 2>&1"` — vérifiable, les variables ne
 changent que la lisibilité. Le log s'accumule sans rotation (à borner plus tard si besoin).
 
+### A1 à A4 — exécution (autorisée par l'opérateur)
+
+#### A1 — Redirect du log : FAIT, avec deux défauts révélés par le redirect lui-même
+
+Backups : `backups/nvidia-nim-launch.vbs.20260917_122451` (VBS d'origine),
+`backups/nvidia-nim-launch.vbs.20260917_123141` (VBS avec redirect seul).
+
+Quoting vérifié avant bascule en faisant afficher la chaîne réellement construite par le VBS
+(`cscript` sur un VBS de contrôle) : identique à l'attendu.
+
+**Défaut A1 bis — le redirect casse le proxy.** Dès que `stdout` n'est plus une console, Python
+retombe sur l'encodage de la locale (cp1252) au lieu de l'UTF-8 console (PEP 528). La ligne
+`print(f"[PROXY] {original} → {model}")` contient un U+2192 :
+
+```
+UnicodeEncodeError: 'charmap' codec can't encode character '\u2192' in position 46
+```
+
+→ **chaque requête proxied mourait** dans le handler. Correctif : `PYTHONIOENCODING=utf-8` posé
+dans l'environnement de l'enfant par le VBS — c'est le motif déjà utilisé par
+`profiles/watch/gateway-service/Hermes_Gateway_watch.vbs`.
+
+**Défaut A1 ter — l'idempotence était trop laxiste.** `netstat -an | findstr /r ":20200 "` matche
+**toute** connexion vers/depuis 20200, y compris les sockets clientes laissées en `TIME_WAIT` après
+un arrêt. Reproduit de façon déterministe : proxy arrêté → 6 sockets `TIME_WAIT` → l'ancienne
+vérification renvoie `rc=0` → **le lanceur refuse de relancer un proxy mort** pendant toute la durée
+du TIME_WAIT. Correctif : `... | findstr "LISTENING"`, qui ne matche qu'un vrai socket en écoute
+(vérifié : `rc=1` après arrêt, `rc=0` quand le proxy tourne).
+
+Version finale du VBS : redirect + `PYTHONIOENCODING=utf-8` + `python -u` (non bufferisé, pour que
+les lignes de démarrage et les tracebacks atterrissent immédiatement) + vérification LISTENING.
+
+Preuve après écriture, relance par la tâche planifiée :
+
+```
+[NIM Proxy] Listening on 127.0.0.1:20200
+[NIM Proxy] Upstream: https://integrate.api.nvidia.com/v1
+[NIM Proxy] API key: nvapi-0IrGa-...
+[PROXY] nvidia/nemotron-3.5-lightning-30b-a3b → nvidia/nemotron-3.5-lightning-30b-a3b
+```
+
+(Remarque : le proxy journalise ses 12 premiers caractères de clé NVIDIA. C'est un `print` du script
+d'origine, désormais écrit sur disque. À masquer si le log doit être partagé.)
+
+#### A2 — Threading : FAIT
+
+`ThreadingHTTPServer` vérifié disponible dans l'interpréteur du proxy (Python 3.11.16,
+`daemon_threads=True` par défaut). Backup : `backups/nvidia-nim-proxy.py.20260917_123206`
+(md5 avant/après backup identiques : `0e755ac6c53f9af640dc08f41318243c`).
+
+Diff : 2 lignes — `from http.server import HTTPServer…` → `ThreadingHTTPServer…`, et
+`server = HTTPServer(…)` → `server = ThreadingHTTPServer(…)`.
+
+Preuve du déblocage, avec une requête longue réellement en vol :
+
+| Mesure | Résultat |
+|---|---|
+| Requête longue (500 tokens) en arrière-plan | **HTTP 200 en 38,49 s** |
+| `GET /health` pendant qu'elle tourne | 4 appels : **14 ms / 22 ms / 14 ms / 1 ms** |
+| Requête complète concurrente pendant ce temps | **HTTP 200 en 2,55 s** |
+| Connexions simultanées observées | 2 × `ESTABLISHED` sur 20200 |
+| Port après tout ça | `LISTENING`, pid unique |
+| `ECONNREFUSED 20200` depuis 10:31Z | **0** (`proxy_logs` et `call_logs`) |
+
+Avant le patch, ces trois appels auraient été servis en série : le premier bloquait les deux autres.
+
+#### A3 — Combo `nvidia-stack` : FAIT
+
+Backups : `~/.omniroute/backups/combo_nvidia-stack.20260917_123315.json` (ligne SQLite exportée)
+et `~/.omniroute/backups/combo_api_20260917_123329.json` (état via l'API).
+Script ré-exécutable et idempotent livré : `data/omniroute/fix_combo_nvidia_prefix.py`.
+
+| Entrée | Avant | Après |
+|---|---|---|
+| n1 | `nvidia/nemotron-3.5-lightning-30b-a3b` | `openai/nvidia/nemotron-3.5-lightning-30b-a3b` |
+| n2 | `nvidia/nemotron-3-super-120b-a12b` | `openai/nvidia/nemotron-3-super-120b-a12b` |
+| n3 | `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | `openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` |
+
+`providerId: "openai"` conservé sur les trois (cohérent avec le préfixe).
+
+| Vérification | Résultat |
+|---|---|
+| `PUT /api/combos/<id>` | HTTP 200 |
+| Relecture API | les 3 entrées préfixées `openai/` |
+| `model="nvidia-stack"` (par le NOM DU COMBO) | **HTTP 200 en 5,78 s** (était 502), modèle servi `nvidia/nemotron-3.5-lightning-30b-a3b` |
+| `openai/nvidia/nemotron-3-super-120b-a12b` | HTTP 200 en 7,20 s |
+| `openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` | HTTP 200 en 4,86 s |
+| Combo `eco` (défaut Hermes) | **non modifié** — `updatedAt` toujours `2026-09-12T00:15:44Z`, 10 modèles, aucun nvidia |
+| Connexion provider `1910f7a8` | `isActive=True`, `testStatus=active`, `baseUrl=http://127.0.0.1:20200/v1` |
+
+Précision de schéma : la table `combos` **n'a pas de colonne `is_active`** — il n'existe donc pas
+d'indicateur « combo actif » à vérifier. Les colonnes sont
+`id, name, data, sort_order, created_at, updated_at, system_message, tool_filter_regex,
+context_cache_protection`.
+
+Note amont : NVIDIA a renvoyé plusieurs `503 Service temporarily overloaded` /
+`ResourceExhausted: Worker local total request limit reached (16/16)` pendant les tests. OmniRoute a
+réessayé et les appels ont fini en 200. C'est de la capacité côté NVIDIA, pas un défaut local — c'est
+justement ce que le log rend maintenant visible.
+
+#### A4 — Second déclencheur : FAIT
+
+Backups XML : `Hermes_NVIDIA_NIM_Proxy.20260917_123432.xml` puis `…123448.xml`.
+`creer_tache_nim_proxy.ps1` mis à jour : il produit désormais **deux** déclencheurs et reste la
+source de vérité (rejoué deux fois sans dérive).
+
+| | Avant A4 | Après A4 |
+|---|---|---|
+| Déclencheurs | `LogonTrigger` + répétition PT15M | `LogonTrigger` **sans** répétition (StartBoundary `2026-09-08T19:11:00` inchangé) **+ `TimeTrigger`** avec répétition PT15M |
+| `NextRunTime` | **vide** | **17/09/2026 12:48:48** |
+| `StartWhenAvailable` | `True` | `True` |
+| `MultipleInstances` | `IgnoreNew` | `IgnoreNew` |
+| Action | VBS | VBS (inchangée) |
+
+La répétition a été retirée du déclencheur logon : deux répétitions de même période mais
+désynchronisées doubleraient la cadence pour rien. Le logon démarre le proxy à l'ouverture de
+session, le déclencheur horaire assure la surveillance continue.
+
+Test `Start-ScheduledTask` : `LastTaskResult=0`, `NextRunTime` toujours renseigné, **1 seul listener**
+et 1 seule instance serveur (le 2ᵉ pid est le shim `venv\Scripts\python.exe`, paire normale).
+
+
 
 
 ## Phase 2 — Gateway default : DIAGNOSTIC (aucune action)
