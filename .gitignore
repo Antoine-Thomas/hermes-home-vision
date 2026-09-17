@@ -34,3 +34,6 @@ pastes/
 **/cache/
 **/logs/
 *.log
+
+# --- Sauvegardes locales du .gitignore lui-meme (l'historique git suffit comme reference) ---
+backups/.gitignore.avant_*
