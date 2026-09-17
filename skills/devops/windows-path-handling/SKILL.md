@@ -99,6 +99,24 @@ Parades, dans l'ordre :
 Corollaire : un `grep` qui repond « Binary file matches » n'est PAS un motif introuvable. Ne pas en
 conclure que la tache planifiee ou le processus n'existe pas — decoder d'abord, conclure ensuite.
 
+## Regle 7 — une ecriture en mode texte reecrit TOUTES les fins de ligne
+
+`Path.write_text(...)` (et tout `open(..., 'w')`) ecrit en mode texte : Python traduit chaque `\n`
+en `\r\n` sur Windows. Editer un script de 250 lignes qui etait en LF en change donc 250 lignes a la
+fois : le `diff` devient illisible (tout le fichier apparait modifie) alors que le contenu logique
+a change sur 3 lignes.
+
+- Ecrire avec `newline="\n"` (ou en binaire) et **relire l'octet** apres :
+  `b.count(b"\r\n")` / `b.count(b"\n")`. Corriger en place si besoin :
+  `p.write_bytes(p.read_bytes().replace(b"\r\n", b"\n"))`.
+- Le controle `grep -c $'\r$'` n'est PAS fiable pour savoir si un fichier est en CRLF (observe :
+  210/210 lignes annoncees CR sur un fichier LF). Comparer les octets en Python, pas avec grep.
+- Avant d'editer un fichier existant, mesurer sa convention (`read_bytes().count(b"\r\n")`) et la
+  preserver : ces scripts (`.ps1`, `.env`, `.yaml`) sont edites par plusieurs sessions.
+- Un chemin Windows insere dans du texte genere doit etre relu en octets : un heredoc bash a deja
+  transforme `scripts\verif_24h.ps1` en `scripts<VT>erif_24h.ps1` (le `\v` est devenu un onglet
+  vertical, invisible a l'oeil dans l'editeur). Controler `b.count(b"\x0b") == 0` apres insertion.
+
 ## Pitfalls
 
 - **Le lot perdu sans erreur** : ecrire dix fichiers avec `/home/<user>/...` dans un dossier cree par `mkdir -p ~/...` produit deux arborescences distinctes, dont une inexistante. Symptome : `find` ne trouve aucun des fichiers alors que chaque ecriture avait ete annoncee reussie. Reprendre le lot avec des chemins `C:/Users/...`.

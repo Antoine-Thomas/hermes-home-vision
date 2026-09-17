@@ -268,8 +268,8 @@ d'écoute de plus à surveiller, zéro bénéfice.
 
 | Script | Rôle | Options |
 |---|---|---|
-| `%LOCALAPPDATA%\hermes\scripts\activer_a2a.ps1` | activation en 8 étapes | `-Force`, `-SkipGateway`, `-ConfigPath`, `-SelfTest` |
-| `%LOCALAPPDATA%\hermes\scripts\desactiver_a2a.ps1` | retour au défaut fail-closed | idem |
+| `%LOCALAPPDATA%\hermes\scripts\activer_a2a.ps1` | activation, **paramétrée par profil et par port** | `-LocalProfile` (défaut `default`), `-LocalPort` (9900), `-Profile` (pair), `-Port`, `-PeerToken`, `-PeerCaps`, `-WriteEnvKeys`, `-Force`, `-SkipGateway`, `-ConfigPath`, `-SelfTest` |
+| `%LOCALAPPDATA%\hermes\scripts\desactiver_a2a.ps1` | retour au défaut fail-closed, symétrique | `-LocalProfile`, `-LocalPort`, `-Profile`, `-Port`, `-Force`, `-SkipGateway`, `-ConfigPath`, `-SelfTest` |
 
 `activer_a2a.ps1` enchaîne : sauvegarde `config.yaml.a2a-backup-<horodatage>` →
 `hermes plugins enable a2a-platform` → ajout de `- a2a` dans `platform_toolsets.cli` →
@@ -287,7 +287,7 @@ identique à l'original.
 | Élément | Où | Rôle |
 |---|---|---|
 | `platforms.a2a.enabled: true` | `config.yaml`, **clé racine** | gate des outils A2A (`tools.py:_a2a_tools_available`) et démarrage de la plateforme entrante |
-| `a2a_agents:` | `config.yaml`, racine | pairs sortants : `url`, `auth: {type: bearer, token}`, `timeout`, `capabilities` |
+| `a2a_agents:` | `config.yaml`, racine | pairs sortants : `url`, `auth: {type: bearer, token}`, `timeout`, `capabilities`. **Table indexée par NOM de pair** (`a2a_agents: {veille: {url: …}}`), pas une liste `- name:` : `tools.py::_configured_peers()` fait `.get(nom)` sur cette clé, donc une liste ouvre le gate des outils puis casse à l'appel (`'list' object has no attribute 'get'`) |
 | `A2A_BEARER_TOKEN` (partagé) ou `A2A_PEER_TOKENS="alice:tok1,bob:tok2"` (par pair) | `.env` | authentification entrante |
 
 `gateway.platforms.a2a.enabled` **n'est pas** la clé lue par le gate des outils — `gateway/config_loader.py`
@@ -397,6 +397,26 @@ la répétition PT15M ne donne pas : détection en ≤5 min, relevage explicite,
 `logs/gateway-health.log`. Il teste que le PID est vivant **et** qu'il s'agit bien d'un process
 `gateway run` (un PID recyclé ne compte pas), relève par `Start-ScheduledTask` puis recontrôle à
 T+30 s, et n'alerte que sur **transition** d'état.
+
+**Battement horaire** (ajouté le 17/09) : une ligne `[battement] <heures>h : N/M gateways up, X alerte(s) | default=up …`
+est écrite **une fois par heure même quand tout va bien**, pour donner un historique de disponibilité
+lisible (24 points/jour) et parsable par `scripts\verif_24h.ps1`. Les lignes par tick existaient déjà ;
+c'est le résumé compact qui manquait. Sur ce journal, aucun accès visuel ne distingue « tout va bien »
+de « rien ne tourne » sans un tel repère.
+
+**Piège d'un marqueur d'idempotence dans un script périodique** : le script RÉÉCRIT son état à chaque
+tick. Si le marqueur « déjà fait » (ici `_battement_heure`) n'est pas reporté dans le nouvel état, il
+disparaît au tick suivant et le garde-fou se réarme tout seul — observe : deux lignes de battement
+pour la même heure, la seconde écrite par le tick planifié qui suivait un run manuel. Tout marqueur
+« dernière exécution » doit être re-lu puis réécrit :
+
+```powershell
+if ($dernierMarqueur -ne $valeurCourante) { …; $nouvelEtat['_marqueur'] = $valeurCourante }
+else { $nouvelEtat['_marqueur'] = $dernierMarqueur }   # sans ce else, le marqueur est perdu
+```
+
+Vérifier le comportement en enchaînant **deux exécutions dans la même fenêtre** (attendu : une seule
+ligne) — un seul run ne prouve rien, c'est le second qui révèle la perte du marqueur.
 
 **Piège PowerShell à ne jamais introduire dans un script de surveillance** : `$pid` est une variable
 **en lecture seule** (PID du process courant) — `$pid = ...` échoue avec « Impossible de remplacer la
