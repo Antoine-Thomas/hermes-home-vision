@@ -99,13 +99,15 @@ sont sous `hermes-agent/plugins/<kind>/<name>/` ; `plugin.yaml` fait foi pour `r
 `provides_tools`.
 
 **Lire les tâches planifiées depuis git-bash** : `schtasks /Query` sort en UTF-16, donc `grep`
-répond `Binary file (standard input) matches` sans rien afficher. Passer par `tr -d '\0'` et
-- Garder `MSYS_NO_PATHCONV=1` pour les commutateurs `/TN`, `/FO`, `/NH`. Deux pièges MSYS en pilotant
-des processus : `taskkill //PID <n> //F` échoue (`Argument ou option non valide`) — utiliser
-`Stop-Process -Id <n> -Force` en PowerShell ; et `cmd //c "…"` accompagné de `MSYS_NO_PATHCONV=1`
-ouvre un shell **interactif** au lieu d'exécuter la commande — exporter la variable d'abord
-(`export MSYS_NO_PATHCONV=1`), puis appeler `cmd /c "…"`.
-lisible et hors du problème d'encodage : `Get-ScheduledTask | Where-Object { $_.TaskName -like '*Hermes*' } | Select-Object TaskName, State | Format-Table -AutoSize`.
+répond `Binary file (standard input) matches` sans rien afficher. Passer par `tr -d '\0'` et garder
+`MSYS_NO_PATHCONV=1` pour les commutateurs `/TN`, `/FO`, `/NH` — ou, plus simple et hors du problème
+d'encodage, utiliser l'applet PowerShell :
+`Get-ScheduledTask | Where-Object { $_.TaskName -like '*Hermes*' } | Select-Object TaskName, State | Format-Table -AutoSize`.
+
+Deux pièges MSYS en pilotant des processus : `taskkill //PID <n> //F` échoue (`Argument ou option non
+valide`) — utiliser `Stop-Process -Id <n> -Force` en PowerShell ; et `cmd //c "…"` accompagné de
+`MSYS_NO_PATHCONV=1` ouvre un shell **interactif** au lieu d'exécuter la commande — exporter la
+variable d'abord (`export MSYS_NO_PATHCONV=1`), puis appeler `cmd /c "…"`.
 
 ### Créer une tâche planifiée Hermes (Windows)
 
@@ -146,6 +148,12 @@ Register-ScheduledTask -TaskName '<nom>' -Action $action -Trigger $trigger -Sett
   `Get-ScheduledTaskInfo … NextRunTime`, jamais sur le XML ; (b) pour une couverture armée tout de
   suite, ajouter un **second** déclencheur `New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1)`
   portant la même répétition, et garder le logon pour la reprise après redémarrage.
+- **Un script qui touche a l'installation se livre en SPEC d'abord, en code ensuite.** Ecrire
+  `bootstrap.ps1` (installation, taches planifiees, demarrage de services) sans validation prealable se
+  fait refuser : presenter l'ordre des etapes, le perimetre exact de chaque action, ce que le script ne
+  peut pas faire (secrets, installs hors depot) et les questions ouvertes, puis attendre. Convention
+  du parc pour tout script qui modifie quelque chose : **`-DryRun` par defaut, `-Apply` pour executer**,
+  idempotence, journal horodate, et `-SelfTest` quand il reecrit un fichier de config.
 - **Le durcissement est un script, pas une commande.** Livrer le `.ps1` rejouable qui prend le backup
   XML (`Export-ScheduledTask | Out-File -Encoding UTF8`), modifie puis se vérifie lui-même, et
   l'exécuter depuis là : c'est le seul moyen de revenir à l'état cible après incident, et ça rend la
@@ -580,6 +588,11 @@ la ligne du scheduler dans `agent.log`.
   les collages qui ne citent que l'id, et fait croire à des fuites inexistantes.
 - **Trier une fuite par vivacité, pas par emplacement** : `getMe` sur chaque jeton trouvé — 200 =
   exploitable maintenant, 401 = révoqué. C'est ce tri qui hiérarchise le nettoyage.
+- **Un nom de fichier ne prouve rien : scanner le CONTENU des fichiers suivis.** Un fichier baptisé
+  `env.pre_update.redacted` a porté un jeton de bot **en clair et vivant** pendant des semaines ; le
+  filtre par nom donne des faux positifs (docs de skills parlant de jetons) et laisse passer ce qu'on
+  cherche. Le contrôle qui tranche : `git grep -I -n -E '<motifs>'` sur les fichiers suivis, hit trié
+  par vivacité (200 = à révoquer tout de suite, 401 = inerte).
 - **Tout secret collé dans le chat est déjà une fuite** : il est écrit en clair dans `.hermes_history`
   et dans `pastes/`. Le signaler dans le même tour avec son empreinte et sa ligne, et proposer la
   rotation — nettoyer ne suffit pas tant que le secret est valide.
@@ -659,5 +672,8 @@ procédure : une tentative de patch upstream échouée sur du code frais se rejo
   secret passe par le chat.
 - `references/hermes-home-git-baseline.md` — versionner le home (`skills/`, `profiles/`, `config.yaml`)
   sans y laisser de secret : motifs d'exclusion par catégorie (jetons tiers, sessions WhatsApp/MCP,
-  binaires, tickers cron), le fichier `nul` qui fait échouer `git add -A`, et le scan pré-commit par
-  empreinte (yc le piège de la clé réelle cachée dans un exemple `curl` d'une doc de skill).
+  binaires, tickers cron), le fichier `nul` qui fait échouer `git add -A`, le scan par empreinte (yc le
+  piège de la clé réelle cachée dans un exemple `curl` d'une doc de skill), les **contrôles bloquants
+  avant un push** (fichiers sensibles, contenu, > 50 Mo, `.gitattributes`), le piège `.env.*` qui avale
+  `.env.example`, et la **restauration sur une autre machine** (installeur Hermes d'abord, puis
+  `git init`/`fetch`/`checkout` par-dessus — jamais `git clone` dans un dossier non vide).
