@@ -1,0 +1,4 @@
+aac90d5 config bureau: repli gratuit nvidia-stack avant deepseek-flash
+1160cad housekeeping: retirer tous les fichiers de ticker cron de l'index
+ffc77ef housekeeping: ignorer les fichiers de ticker cron (volatils, ecrits chaque minute)
+5ce40c0 Baseline post-reconfiguration 2026-09-17

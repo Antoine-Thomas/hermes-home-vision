@@ -24,6 +24,9 @@ providers:
       X-OmniRoute-Compression: default
     request_timeout_seconds: 120
 fallback_providers:
+  # Repli gratuit d'abord (proxy NIM local via OmniRoute), payant en dernier recours.
+  - provider: omniroute
+    model: nvidia-stack
   - provider: deepseek
     model: deepseek-flash
 toolsets:
@@ -611,6 +614,7 @@ model_catalog:
 network:
   force_ipv4: false
 gateway:
+  multiplex_profiles: false
   scale_to_zero:
     idle_timeout_minutes: 5
   message_timestamps:
@@ -622,7 +626,6 @@ gateway:
   trust_recent_files_seconds: 600
   api_server:
     max_concurrent_runs: 10
-  multiplex_profiles: false
 streaming:
   enabled: false
   transport: auto
@@ -772,3 +775,9 @@ platforms:
     toolsets: []
   whatsapp:
     toolsets: []
+    enabled: false
+mcp_servers:
+  scite:
+    url: https://api.scite.ai/mcp
+    enabled: true
+    auth: oauth
