@@ -1,0 +1,392 @@
+[
+ {
+  "fichier": "face_neutre_01.png",
+  "source_originale": "20241116_094455.jpg",
+  "angle": "face",
+  "expression": "neutre",
+  "arriere_plan": "uni",
+  "cadrage": "visage-serre",
+  "taille_visage_px": [
+   877,
+   1193
+  ],
+  "nettete_laplacien": 170.56,
+  "doute_analyse": true,
+  "note": "une seule oreille visible : leger 3-4 possible"
+ },
+ {
+  "fichier": "face_neutre_02.png",
+  "source_originale": "20250427_012056.jpg",
+  "angle": "face",
+  "expression": "neutre",
+  "arriere_plan": "uni",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   1011,
+   1385
+  ],
+  "nettete_laplacien": 236.02,
+  "doute_analyse": false,
+  "note": ""
+ },
+ {
+  "fichier": "face_neutre_03.png",
+  "source_originale": "20250427_012301.jpg",
+  "angle": "face",
+  "expression": "neutre",
+  "arriere_plan": "uni",
+  "cadrage": "visage-serre",
+  "taille_visage_px": [
+   1001,
+   1357
+  ],
+  "nettete_laplacien": 259.31,
+  "doute_analyse": true,
+  "note": "leger 3-4 possible"
+ },
+ {
+  "fichier": "face_serieux_01.png",
+  "source_originale": "20250711_181905.jpg",
+  "angle": "face",
+  "expression": "serieux",
+  "arriere_plan": "uni",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   840,
+   1298
+  ],
+  "nettete_laplacien": 203.5,
+  "doute_analyse": false,
+  "note": ""
+ },
+ {
+  "fichier": "face_sourire_01.png",
+  "source_originale": "20250731_125207.jpg",
+  "angle": "face",
+  "expression": "sourire-leger",
+  "arriere_plan": "interieur",
+  "cadrage": "visage-serre",
+  "taille_visage_px": [
+   884,
+   1251
+  ],
+  "nettete_laplacien": 213.45,
+  "doute_analyse": true,
+  "note": "face ou profil-gauche selon la passe"
+ },
+ {
+  "fichier": "face_neutre_04.png",
+  "source_originale": "20250731_125815.jpg",
+  "angle": "face",
+  "expression": "neutre",
+  "arriere_plan": "interieur",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   1023,
+   1435
+  ],
+  "nettete_laplacien": 214.98,
+  "doute_analyse": false,
+  "note": ""
+ },
+ {
+  "fichier": "3-4g_serieux_01.png",
+  "source_originale": "20250731_125901.jpg",
+  "angle": "3-4-gauche",
+  "expression": "serieux",
+  "arriere_plan": "interieur",
+  "cadrage": "visage-serre",
+  "taille_visage_px": [
+   952,
+   1348
+  ],
+  "nettete_laplacien": 217.23,
+  "doute_analyse": true,
+  "note": "legere contre-plongee possible"
+ },
+ {
+  "fichier": "plongee_neutre_01.png",
+  "source_originale": "492453107_10236992888591311_3583924101409943654_n.jpg",
+  "angle": "plongee",
+  "expression": "neutre",
+  "arriere_plan": "exterieur",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   601,
+   842
+  ],
+  "nettete_laplacien": 703.96,
+  "doute_analyse": true,
+  "note": "plongee ou leger 3-4 selon la lecture"
+ },
+ {
+  "fichier": "face_neutre_05.png",
+  "source_originale": "493832895_10237056494741425_3791767898197614765_n.jpg",
+  "angle": "face",
+  "expression": "neutre",
+  "arriere_plan": "uni",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   759,
+   1058
+  ],
+  "nettete_laplacien": 335.13,
+  "doute_analyse": true,
+  "note": "face ou 3-4-droit (menton tourne)"
+ },
+ {
+  "fichier": "face_serieux_02.png",
+  "source_originale": "P1002617.JPG",
+  "angle": "face",
+  "expression": "serieux",
+  "arriere_plan": "interieur",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   1069,
+   1521
+  ],
+  "nettete_laplacien": 316.35,
+  "doute_analyse": true,
+  "note": "plongee marquee selon une lecture, niveau d'oeil selon l'autre"
+ },
+ {
+  "fichier": "face_neutre_06.png",
+  "source_originale": "P1002618.JPG",
+  "angle": "face",
+  "expression": "neutre",
+  "arriere_plan": "interieur",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   1539,
+   2251
+  ],
+  "nettete_laplacien": 177.61,
+  "doute_analyse": false,
+  "note": ""
+ },
+ {
+  "fichier": "contreplongee_neutre_01.png",
+  "source_originale": "P1002885.JPG",
+  "angle": "contre-plongee",
+  "expression": "neutre",
+  "arriere_plan": "interieur",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   1560,
+   1515
+  ],
+  "nettete_laplacien": 97.61,
+  "doute_analyse": true,
+  "note": "contre-plongee selon une lecture, contredite ailleurs"
+ },
+ {
+  "fichier": "face_sourire_02.png",
+  "source_originale": "P1002892.JPG",
+  "angle": "face",
+  "expression": "sourire-leger",
+  "arriere_plan": "interieur",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   1838,
+   2573
+  ],
+  "nettete_laplacien": 58.98,
+  "doute_analyse": false,
+  "note": ""
+ },
+ {
+  "fichier": "face_autre_01.png",
+  "source_originale": "P1002902.JPG",
+  "angle": "face",
+  "expression": "autre",
+  "arriere_plan": "interieur",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   1890,
+   2831
+  ],
+  "nettete_laplacien": 70.61,
+  "doute_analyse": false,
+  "note": "expression non classee (autre)"
+ },
+ {
+  "fichier": "face_serieux_03.png",
+  "source_originale": "P1002908.JPG",
+  "angle": "face",
+  "expression": "serieux",
+  "arriere_plan": "interieur",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   1991,
+   2625
+  ],
+  "nettete_laplacien": 58.92,
+  "doute_analyse": true,
+  "note": "arriere-plan uni ou interieur flou"
+ },
+ {
+  "fichier": "face_neutre_07.png",
+  "source_originale": "P1002914.JPG",
+  "angle": "face",
+  "expression": "neutre",
+  "arriere_plan": "interieur",
+  "cadrage": "visage-serre",
+  "taille_visage_px": [
+   1744,
+   2464
+  ],
+  "nettete_laplacien": 61.92,
+  "doute_analyse": false,
+  "note": ""
+ },
+ {
+  "fichier": "face_neutre_08.png",
+  "source_originale": "P1002916.JPG",
+  "angle": "face",
+  "expression": "neutre",
+  "arriere_plan": "interieur",
+  "cadrage": "visage-serre",
+  "taille_visage_px": [
+   1781,
+   2459
+  ],
+  "nettete_laplacien": 60.09,
+  "doute_analyse": true,
+  "note": "neutre ou leger sourire"
+ },
+ {
+  "fichier": "3-4g_neutre_01.png",
+  "source_originale": "P1002919.JPG",
+  "angle": "3-4-gauche",
+  "expression": "neutre",
+  "arriere_plan": "interieur",
+  "cadrage": "visage-serre",
+  "taille_visage_px": [
+   1780,
+   2569
+  ],
+  "nettete_laplacien": 98.32,
+  "doute_analyse": true,
+  "note": "face ou 3-4-gauche"
+ },
+ {
+  "fichier": "face_neutre_09.png",
+  "source_originale": "P1002920.JPG",
+  "angle": "face",
+  "expression": "neutre",
+  "arriere_plan": "interieur",
+  "cadrage": "visage-serre",
+  "taille_visage_px": [
+   1787,
+   2620
+  ],
+  "nettete_laplacien": 70.01,
+  "doute_analyse": true,
+  "note": "arriere-plan interieur ou flou-artistique"
+ },
+ {
+  "fichier": "face_neutre_10.png",
+  "source_originale": "P1002921.JPG",
+  "angle": "face",
+  "expression": "neutre",
+  "arriere_plan": "interieur",
+  "cadrage": "visage-serre",
+  "taille_visage_px": [
+   1784,
+   2675
+  ],
+  "nettete_laplacien": 67.98,
+  "doute_analyse": true,
+  "note": "arriere-plan flou, interieur ou flou-artistique"
+ },
+ {
+  "fichier": "face_sourirefranc_01.png",
+  "source_originale": "P1002922.JPG",
+  "angle": "face",
+  "expression": "sourire-franc",
+  "arriere_plan": "interieur",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   1782,
+   2682
+  ],
+  "nettete_laplacien": 91.6,
+  "doute_analyse": false,
+  "note": ""
+ },
+ {
+  "fichier": "face_neutre_11.png",
+  "source_originale": "P1002923.JPG",
+  "angle": "face",
+  "expression": "neutre",
+  "arriere_plan": "interieur",
+  "cadrage": "visage-serre",
+  "taille_visage_px": [
+   1788,
+   2549
+  ],
+  "nettete_laplacien": 101.21,
+  "doute_analyse": true,
+  "note": "neutre ou leger sourire"
+ },
+ {
+  "fichier": "face_autre_02.png",
+  "source_originale": "P1002924.JPG",
+  "angle": "face",
+  "expression": "autre",
+  "arriere_plan": "interieur",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   1788,
+   2581
+  ],
+  "nettete_laplacien": 84.88,
+  "doute_analyse": true,
+  "note": "bouche ouverte en moue"
+ },
+ {
+  "fichier": "face_sourire_03.png",
+  "source_originale": "P1002925.JPG",
+  "angle": "face",
+  "expression": "sourire-leger",
+  "arriere_plan": "interieur",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   1772,
+   2606
+  ],
+  "nettete_laplacien": 77.98,
+  "doute_analyse": true,
+  "note": "cadrage et expression hesitants"
+ },
+ {
+  "fichier": "face_neutre_12.png",
+  "source_originale": "P1002926.JPG",
+  "angle": "face",
+  "expression": "neutre",
+  "arriere_plan": "interieur",
+  "cadrage": "buste",
+  "taille_visage_px": [
+   2151,
+   3097
+  ],
+  "nettete_laplacien": 71.12,
+  "doute_analyse": true,
+  "note": "inclinaison camera contradictoire selon les passes"
+ },
+ {
+  "fichier": "face_autre_03.png",
+  "source_originale": "P1002934.JPG",
+  "angle": "face",
+  "expression": "autre",
+  "arriere_plan": "interieur",
+  "cadrage": "visage-serre",
+  "taille_visage_px": [
+   2155,
+   3491
+  ],
+  "nettete_laplacien": 57.13,
+  "doute_analyse": true,
+  "note": "bouche ouverte en moue, fond uni ou piece"
+ }
+]

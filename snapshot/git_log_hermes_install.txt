@@ -1,0 +1,10 @@
+95f5b88 gitignore: sauvegardes locales du .gitignore hors suivi
+33706da docs: README (role du depot, documents cles, ordre d'installation) + guide push-to-github (2 depots prives, controles bloquants, notes de purge) + .gitattributes + .gitignore defensif - aucun secret versionne
+c2c81a1 SECURITE: neutralise un jeton Telegram vivant dans snapshot/env.pre_update.redacted (l.338, sha256[:16] 7da363461151846e) - fichier dit 'redacted' qui portait une valeur reelle ; le blob reste dans l'historique (commit 76975ae) donc le jeton doit etre revoque avant tout push
+ae596a4 snapshot : skills mis a jour apres le chantier (lecons windows-path-handling + hermes-operations)
+c53d706 Phase 3 (observation 24h) : healthcheck avec battement horaire (1 ligne/heure, etat preserve entre ticks), verif_24h.ps1 (teste sur baseline synthetique, non lance sur le vrai T0), ARCHITECTURE_HERMES.md SS2/SS7/SS9/SS10 (mode observation + criteres), snapshot final (configs + scripts + diffs + git log)
+c1e2064 Phase 2 (preparation A2A, non activee) : activer_a2a.ps1 parametre (-Profile/-Port/-PeerToken/-LocalProfile/-LocalPort/-WriteEnvKeys) + diff avant ecriture, desactiver_a2a.ps1 rendu symetrique, SelfTest des deux = ok (md5 config.yaml inchange), jetons par paire generes (empreintes seules), A2A_PREPARATION.md (correction: a2a_agents est une table indexee par nom, pas une liste)
+831c95b Phase 1 (consolidation) : EMAIL_PASSWORD partage tranche -> option A (6 lignes EMAIL_* retirees de profiles/watch/.env, gateway watch redemarre = 1 plateforme, hermes profile list muet) ; SS7.1 piste 2e cle Google documentee (preuve: 'all 1 active accounts cooling down' dans app.log) ; baseline T0 mesuree (scripts/baseline_t0.py -> snapshot/baseline_T0.json)
+6412663 ARCHITECTURE_HERMES.md + snapshot : decisions du 17/09 (eco option A appliquee, veille corrigee, watch .env nettoye, purge reportee)
+c428de9 Snapshot final 17/09 : config.yaml bureau + config.yaml watch (cle dediee, nvidia-stack, repli gratuit), git log/status, ARCHITECTURE_HERMES.md a jour (SS7 eco, SS8 depot externe, SS9 consolidation)
+b3b531b gitignore: retirer secrets et DB du suivi

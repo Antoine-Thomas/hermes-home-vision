@@ -1,0 +1,10 @@
+ M profiles/veille/skills/research/veille-2-agent/SKILL.md
+ M scripts/activer_a2a.ps1
+ M scripts/check_gateways.ps1
+ M scripts/desactiver_a2a.ps1
+ M skills/.usage.json
+ M skills/devops/omniroute-gateway/SKILL.md
+ M skills/hermes-operations/references/hermes-home-git-baseline.md
+ M skills/research/veille-2-agent/SKILL.md
+?? profiles/veille/skills/.curator_state
+?? scripts/verif_24h.ps1

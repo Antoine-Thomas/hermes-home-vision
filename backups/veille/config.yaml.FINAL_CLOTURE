@@ -1,0 +1,75 @@
+model:
+  base_url: http://127.0.0.1:20128/v1
+  default: auto/best-reasoning
+  provider: omniroute
+providers:
+  omniroute:
+    api: http://127.0.0.1:20128/v1
+    name: OmniRoute
+    default_model: auto/best-reasoning
+    key_env: OMNIROUTE_API_KEY
+    extra_headers:
+      X-OmniRoute-Compression: default
+    request_timeout_seconds: 120
+plugins:
+  enabled: []
+
+skills:
+  disabled:
+    - airtable
+    - apple-notes
+    - apple-reminders
+    - architecture-diagram
+    - ascii-video
+    - baoyu-infographic
+    - box
+    - claude-code
+    - claude-design
+    - codebase-inspection
+    - codex
+    - design-md
+    - docx
+    - dogfood
+    - email-inbox-triage
+    - findmy
+    - gif-search
+    - google-workspace
+    - hermes-agent-skill-authoring
+    - himalaya
+    - imessage
+    - inspecting-hermes-desktop-dom
+    - manim-video
+    - maps
+    - meeting-action-items
+    - node-inspect-debugger
+    - notion
+    - obsidian
+    - opencode
+    - p5js
+    - pdf
+    - popular-web-designs
+    - powerpoint
+    - product-price-monitor
+    - python-debugpy
+    - requesting-code-review
+    - sdlc-review
+    - simplify-code
+    - songsee
+    - songwriting-and-ai-music
+    - systematic-debugging
+    - teams-meeting-pipeline
+    - test-driven-development
+    - xlsx
+    - xurl
+    - computer-use
+    - document-to-action-items
+    - spike
+    - weekly-review-planning
+    - youtube-content
+_config_version: 45
+agent: {}
+fallback_model:
+  - provider: omniroute
+    model: nvidia-stack
+  - provider: omniroute
+    model: auto/best-free

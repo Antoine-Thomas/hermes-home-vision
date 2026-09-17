@@ -1,0 +1,14 @@
+
+TaskName                   State Action                                                               Time
+--------                   ----- ------                                                               ----
+Hermes - check memory      Ready powershell                                                               
+Hermes - Reindex RAG       Ready C:\Users\searc\AppData\Local\hermes\data\rag\venv\Scripts\python.exe     
+Hermes - serve backend     Ready wscript.exe                                                              
+Hermes-PurgeReports        Ready powershell.exe                                                           
+HermesGateway              Ready pwsh.exe                                                                 
+Hermes_Gateway             Ready wscript.exe                                                              
+Hermes_Gateway_watch    Disabled wscript.exe                                                              
+Hermes_NVIDIA_NIM_Proxy    Ready wscript.exe                                                              
+
+
+

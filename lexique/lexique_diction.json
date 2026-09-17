@@ -1,0 +1,194 @@
+{
+  "version": "1.0",
+  "date": "15/09/2026",
+  "source": "test_diction_v8.py, test_diction_v8b.py, test_diction_v8c.py — 44 phrases passees en aller-retour XTTS vers Whisper",
+  "methode": "Chaque phrase a ete synthetisee par XTTS puis transcrite par Whisper. Une graphie est dite validee quand Whisper reecrit le terme attendu. Les graphies rejetees sont conservees pour ne pas les reintroduire.",
+  "termes": [
+    {
+      "canonique": "WP-CLI",
+      "graphie_tts": "double-vé-pé cé-èle-i",
+      "statut": "validé",
+      "note": "Whisper reecrit « WP-CLI ». La variante « vé-pé cé-èle-i » est rejetee (non reconnue).",
+      "rejetees": [
+        "vé-pé cé-èle-i"
+      ],
+      "retour_whisper": [
+        "double-vé-pé cé-èle-i",
+        "double vé pé cé èle i",
+        "double-vé-pé cé-èle-i,",
+        "WPCLI",
+        "WP CLI",
+        "wp cli"
+      ]
+    },
+    {
+      "canonique": "nginx",
+      "graphie_tts": "n-jin-x",
+      "statut": "validé",
+      "note": "Whisper reecrit « Nginx ». La variante « ène-jine-ixe » est rejetee.",
+      "rejetees": [
+        "ène-jine-ixe",
+        "ene-jine-ixe"
+      ],
+      "retour_whisper": [
+        "n-jin-x",
+        "n jin x",
+        "en-jin-x",
+        "Nginx",
+        "nginx"
+      ]
+    },
+    {
+      "canonique": "MySQL",
+      "graphie_tts": "Maï-Ess-Cu-Elle",
+      "statut": "validé",
+      "note": "Graphie retenue en contexte de phrase (volet 4).",
+      "rejetees": [],
+      "retour_whisper": [
+        "Maï-Ess-Cu-Elle",
+        "mai-ess-cu-elle",
+        "Maï Ess Cu Elle",
+        "MySQL",
+        "mysql"
+      ]
+    },
+    {
+      "canonique": "Docker",
+      "graphie_tts": "Dockeur",
+      "statut": "validé",
+      "note": "Whisper reecrit « Dockeur » ; la graphie anglaise sortait mal.",
+      "rejetees": [],
+      "retour_whisper": [
+        "Dockeur",
+        "dockeur",
+        "Docker",
+        "docker"
+      ]
+    },
+    {
+      "canonique": "Hermes",
+      "graphie_tts": "Hermesse",
+      "statut": "validé",
+      "note": "Valide seul et en contexte (« cinq skills Hermesse pour WordPress »).",
+      "rejetees": [],
+      "retour_whisper": [
+        "Hermesse",
+        "hermesse",
+        "Hermes",
+        "hermes"
+      ]
+    },
+    {
+      "canonique": "cron",
+      "graphie_tts": "cronne",
+      "statut": "validé",
+      "note": "« Une sauvegarde planifiée par cronne » : reconnu.",
+      "rejetees": [],
+      "retour_whisper": [
+        "cronne",
+        "crone",
+        "cron"
+      ]
+    },
+    {
+      "canonique": "WooCommerce",
+      "graphie_tts": "WooCommerce",
+      "statut": "validé",
+      "note": "Aucune substitution necessaire : la variante « Wou-Commerce » a ete rejetee.",
+      "rejetees": [
+        "Wou-Commerce"
+      ],
+      "retour_whisper": [
+        "WooCommerce",
+        "Woo Commerce",
+        "ou-commerce"
+      ]
+    },
+    {
+      "canonique": "GitHub",
+      "graphie_tts": "GitHub",
+      "statut": "validé",
+      "note": "Passe tel quel dans la phrase testee.",
+      "rejetees": [],
+      "retour_whisper": [
+        "GitHub",
+        "github",
+        "Guite-Hub"
+      ]
+    },
+    {
+      "canonique": "Local by Flywheel",
+      "graphie_tts": "Local by Flywheel",
+      "statut": "validé",
+      "note": "Passe tel quel. « Local » seul N'EST PAS dans la liste de retour : c'est un mot francais courant, le remplacer abimait la transcription.",
+      "rejetees": [],
+      "retour_whisper": [
+        "Local by Flywheel"
+      ]
+    },
+    {
+      "canonique": "WordPress",
+      "graphie_tts": "WordPress",
+      "statut": "validé",
+      "note": "Jamais mal reconnu dans les 44 phrases.",
+      "rejetees": [],
+      "retour_whisper": [
+        "WordPress",
+        "wordpress",
+        "Word Press"
+      ]
+    }
+  ],
+  "tournures": [
+    {
+      "canonique": "installer un environnement",
+      "eviter": [
+        "monter un environnement"
+      ],
+      "statut": "validé",
+      "note": "« Monter un environnement » sortait inintelligible ; la variante avec « installer » est reconnue."
+    },
+    {
+      "canonique": "le dépôt des skills, la documentation",
+      "eviter": [
+        "le guide"
+      ],
+      "statut": "validé",
+      "note": "« Le guide » donnait « le deal ». Reformule pour etre reconnu."
+    },
+    {
+      "canonique": "des configurations réutilisables",
+      "eviter": [
+        "des modèles"
+      ],
+      "statut": "validé",
+      "note": "« Des modèles » sortait « des mails »."
+    },
+    {
+      "canonique": "les fichiers sont synchronisés",
+      "eviter": [
+        "rsync",
+        "Ar-sink",
+        "Ère-sinque"
+      ],
+      "statut": "validé",
+      "note": "Le nom de l'outil est retire du script ; la tournure francaise passe. Graphies rejetees conservees."
+    },
+    {
+      "canonique": "le débogueur",
+      "eviter": [
+        "Xdebug",
+        "ixe-debeug",
+        "ex-debug"
+      ],
+      "statut": "validé",
+      "note": "Xdebug est retire du script au profit de « le débogueur », reconnu."
+    }
+  ],
+  "phrases_validees": 44,
+  "fichiers_source": [
+    "C:\\Users\\searc\\Desktop\\hermes_tuto_v4\\test_diction_v8.py",
+    "C:\\Users\\searc\\Desktop\\hermes_tuto_v4\\test_diction_v8b.py",
+    "C:\\Users\\searc\\Desktop\\hermes_tuto_v4\\test_diction_v8c.py"
+  ]
+}

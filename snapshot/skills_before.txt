@@ -1,0 +1,108 @@
+                               Installed Skills                                
+┌──────────────────────┬──────────────────────┬──────────┬──────────┬─────────┐
+│ Name                 │ Category             │ Source   │ Trust    │ Status  │
+├──────────────────────┼──────────────────────┼──────────┼──────────┼─────────┤
+│ ai-video-pipeline    │                      │ local    │ local    │ enabled │
+│ autonomous-ai-agents │                      │ local    │ local    │ enabled │
+│ github               │                      │ builtin  │ builtin  │ enabled │
+│ hermes-operations    │                      │ local    │ local    │ enabled │
+│ photo                │                      │ local    │ local    │ enabled │
+│ premiere-montage-co… │                      │ local    │ local    │ enabled │
+│ record               │                      │ local    │ local    │ enabled │
+│ skill-curator        │                      │ local    │ local    │ enabled │
+│ surveillance-control │                      │ local    │ local    │ enabled │
+│ windows-system-back… │                      │ local    │ local    │ enabled │
+│ yuanbao              │                      │ local    │ local    │ enabled │
+│ agent-tooling        │ autonomous-ai-agents │ local    │ local    │ enabled │
+│ computer-use         │ autonomous-ai-agents │ builtin  │ builtin  │ enabled │
+│ hermes-agent         │ autonomous-ai-agents │ builtin  │ builtin  │ enabled │
+│ ascii-suite          │ creative             │ local    │ local    │ enabled │
+│ comfyui              │ creative             │ local    │ local    │ enabled │
+│ design-system        │ creative             │ local    │ local    │ enabled │
+│ diagram-suite        │ creative             │ local    │ local    │ enabled │
+│ humanizer            │ creative             │ builtin  │ builtin  │ enabled │
+│ manim-video          │ creative             │ builtin  │ builtin  │ enabled │
+│ nle-video-assembly   │ creative             │ local    │ local    │ enabled │
+│ p5js                 │ creative             │ builtin  │ builtin  │ enabled │
+│ pretext              │ creative             │ local    │ local    │ enabled │
+│ smll-talk-podcast    │ creative             │ local    │ local    │ enabled │
+│ songwriting-and-ai-… │ creative             │ builtin  │ builtin  │ enabled │
+│ knowledge-ops        │ data-science         │ local    │ local    │ enabled │
+│ auto-heal            │ devops               │ local    │ local    │ enabled │
+│ fallback-intelligent │ devops               │ local    │ local    │ enabled │
+│ hermes-install-trou… │ devops               │ local    │ local    │ enabled │
+│ kanban-system        │ devops               │ local    │ local    │ enabled │
+│ omniroute-gateway    │ devops               │ local    │ local    │ enabled │
+│ omniroute-suite      │ devops               │ local    │ local    │ enabled │
+│ python-dependency-g… │ devops               │ local    │ local    │ enabled │
+│ security-monitoring  │ devops               │ local    │ local    │ enabled │
+│ security-ops         │ devops               │ local    │ local    │ enabled │
+│ ssl-monitoring       │ devops               │ local    │ local    │ enabled │
+│ supply-chain-harden… │ devops               │ local    │ local    │ enabled │
+│ telegram-bot-polling │ devops               │ local    │ local    │ enabled │
+│ windows-background-… │ devops               │ local    │ local    │ enabled │
+│ windows-ops          │ devops               │ local    │ local    │ enabled │
+│ windows-path-handli… │ devops               │ local    │ local    │ enabled │
+│ windows-performance… │ devops               │ local    │ local    │ enabled │
+│ wordpress-local-fly… │ devops               │ local    │ local    │ enabled │
+│ email-suite          │ email                │ local    │ local    │ enabled │
+│ media-analysis       │ media                │ local    │ local    │ enabled │
+│ photo-realistic-fac… │ media                │ local    │ local    │ enabled │
+│ talking-head-video   │ media                │ local    │ local    │ enabled │
+│ talking-head-video-… │ media                │ local    │ local    │ enabled │
+│ video-assembly       │ media                │ local    │ local    │ enabled │
+│ video-editing-autom… │ media                │ local    │ local    │ enabled │
+│ diffusion-lora-trai… │ mlops                │ local    │ local    │ enabled │
+│ llm-ops              │ mlops                │ local    │ local    │ enabled │
+│ lora-training        │ mlops                │ local    │ local    │ enabled │
+│ model-ops            │ mlops                │ local    │ local    │ enabled │
+│ sdxl-face-lora       │ mlops                │ local    │ local    │ enabled │
+│ segment-anything-mo… │ mlops                │ local    │ local    │ enabled │
+│ tts-voice-cloning    │ mlops                │ local    │ local    │ enabled │
+│ vibevoice-tts        │ mlops                │ local    │ local    │ enabled │
+│ weights-and-biases   │ mlops                │ local    │ local    │ enabled │
+│ action-items         │ productivity         │ local    │ local    │ enabled │
+│ airtable             │ productivity         │ builtin  │ builtin  │ enabled │
+│ auto-revision-skills │ productivity         │ local    │ local    │ enabled │
+│ box                  │ productivity         │ builtin  │ builtin  │ enabled │
+│ google-workspace     │ productivity         │ builtin  │ builtin  │ enabled │
+│ hermes-memory        │ productivity         │ local    │ local    │ enabled │
+│ maps                 │ productivity         │ builtin  │ builtin  │ enabled │
+│ notion               │ productivity         │ builtin  │ builtin  │ enabled │
+│ office-documents     │ productivity         │ local    │ local    │ enabled │
+│ planning-ops         │ productivity         │ local    │ local    │ enabled │
+│ product-price-monit… │ productivity         │ builtin  │ builtin  │ enabled │
+│ prospecting-suite    │ productivity         │ local    │ local    │ enabled │
+│ rag-second-cerveau   │ productivity         │ local    │ local    │ enabled │
+│ recherche-skills-of… │ productivity         │ local    │ local    │ enabled │
+│ siyuan               │ productivity         │ official │ official │ enabled │
+│ siyuan-second-brain  │ productivity         │ local    │ local    │ enabled │
+│ teams-meeting-pipel… │ productivity         │ builtin  │ builtin  │ enabled │
+│ godmode              │ red-teaming          │ local    │ local    │ enabled │
+│ arxiv                │ research             │ builtin  │ builtin  │ enabled │
+│ competitor-news-mon… │ research             │ builtin  │ builtin  │ enabled │
+│ grounded-citations   │ research             │ builtin  │ builtin  │ enabled │
+│ llm-wiki             │ research             │ builtin  │ builtin  │ enabled │
+│ research-content     │ research             │ local    │ local    │ enabled │
+│ rss-feeds            │ research             │ official │ official │ enabled │
+│ reddit-reading       │ social-media         │ official │ official │ enabled │
+│ code-quality         │ software-development │ local    │ local    │ enabled │
+│ codebase-inspection  │ software-development │ builtin  │ builtin  │ enabled │
+│ detector-calibration │ software-development │ local    │ local    │ enabled │
+│ dogfood              │ software-development │ builtin  │ builtin  │ enabled │
+│ inspecting-hermes-d… │ software-development │ builtin  │ builtin  │ enabled │
+│ kimi-k3              │ software-development │ local    │ local    │ enabled │
+│ planning-workflow    │ software-development │ local    │ local    │ enabled │
+│ simplify-code        │ software-development │ builtin  │ builtin  │ enabled │
+│ systematic-debugging │ software-development │ builtin  │ builtin  │ enabled │
+│ test-driven-develop… │ software-development │ builtin  │ builtin  │ enabled │
+│ wordpress-suite      │ software-development │ local    │ local    │ enabled │
+│ blocked-page-recove… │ web                  │ builtin  │ builtin  │ enabled │
+│ local-flywheel-setup │ wordpress            │ local    │ local    │ enabled │
+│ wordpress-backup-re… │ wordpress            │ local    │ local    │ enabled │
+│ wordpress-deployment │ wordpress            │ local    │ local    │ enabled │
+│ wordpress-site-mana… │ wordpress            │ local    │ local    │ enabled │
+│ wp-cli-automation    │ wordpress            │ local    │ local    │ enabled │
+└──────────────────────┴──────────────────────┴──────────┴──────────┴─────────┘
+3 hub-installed, 25 builtin, 73 local — 101 enabled, 0 disabled
+

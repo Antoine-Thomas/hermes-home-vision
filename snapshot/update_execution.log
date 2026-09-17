@@ -1,0 +1,177 @@
+☤ Updating Hermes Agent...
+
+
+⚠ 4 leftover update autostash entries are more than 7 days old:
+    stash@{0}  (hermes-update-autostash-20260908-193237)
+    stash@{1}  (hermes-update-autostash-20260908-173555)
+    stash@{2}  (hermes-update-autostash-20260907-085757)
+    stash@{3}  (hermes-update-autostash-20260902-162153)
+  These hold local changes stashed by earlier updates and never
+  restored. Review with: git stash show -p <entry>
+  Restore with: git stash apply <entry>   Discard with: git stash drop <entry>
+→ Fetching updates...
+→ Found 1253 new commit(s)
+→ Pulling updates...
+  ⚠ Fast-forward not possible (history diverged), resetting to match remote...
+  ✓ Cleared 72 stale __pycache__ directories
+→ Windows: hermes.exe cannot replace itself while it runs; finishing the dependency install under the venv Python.
+  The code update is already applied. The install continues below and this shell returns right away.
+  ✓ Refreshed Windows gateway launcher scripts
+
+✓ Gateway started via cold-start after update (PID: 23976)
+Using Python 3.11.16 environment at: venv
+Resolved 105 packages in 624ms
+   Building hermes-agent @ file:///C:/Users/searc/AppData/Local/hermes/hermes-agent
+      Built hermes-agent @ file:///C:/Users/searc/AppData/Local/hermes/hermes-agent
+Prepared 1 package in 9.43s
+Uninstalled 1 package in 5ms
+Installed 1 package in 132ms
+ - hermes-agent==0.21.2 (from file:///C:/Users/searc/AppData/Local/hermes/hermes-agent)
+ + hermes-agent==0.21.3 (from file:///C:/Users/searc/AppData/Local/hermes/hermes-agent)
+npm notice run hermes-agent@1.0.0 postinstall
+npm notice run echo '✅ Node dependencies installed. Run: python run_agent.py --help'
+'✅ Node dependencies installed. Run: python run_agent.py --help'
+
+added 548 packages in 29s
+☤ Updating Hermes Agent...
+
+→ Stopping Windows gateway process(es) before updating Hermes...
+  → Force-stopped 1 gateway process(es)
+  → Stopped 1 gateway process(es) without profile mapping
+
+⚠ 4 leftover update autostash entries are more than 7 days old:
+    stash@{0}  (hermes-update-autostash-20260908-193237)
+    stash@{1}  (hermes-update-autostash-20260908-173555)
+    stash@{2}  (hermes-update-autostash-20260907-085757)
+    stash@{3}  (hermes-update-autostash-20260902-162153)
+  These hold local changes stashed by earlier updates and never
+  restored. Review with: git stash show -p <entry>
+  Restore with: git stash apply <entry>   Discard with: git stash drop <entry>
+→ Fetching updates...
+→ Finishing the dependency install handed off by hermes.exe...
+
+→ Refreshing 14 active lazy backend(s)...
+  ↑ 2 refreshed: stt.faster_whisper, tool.trace_upload
+  ✓ 12 already current
+✓ Dependencies repaired!
+→ Warming npx cache for agent-browser...
+→ Updating Node.js dependencies...
+  ✓ ui-tui, web workspaces installed (desktop skipped)
+→ Building web UI...
+    npm notice run web@0.0.0 build
+    npm notice run tsc -b && vite build
+    [33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+      - `__dirname` (vite.config.ts:80:25). Use `import.meta.dirname` instead
+    Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.[39m
+    [36mvite v8.2.0 [32mbuilding client environment for production...[36m[39m
+    [2K
+    transforming...✓ 2242 modules transformed.
+    rendering chunks...
+    computing gzip size...
+    ../hermes_cli/web_dist/index.html                                       1.50 kB │ gzip:   0.54 kB
+    ../hermes_cli/web_dist/assets/Mondwest-Regular-CWscgue7.woff2          23.82 kB
+    ../hermes_cli/web_dist/assets/RulesExpanded-Regular-l8uVympt.woff2     33.82 kB
+    ../hermes_cli/web_dist/assets/RulesExpanded-Bold-DZA7s8Pa.woff2        35.01 kB
+    ../hermes_cli/web_dist/assets/RulesCompressed-Regular-BSXFyF4x.woff2   37.76 kB
+    ../hermes_cli/web_dist/assets/RulesCompressed-Medium-CA76_CrB.woff2    38.84 kB
+    ../hermes_cli/web_dist/assets/Collapse-Bold-mgICk9-_.woff2             59.14 kB
+    ../hermes_cli/web_dist/assets/Collapse-Regular-DysayoTY.woff2          62.81 kB
+    ../hermes_cli/web_dist/assets/xterm-BrP-ENHg.css                        3.93 kB │ gzip:   1.01 kB
+    ../hermes_cli/web_dist/assets/index-CMRAQTqY.css                      112.46 kB │ gzip:  17.61 kB
+    ../hermes_cli/web_dist/assets/chat-activation-BiaqYo9D.js               0.04 kB │ gzip:   0.06 kB
+    ../hermes_cli/web_dist/assets/page-header-context-Cv8A-rTa.js           0.15 kB │ gzip:   0.14 kB
+    ../hermes_cli/web_dist/assets/useProfileScope-CZ2qacRL.js               0.26 kB │ gzip:   0.21 kB
+    ../hermes_cli/web_dist/assets/usePageHeader-BtGwRGnc.js                 0.30 kB │ gzip:   0.23 kB
+    ../hermes_cli/web_dist/assets/utils-Bpcp-Df0.js                         0.53 kB │ gzip:   0.29 kB
+    ../hermes_cli/web_dist/assets/rolldown-runtime-CbXtAM7H.js              0.58 kB │ gzip:   0.36 kB
+    ../hermes_cli/web_dist/assets/DeleteConfirmDialog-DYHjSPt1.js           0.61 kB │ gzip:   0.37 kB
+    ../hermes_cli/web_dist/assets/useModalBehavior-oWox1GPh.js              0.62 kB │ gzip:   0.39 kB
+    ../hermes_cli/web_dist/assets/clipboard-owkvc3zk.js                     0.73 kB │ gzip:   0.44 kB
+    ../hermes_cli/web_dist/assets/mcp-server-create-B0VgoYzF.js             0.92 kB │ gzip:   0.46 kB
+    ../hermes_cli/web_dist/assets/LoadErrorNotice-CV6olTV0.js               1.74 kB │ gzip:   0.90 kB
+    ../hermes_cli/web_dist/assets/DocsPage-DJ_r5zQ-.js                      1.96 kB │ gzip:   1.08 kB
+    ../hermes_cli/web_dist/assets/PairingPage-BgYuvTqk.js                   4.88 kB │ gzip:   1.67 kB
+    ../hermes_cli/web_dist/assets/plugins-BaAN6xyN.js                       5.55 kB │ gzip:   2.61 kB
+    ../hermes_cli/web_dist/assets/LogsPage-D3JeaXzi.js                      7.50 kB │ gzip:   3.29 kB
+    ../hermes_cli/web_dist/assets/FilesPage-ii7T121M.js                     9.81 kB │ gzip:   3.25 kB
+    ../hermes_cli/web_dist/assets/WebhooksPage-D_D7qeGE.js                 12.59 kB │ gzip:   3.84 kB
+    ../hermes_cli/web_dist/assets/themes-CIvhFi-e.js                       12.99 kB │ gzip:   4.39 kB
+    ../hermes_cli/web_dist/assets/ModelReloadConfirm-Bc_cIGXQ.js           13.95 kB │ gzip:   5.14 kB
+    ../hermes_cli/web_dist/assets/ProfileBuilderPage-BPUS4Amr.js           14.87 kB │ gzip:   4.50 kB
+    ../hermes_cli/web_dist/assets/McpPage-E1rZoe7T.js                      17.82 kB │ gzip:   5.22 kB
+    ../hermes_cli/web_dist/assets/ConfigPage-TxYcPRKB.js                   18.00 kB │ gzip:   6.02 kB
+    ../hermes_cli/web_dist/assets/AnalyticsPage-DGjQ0UYC.js                20.17 kB │ gzip:   6.00 kB
+    ../hermes_cli/web_dist/assets/ProfilesPage-DIAsoE7c.js                 25.27 kB │ gzip:   7.10 kB
+    ../hermes_cli/web_dist/assets/ChannelsPage-C-r0xOLn.js                 29.19 kB │ gzip:   8.07 kB
+    ../hermes_cli/web_dist/assets/EnvPage-BTHlbmAw.js                      29.76 kB │ gzip:   7.95 kB
+    ../hermes_cli/web_dist/assets/PluginsPage-dPzIq32p.js                  33.44 kB │ gzip:   9.71 kB
+    ../hermes_cli/web_dist/assets/ModelsPage-y2ABMNVz.js                   33.98 kB │ gzip:  10.51 kB
+    ../hermes_cli/web_dist/assets/SystemPage-NDX62Qyb.js                   43.16 kB │ gzip:  11.68 kB
+    ../hermes_cli/web_dist/assets/CronPage-BGuxAyHT.js                     44.46 kB │ gzip:  14.36 kB
+    ../hermes_cli/web_dist/assets/SkillsPage-5ZUnsuXo.js                   44.70 kB │ gzip:  12.68 kB
+    ../hermes_cli/web_dist/assets/api-Da5EV8dv.js                          45.30 kB │ gzip:  11.59 kB
+    ../hermes_cli/web_dist/assets/SessionsPage-H264fDXh.js                 46.37 kB │ gzip:  14.18 kB
+    ../hermes_cli/web_dist/assets/ChatPage-CG7Q6Qrs.js                     46.53 kB │ gzip:  16.13 kB
+    ../hermes_cli/web_dist/assets/vendor-B7eZBWFZ.js                       50.06 kB │ gzip:  17.82 kB
+    ../hermes_cli/web_dist/assets/index-8jhzZRvW.js                        66.05 kB │ gzip:  22.69 kB
+    ../hermes_cli/web_dist/assets/react-vendor-BoVnYuL4.js                226.99 kB │ gzip:  72.78 kB
+    ../hermes_cli/web_dist/assets/ui-D6CeFIrh.js                          290.01 kB │ gzip:  94.81 kB
+    ../hermes_cli/web_dist/assets/xterm-CXxU4Y2B.js                       474.38 kB │ gzip: 122.64 kB
+    ../hermes_cli/web_dist/assets/i18n-DhNsp4Ex.js                        484.31 kB │ gzip: 143.32 kB
+    
+    [33m[33m[PLUGIN_TIMINGS] [0mYour build spent significant time in plugins. Here is a breakdown:
+      - @rolldown/plugin-babel (88%)
+      - @tailwindcss/vite:generate:build (5%)
+    See https://rolldown.rs/reference/InputOptions.checks#plugintimings for more details.
+    [39m
+    [32m✓ built in 5.89s[39m
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "C:\Users\searc\AppData\Local\hermes\hermes-agent\hermes_cli\main.py", line 3517, in <module>
+    main()
+  File "C:\Users\searc\AppData\Local\hermes\hermes-agent\hermes_cli\main.py", line 3509, in main
+    rc = args.func(args)
+         ^^^^^^^^^^^^^^^
+  File "C:\Users\searc\AppData\Local\hermes\hermes-agent\hermes_cli\main.py", line 2370, in cmd_update
+    _cmd_update_impl(args, gateway_mode=gateway_mode)
+  File "C:\Users\searc\AppData\Local\hermes\hermes-agent\hermes_cli\update_cmd.py", line 1411, in _cmd_update_impl
+    _finish_already_up_to_date(
+  File "C:\Users\searc\AppData\Local\hermes\hermes-agent\hermes_cli\update_cmd.py", line 1221, in _finish_already_up_to_date
+    _m()._resume_windows_gateways_after_update(_windows_gateway_resume)
+  File "C:\Users\searc\AppData\Local\hermes\hermes-agent\hermes_cli\update_cmd_windows.py", line 1231, in _resume_windows_gateways_after_update
+    _verify_relaunched_gateways_alive(token, profiles, unmapped)
+  File "C:\Users\searc\AppData\Local\hermes\hermes-agent\hermes_cli\update_cmd_windows.py", line 1201, in _verify_relaunched_gateways_alive
+    raise RuntimeError("Windows gateway relaunch after update was not verified alive")
+RuntimeError: Windows gateway relaunch after update was not verified alive
+Exception ignored in atexit callback: <function _resume_windows_gateways_after_update at 0x000001814B4F8CC0>
+Traceback (most recent call last):
+  File "C:\Users\searc\AppData\Local\hermes\hermes-agent\hermes_cli\update_cmd_windows.py", line 1231, in _resume_windows_gateways_after_update
+    _verify_relaunched_gateways_alive(token, profiles, unmapped)
+  File "C:\Users\searc\AppData\Local\hermes\hermes-agent\hermes_cli\update_cmd_windows.py", line 1201, in _verify_relaunched_gateways_alive
+    raise RuntimeError("Windows gateway relaunch after update was not verified alive")
+RuntimeError: Windows gateway relaunch after update was not verified alive
+  ✓ Web UI built
+
+→ Checking configuration for new options...
+
+  ℹ Updating config format (v44 → v45)…
+  ✓ Config format updated (no new settings to configure)
+  ℹ enabled the connections toolset for cli
+  ⚠️  platform 'google_chat' references unknown toolset 'hermes-google_chat' — did you mean 'hermes-google_chat'?
+  ⚠️  platform 'google_chat' has no valid toolsets configured — the agent will have no tools on this platform. Run `hermes tools` to reconfigure.
+  ⚠️  platform 'teams' references unknown toolset 'hermes-teams' — did you mean 'hermes-teams'?
+  ⚠️  platform 'teams' has no valid toolsets configured — the agent will have no tools on this platform. Run `hermes tools` to reconfigure.
+  ⚠️  platform 'whatsapp' is configured with an empty toolset list — the agent will have no tools on this platform. Run `hermes tools` to reconfigure.
+  ✓ Profile 'watch': config format updated (v44 → v45)
+✓ Update complete! [main @ 9796235822]
+  ✓ Refreshed Windows gateway launcher scripts
+
+  ⚠ Windows gateway restart could not be verified — no stable gateway process appeared after relaunch.
+    (The respawned gateway may have been killed by a parent Job Object during updater teardown, #48820.)
+    Recover with: hermes gateway restart
+  ✓ Refreshed Windows gateway launcher scripts
+
+  ⚠ Windows gateway restart could not be verified — no stable gateway process appeared after relaunch.
+    (The respawned gateway may have been killed by a parent Job Object during updater teardown, #48820.)
+    Recover with: hermes gateway restart

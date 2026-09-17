@@ -1,0 +1,42 @@
+ORCHESTRATEUR PIPELINE VIDEO — 15/09/2026 20:41:26
+script : test_pipeline_court.txt | voix : v9 | source : p1002837 | qualite : oui
+
+ETAPES PREVUES
+  1. preparation du script (lexique de diction)     [ignoree]
+       -> C:\Users\searc\Desktop\hermes_tuto_v4\scripts_tts\test_pipeline_court_tts.txt
+       appel : python.exe preparer_script_tts.py test_pipeline_court.txt -o test_pipeline_court_tts.txt --rapport
+  2. synthese vocale (XTTS)                         [ignoree]
+       -> C:\Users\searc\Desktop\hermes_tuto_v4\volet4_voice_v9.wav
+       appel : gen_voice_v8.py (constantes substituees)
+  3. plan de decoupe (multiples du cycle ping-pong) [ignoree]
+  4. lissage video (LatentSync)                     [ignoree]
+       -> C:\Users\searc\Desktop\hermes_tuto_v4\latentsync_p1002837_v9.mp4
+       appel : run_latentsync_v8b.py (constantes substituees)
+  5. assemblage final                               [ignoree]
+       -> C:\Users\searc\Desktop\hermes_tuto_v4\youtube_volet4_hermes_FINAL_v9.mp4
+       appel : python.exe assemble_v6.py run
+  6. controle qualite                               [a executer]
+       appel : python.exe controle_qualite.py youtube_volet4_hermes_FINAL_v9.mp4 --source source_4k_25fps_clean.mp4
+etape 1 — ignoree (reprise a l'etape 6)
+etape 2 — ignoree (reprise a l'etape 6)
+etape 3 — ignoree (reprise a l'etape 6)
+etape 4 — ignoree (reprise a l'etape 6)
+etape 5 — ignoree (reprise a l'etape 6)
+
+--- etape 6 : controle qualite
+    duree : 13.2 s | code 0
+    |       droite   mediane     62.6 | min     50.3 | chutes 0
+    | [OK] levres
+    |       cretes de gradient et 99e percentile, vs source
+    |       cretes (fantomes) : 0.364 x la source | force du contour : 1.331 x la source
+    | verification croisee diag_sauts.py : pics > 4x la mediane (2.83) : 0 aux frames []
+    | rapport ecrit : C:\Users\searc\Desktop\hermes_tuto_v4\rapport_qualite_20260915_204139.json
+
+BILAN
+  duree totale : 13.2 s (0.2 min)
+  etape 6 controle qualite                                  13.2 s  code 0
+  verdict qualite : OK (code 0)
+  fichier : C:\Users\searc\Desktop\hermes_tuto_v4\scripts_tts\test_pipeline_court_tts.txt (0.0 Mo)
+  fichier : C:\Users\searc\Desktop\hermes_tuto_v4\volet4_voice_v9.wav (0.9 Mo)
+  fichier : C:\Users\searc\Desktop\hermes_tuto_v4\latentsync_p1002837_v9.mp4 (4.2 Mo)
+  fichier : C:\Users\searc\Desktop\hermes_tuto_v4\youtube_volet4_hermes_FINAL_v9.mp4 (58.2 Mo)

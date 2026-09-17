@@ -1,0 +1,76 @@
+ORCHESTRATEUR PIPELINE VIDEO — 15/09/2026 20:31:16
+script : test_pipeline_court.txt | voix : v9 | source : p1002837 | qualite : oui
+
+ETAPES PREVUES
+  1. preparation du script (lexique de diction)     [ignoree]
+       -> C:\Users\searc\Desktop\hermes_tuto_v4\scripts_tts\test_pipeline_court_tts.txt
+       appel : python.exe preparer_script_tts.py test_pipeline_court.txt -o test_pipeline_court_tts.txt --rapport
+  2. synthese vocale (XTTS)                         [a executer]
+       -> C:\Users\searc\Desktop\hermes_tuto_v4\volet4_voice_v9.wav
+       appel : gen_voice_v8.py (constantes substituees)
+  3. plan de decoupe (multiples du cycle ping-pong) [a executer]
+  4. lissage video (LatentSync)                     [a executer]
+       -> C:\Users\searc\Desktop\hermes_tuto_v4\latentsync_p1002837_v9.mp4
+       appel : run_latentsync_v8b.py (constantes substituees)
+  5. assemblage final                               [a executer]
+       -> C:\Users\searc\Desktop\hermes_tuto_v4\youtube_volet4_hermes_FINAL_v9.mp4
+       appel : python.exe assemble_v6.py run
+  6. controle qualite                               [a executer]
+       appel : python.exe controle_qualite.py youtube_volet4_hermes_FINAL_v9.mp4 --source source_4k_25fps_clean.mp4
+etape 1 — ignoree (reprise a l'etape 2)
+
+--- etape 2 : synthese vocale (XTTS)
+    gen_voice_v8.py execute avec ses constantes substituees (mempreinte c4415d6d5c2e9f89 -> c4415d6d5c2e9f89)
+    duree : 38.5 s | code 0
+    | Generation terminee en 12s
+    | Segments presents : 2 / 2
+    | CONCATENE -> C:\Users\searc\Desktop\hermes_tuto_v4\volet4_voice_v9.wav (18.307 s)
+    | OK
+    | C:\Users\searc\AppData\Local\hermes\data\xtts\venv\Lib\site-packages\TTS\api.py:93: UserWarning: `gpu` will be deprecated. Please use `tts.to(device)` instead.
+    |   warnings.warn("`gpu` will be deprecated. Please use `tts.to(device)` instead.")
+
+--- etape 3 : plan de decoupe (multiples du cycle ping-pong)
+    audio 18.31 s | segment 48 s = 3.0 cycles ping-pong
+    plan : 0 segment(s) complet(s) + reste 18.31 s -> 1 appel(s) LatentSync
+    la decoupe reelle est faite par run_latentsync (phase + silences de fin)
+
+--- etape 4 : lissage video (LatentSync)
+    run_latentsync_v8b.py execute avec ses constantes substituees (mempreinte 7ab5c49d0006c4f4 -> 7ab5c49d0006c4f4)
+    duree : 151.0 s | code 0
+    |  95%|█████████▍| 434/459 [00:07<00:00, 56.18it/s]
+    |  96%|█████████▌| 441/459 [00:08<00:00, 56.75it/s]
+    |  97%|█████████▋| 447/459 [00:08<00:00, 55.67it/s]
+    |  99%|█████████▊| 453/459 [00:08<00:00, 54.84it/s]
+    | 100%|██████████| 459/459 [00:08<00:00, 54.94it/s]
+    | 100%|██████████| 459/459 [00:08<00:00, 54.82it/s]
+
+--- etape 5 : assemblage final
+    duree : 82.2 s | code 0
+    |   250/459 (24s, 10.5 img/s)
+    | TERMINE : C:\Users\searc\Desktop\hermes_tuto_v4\youtube_volet4_hermes_FINAL_v9.mp4 en 55s
+    | qualite : DESACTIVE
+    | C:\Users\searc\AppData\Local\hermes\data\video_youtube\LatentSync\venv\lib\site-packages\insightface\utils\transform.py:68: FutureWarning: `rcond` parameter wil
+    | To use the future default and silence this warning we advise to pass `rcond=None`, to keep using the old, explicitly pass `rcond=-1`.
+    |   P = np.linalg.lstsq(X_homo, Y)[0].T # Affine matrix. 3 x 4
+
+--- etape 6 : controle qualite
+    duree : 13.6 s | code 0
+    |       droite   mediane     62.6 | min     50.3 | chutes 0
+    | [OK] levres
+    |       cretes de gradient et 99e percentile, vs source
+    |       cretes (fantomes) : 0.364 x la source | force du contour : 1.331 x la source
+    | verification croisee diag_sauts.py : pics > 4x la mediane (2.83) : 0 aux frames []
+    | rapport ecrit : C:\Users\searc\Desktop\hermes_tuto_v4\rapport_qualite_20260915_203601.json
+
+BILAN
+  duree totale : 285.3 s (4.8 min)
+  etape 2 synthese vocale (XTTS)                            38.5 s  code 0
+  etape 3 plan de decoupe (multiples du cycle ping-pong)     0.1 s  code 0
+  etape 4 lissage video (LatentSync)                       151.0 s  code 0
+  etape 5 assemblage final                                  82.2 s  code 0
+  etape 6 controle qualite                                  13.6 s  code 0
+  verdict qualite : OK (code 0)
+  fichier : C:\Users\searc\Desktop\hermes_tuto_v4\scripts_tts\test_pipeline_court_tts.txt (0.0 Mo)
+  fichier : C:\Users\searc\Desktop\hermes_tuto_v4\volet4_voice_v9.wav (0.9 Mo)
+  fichier : C:\Users\searc\Desktop\hermes_tuto_v4\latentsync_p1002837_v9.mp4 (4.2 Mo)
+  fichier : C:\Users\searc\Desktop\hermes_tuto_v4\youtube_volet4_hermes_FINAL_v9.mp4 (58.2 Mo)

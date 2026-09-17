@@ -1,0 +1,2 @@
+usage: hermes skills snapshot export [-h] output
+hermes skills snapshot export: error: the following arguments are required: output
