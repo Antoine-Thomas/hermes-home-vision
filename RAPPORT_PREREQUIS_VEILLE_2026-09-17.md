@@ -1054,7 +1054,7 @@ successfully ») et le retour à 6 clés vérifié avant toute création réelle
 | Proxy NIM 20200 | mort, 0 listener | **✓ écoute, loggé, threadé, raw SSE acceptée** |
 | Tâche NIM | logon seul, `NextRunTime` vide | **logon + répétition PT15M, Next armé** (observé en prod : 12:48:49 → 13:18:48) |
 | Combo `nvidia-stack` | 502 / 401 à l'appel | **200** (par nom de combo et par modèle) |
-| Combo `eco` | — | **inchangé** (md5 et `updatedAt` identiques) |
+| Combo `eco` | — | **modifié par son propre job, pas par moi** — voir rectificatif ci-dessous |
 | PurgeReports | code 1, aucun log | **code 0, log UTF-8, 2 preuves protégées** |
 | Tâches planifiées bureau | 9 recensées, toutes intactes | **9, aucune supprimée** (1 désactivée : le vestige `HermesGateway`) |
 | SiYuan 6806 / RAG 8200 / backend 9119 / OmniRoute 20128 | 401 / 404 / 200 / 307 | **identiques** |
@@ -1177,6 +1177,37 @@ Aucune action ici — c'est un transfert, pas une tâche en cours.
    `a2a_agents` déclaré des deux côtés. `-SelfTest` reste le seul mode sans conséquence.
 
 **Chantier « prérequis veille » : FERMÉ.**
+
+## Rectificatif de clôture — le combo `eco` a bougé, mais pas à cause de moi
+
+Mon contrôle de non-régression affichait « eco intact » : c'était vrai à 12:34 et 12:38
+(`updatedAt = 2026-09-12T00:15:44Z`, 10 modèles, md5 `659da0519bc4bbe5c50103d43b332dae` — identique
+avant/après le rattrapage cron de 12:36). **Ce n'est plus vrai au moment de clore** :
+`updatedAt = 2026-09-17T11:03:24Z`, **15 modèles**.
+
+Auteur identifié : **son propre job horaire**, `5c9dd16aaa37` « omniroute-eco-autorefresh »
+(exécution `2026-09-17T13:00:03 → 13:04:59`, statut `completed`). Son rapport dit pourquoi : `eco`,
+modèle par défaut des profils `default` **et** `watch`, était **hors service**, et tout le trafic
+Hermes basculait sur le fallback payant DeepSeek. Il a sondé les gratuits et réécrit le combo :
+`eco unchanged: 10 modeles (aucun nouveau modele vivant)` côté script de pré-run, puis 4 vivants
+détectés et intégrés.
+
+Ce que ça change, et ce que ça ne change pas :
+
+- **Mon correctif A3 n'est pas en cause** : il n'a touché que `nvidia-stack`, jamais `eco`.
+- `eco` contient désormais **deux entrées NVIDIA en forme préfixée** —
+  `openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` et
+  `openai/nvidia/nemotron-3.5-lightning-30b-a3b`. C'est la **bonne** forme (celle que le proxy
+  attend), donc le job a intégré Nemotron correctement — la réparation du proxy et du combo en amont
+  a probablement rendu ces modèles « vivants » à ses yeux.
+- La non-régression « eco n'a pas été modifié par cette session » reste vraie ; « eco est inchangé »
+  ne l'est plus. La nuance compte : c'est un job du parc qui a travaillé, pas un effet de bord.
+
+Leçon à retenir pour les prochains contrôles : sur ce parc, **deux jobs horaires modifient la
+configuration OmniRoute en continu** (`omniroute-eco-autorefresh` à :00 et le monitoring vision à
+:36). Un contrôle de non-régression sur `eco` doit donc être horodaté, ou fait juste après lecture —
+pas rejoué à distance de plusieurs heures.
+
 
 
 
