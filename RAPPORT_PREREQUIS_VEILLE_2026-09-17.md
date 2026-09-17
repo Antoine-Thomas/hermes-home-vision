@@ -499,6 +499,146 @@ suppression de preuve d'audit — à confirmer ou à exclure explicitement.
 **Divulgation** : mon exécution de diagnostic ci-dessus a créé
 `C:\ProgramData\Hermes\logs\purge_20260917-122137.log` (448 octets). Aucun autre effet.
 
+### 2b — Exécution
+
+Backups XML : `backups/taches/Hermes_Gateway.20260917_123532.xml` et
+`backups/taches/HermesGateway.20260917_123532.xml`.
+
+| Étape | Résultat |
+|---|---|
+| `schtasks /Run /TN Hermes_Gateway` | « Opération réussie » |
+| `hermes gateway status` | `✓ Gateway process running (PID: 28656)` |
+| `gateway_state.json` | `gateway_state = running`, `pid = 28656`, `updated_at = 2026-09-17T10:35:59Z`, `restart_requested = False` |
+| PID vivant | vérifié (PowerShell `Get-Process`) — **pas** un pid fantôme |
+| `logs/gateway.log` | `✓ telegram connected`, `Telegram polling confirmed healthy: getUpdates progressing (generation 1)`, `set_my_commands OK` ×3, `Gateway running with 2 platform(s)`, `Channel directory built: 1 target(s)` |
+| Plateformes | `telegram: connected`, `email: connected`, `whatsapp: retrying`, `whatsapp_cloud: connected` |
+| Dispatcher kanban | `holding singleton dispatcher lock` — le verrou est passé du watch au default, preuve de la coordination |
+| `hermes gateway list` | `✓ default — PID 28656` / `✗ veille` / `✓ watch — PID 22876` |
+
+L'état `draining` est bien parti tout seul : le nouveau démarrage a réécrit le fichier
+(`starting` → `running`), **sans qu'on touche au fichier à la main**, comme annoncé dans le diagnostic.
+
+**Vestige** : `Disable-ScheduledTask -TaskName HermesGateway` → `State=Disabled`, `Enabled=False`.
+La tâche **existe toujours** (aucune suppression) : nom, action
+(`pwsh.exe -NoProfile -Command "hermes gateway start"`) et déclencheurs conservés pour trace.
+Après désactivation, sur les trois tâches `*Gateway*`, **seul `Hermes_Gateway` est `Ready`** —
+c'est donc le seul qui tirera au prochain logon.
+
+Le bot Telegram : connexion confirmée côté log (`telegram connected`, polling sain). Le test
+bout-en-bout (envoi d'un message) reste à l'opérateur.
+
+### 2c — Exécution
+
+Backups : `backups/scripts/purge_reports.ps1.20260917_123643` (script) et
+`backups/taches/Hermes-PurgeReports.20260917_123708.xml` (tâche).
+
+**Défaut 1 — politique d'exécution.** Arguments avant :
+`-NoProfile -WindowStyle Hidden -File "C:\ProgramData\Hermes\purge_reports.ps1"`.
+Après : `… -ExecutionPolicy Bypass -File …` (Execute, principal, triggers et horaire inchangés).
+
+**Défaut 2 — garde-fou.** Avant / après :
+
+```powershell
+# AVANT
+if ($row.alerts_wazuh_recentes -and $row.alerts_wazuh_recentes -ne '0 alertes' -and $row.alerts_wazuh_recentes -ne '0') {
+# APRES
+$alerts = 0
+if ("$($row.alerts_wazuh_recentes)" -match '^\s*(\d+)') { $alerts = [int]$Matches[1] }
+if ($alerts -gt 0) {
+```
+
+**Protection de la preuve d'audit — option retenue : exclusion déclarative dans le script**
+(plutôt qu'un déplacement de fichier, qui casserait les références au chemin dans les rapports
+d'audit existants). Liste `$ProtectedPatterns = @('*hermes_evidence*', 'archive_sha256*')`, appliquée
+aux **deux** étapes destructives (mise en quarantaine **et** suppression depuis la quarantaine), avec
+une ligne de log `PROTECTED:` par fichier conservé.
+
+J'ai étendu la protection au-delà de la demande : `archives/` contient aussi
+`archive_sha256.txt` (65 o, 19/07), l'empreinte SHA-256 de l'archive de preuve — donc de la matière
+d'audit au même titre. Sans cette extension il aurait été purgé, et la preuve devenue invérifiable.
+
+**Preuve après correction, tâche exécutée réellement sous SYSTEM :**
+
+| Mesure | Avant | Après |
+|---|---|---|
+| `LastTaskResult` | `1` (échec, aucun log) | **`0`** |
+| Log écrit dans `C:\ProgramData\Hermes\logs\` | **jamais** (dossier vide) | `purge_20260917-123711.log` |
+
+Contenu du log produit par SYSTEM (DryRun, non destructif) :
+
+```
+=== Hermes Purge Reports - DryRun=True ===
+Protection preuves d'audit : *hermes_evidence*, archive_sha256*
+PROTECTED: archive_sha256.txt - preuve d'audit, ni deplacee ni supprimee
+PROTECTED: hermes_evidence_OMATHS_20260719-202157.tar.gz.gpg - preuve d'audit, ni deplacee ni supprimee
+SUMMARY: 0 archives to quarantine, 0 to delete, 2 protected
+=== Purge complete ===
+```
+
+**Liste de ce qui SERAIT purgé : vide.** Rien à valider, rien à supprimer — le garde-fou de la
+consigne (« si le DryRun liste autre chose que ce que j'ai validé, STOP ») est satisfait par
+l'absence totale de candidat. Les deux fichiers d'`archives/` sont intacts, `quarantine/` est vide.
+
+Deux précisions utiles :
+
+- `[switch]$DryRun = $true` est la **valeur par défaut** et la tâche n'invoque aucun paramètre : le
+  passage quotidien de 02:00 est donc **toujours en DryRun**. Il n'a jamais pu supprimer quoi que ce
+  soit, même avant correctif. Le risque de destruction était latent, pas actif — mais il l'aurait été
+  au premier `-DryRun:$false`.
+- Le log écrit par SYSTEM est en **UTF-16LE** (`Out-File` sans `-Encoding` sous PowerShell 5.1) :
+  lisible par PowerShell, illisible pour `grep`/`tail`. Correctif d'une ligne
+  (`Out-File $logFile -Append -Encoding utf8`) **proposé, non appliqué** — hors du diff autorisé.
+
+### Incident de séance : MEMORY.md consolidé par un job cron
+
+**Non demandé, non attendu : MEMORY.md est passé de 2076 à 1906 chars pendant la Phase 2, à
+12:36:37.** Je le signale comme un écart à la consigne « mémoire inchangée (2076/2100) ».
+
+**Cause — le redémarrage du gateway lui-même.** `cron/executions.db` : le pid 28656 (le gateway
+redémarré à 12:36:00) a rattrapé 4 jobs en retard (`catch_up_occurrences = 11`), tous `completed` :
+
+| Job | Nom | Cadence | Terminé à |
+|---|---|---|---|
+| `5712beba047f` | Mémoire auto-consolidation | 720 min | 12:36:39 |
+| `a86c7c7f0721` | OmniRoute découverte IA gratuites | quotidien 09:00 | 12:36:02 |
+| `493da894d8db` | Monitoring vision gratuite OmniRoute | 60 min | 12:36:25 |
+| `5c9dd16aaa37` | omniroute-eco-autorefresh | horaire | 12:36:55 |
+
+`agent.log` confirme l'appel : `12:36:37 [cron_5712beba047f_…] tool memory completed (0.01s, 211 chars)`.
+
+**Ce n'est pas le motif de l'incident du 16/09.** Le job a fait ce pour quoi il est conçu, et son
+propre rapport le documente : déclenché parce que le store était à 94 % (> seuil 90 %), consolidation
+en **un seul appel batch** (4 `replace`), `USER.md` non touché (sous son seuil). Résultat annoncé :
+2075 → 1906/2200 (86 %).
+
+**Intégrité vérifiée** : 7 sections, 6 séparateurs `§`, aucun fait inventé, aucune section perdue.
+Diff complet entre l'état d'avant (reconstruit, **2120 octets — exactement la taille mesurée en
+Phase 0**) et l'état live :
+
+- Fusions sans perte : GPU bridé intégré à la ligne Environnement ; doublon « RAG 2307 frag. » (il
+  apparaissait deux fois) supprimé ; Skills + WP-CLI sur une ligne ; Vidéo condensée (le contenu
+  branches A/B, XTTS, outils, projet reste présent).
+
+Quatre détails atténués, listés pour qu'aucun ne disparaisse en silence :
+
+1. `hermes curator archive` (la commande d'archivage des skills) — **supprimée**. C'est la seule
+   perte réellement substantielle ; elle n'est pas couverte ailleurs dans MEMORY.md.
+2. Compte de fragments RAG : `2284` → `~2300` (information volatile de toute façon).
+3. Profil veille : « créé 17/09 » retiré (fait du jour, périme naturellement).
+4. Profil veille : « gateway arrêté » retiré — toujours vrai et impliqué par « A2A off ».
+
+**Aucune modification de ma part.** Je n'ai pas appelé l'outil mémoire (consigne) et je n'ai pas
+restauré le fichier : la version d'avant est disponible octet pour octet dans
+`%TEMP%\MEMORY_avant_consolidation.md` si tu préfères revenir en arrière. Réserve : restaurer
+remettrait l'usage à 94 %, donc le job re-consoliderait sous 12 h — la boucle n'a d'intérêt que si
+tu veux d'abord déplacer `hermes curator archive` vers un skill.
+
+**Effets de bord des 3 autres jobs rattrapés : aucun.** Vérifié après coup — combo `eco` inchangé
+(`updatedAt` toujours `2026-09-12T00:15:44Z`, md5 `659da0519bc4bbe5c50103d43b332dae`, identique à la
+mesure d'avant le rattrapage), combo `nvidia-stack` toujours préfixé, connexion provider toujours
+`isActive=True`.
+
+
 
 ## Phase 3 — Configuration du profil veille
 
