@@ -1063,5 +1063,121 @@ successfully ») et le retour à 6 clés vérifié avant toute création réelle
 | `hermes-agent` (dont `delegate_tool.py`) | git propre | **git propre, 0 fichier modifié** |
 | Profil veille | inerte (`.env` vide, `eco`, SOUL défaut, 58 skills) | **auto/best-reasoning + fallback, SOUL écrit, 45 skills désactivés, clé dédiée, provider déclaré, inférence prouvée** |
 
+---
+
+# ÉTAT FINAL — CHANTIER FERMÉ
+
+## Dernière décision : les 7 skills « à examiner »
+
+Appliquée par insertion textuelle ciblée (backup `config.yaml.avant_7skills.20260917_131451`, diff
+avant/après produit, jamais `config set`). **5 noms ajoutés** : `computer-use`,
+`document-to-action-items`, `spike`, `weekly-review-planning`, `youtube-content`.
+**2 conservés actifs** : `competitor-news-monitor`, `grounded-citations` — la règle de l'opérateur
+s'applique (raison de la désactivation côté bureau = « usage nul », pas « buggé »), et les deux
+servent directement le rôle.
+
+**Résultat mesuré** : `10 enabled, 44 disabled` sur 54 skills reconnus, soit exactement la cible.
+Les 10 actifs sont : `arxiv`, `blocked-page-recovery`, `competitor-news-monitor`, `github`,
+`grounded-citations`, `hermes-agent`, `humanizer`, `llm-wiki`, `rss-feeds`, `veille-2-agent`.
+
+### Réconciliation arithmétique (la formule soumise ne collait pas)
+
+La vérification demandée — `10 + (45+5) + 6 = 60` — donne **66**, pas 60 : elle compte les 6 skills
+non reconnus **deux fois**, puisqu'ils sont déjà inclus dans les 50 noms écrits. Décomposition juste :
+
+| Niveau | Décomposition | Total |
+|---|---|---|
+| Disque | 54 reconnus + 6 non reconnus sous Windows | **60** |
+| Reconnus par le CLI | 10 enabled + 44 disabled | **54** |
+| Noms écrits dans `skills.disabled` | 44 appliqués + 6 non reconnus (inertes) | **50** |
+
+La cible de **10 enabled est confirmée** — c'est bien 6 gardés + 2 conservés + 2 ajoutés.
+
+### Origine de l'écart « 8 » vs « 10 »
+
+`8` venait de la consigne précédente (6 + 2 ajoutés), qui supposait les 7 déjà tranchés ;
+`15` était l'état **réel** avant décision (6 + 7 en attente + 2). `10` est l'état cible juste. Je
+n'aurais pas dû reprendre « 8 » sans le recalculer : la vérification demandée était légitime.
+
+## Chaîne de repli : APPLIQUÉE
+
+Vérifié dans le code **avant** d'écrire, sur les deux plans :
+
+- Validation — `hermes_cli/config.py::_validate_fallback_model` : « fallback_model: single dict OR
+  list of dicts (chain) », champs requis `provider` + `model` par entrée.
+- Consommation — `hermes_cli/fallback_config.py::_iter_fallback_entries` :
+  `[raw] if isinstance(raw, dict) else raw if isinstance(raw, list) else []` → les deux formes sont
+  itérées, et `get_fallback_chain` **préserve l'ordre**.
+
+`fallback_model` est donc passé de dict simple à chaîne ordonnée de 2 entrées :
+
+```yaml
+fallback_model:
+  - provider: omniroute
+    model: nvidia-stack      # Nemotron, demande explicite de l'opérateur
+  - provider: omniroute
+    model: auto/best-free    # 2e couche, si Nemotron ne repond pas dans la deadline OmniRoute
+```
+
+`hermes -p veille config check` → **Config version: 45 ✓**, `config get fallback_model` relit les
+deux entrées dans l'ordre. Preuve d'inférence après modification :
+`hermes -p veille -z "Réponds exactement : OK VEILLE 2"` → **`OK VEILLE 2`**.
+
+Reste vrai et documenté : le plafond de 15 s d'OmniRoute peut toujours couper un appel Nemotron
+(9 s → >120 s mesuré). La chaîne de repli **plus** les 3 retry d'Hermes sont la réponse ; si les deux
+échouent, le job de veille échouera proprement et sera visible dans le log du cron.
+
+## Les 6 commits de la session
+
+| Commit | Contenu |
+|---|---|
+| `92eed06` | Phase 0 — vérifications d'entrée (mémoire, doctor, version, 9900, clés A2A) + baseline |
+| `60afa20` | Phase 1 — diagnostic NIM (lecture seule, 3 options soumises) |
+| `3d4ba29` | Phase 1 final — A1 à A4 : redirect + UTF-8, idempotence LISTENING, threading, combo préfixé, 2e déclencheur |
+| `a214d0a` | Phase 2a+2c — diagnostic gateway default + PurgeReports (aucune action) |
+| `b005b99` | Phase 2 final — gateway reparti, vestige désactivé, PurgeReports réparé, incident mémoire déclaré |
+| `fd46562` | Phase 3+4 préparation — tableau modèles, SOUL proposé, tri des 58 skills, checklist A2A |
+| `42bc2d8` | MEMORY.md — décision actée, commande `hermes curator archive` préservée |
+| `0f21c17` · `b3d52d5` · `9d3fa55` | 3a modèle · 3b SOUL.md · 3c skills |
+| `a9d9572` | 3d clé dédiée + provider + correctif streaming du proxy + hors-périmètre |
+| `7ce01bf` | Rectificatif des mesures de latence NIM |
+| *(ce commit)* | 7 skills tranchés + chaîne de repli + cette section de clôture |
+
+## État final vs Phase 0 (10 lignes)
+
+1. Version **0.21.3** identique, `hermes doctor` **4 issues préexistants** identiques (npm ×3,
+   `hermes setup`), skills bureau **98 enabled / 7 disabled** inchangés.
+2. Mémoire : 1938/2100 + 1193/1300 (consolidation assumée, commande récupérée, avant conservé).
+3. Gateway `default` : mort depuis 00:02 → **✓ running PID 28656**, telegram connecté ; `watch`
+   inchangé ; `veille` reste arrêté (voulu).
+4. Port **9900 muet**, **0 clé `A2A_*`**, ESTOP absent — A2A jamais activé.
+5. Proxy NIM 20200 : mort → **vivant, loggé, threadé, rotation 10 Mo**, clé plus journalisée.
+6. Tâche NIM : logon seul sans `NextRunTime` → **logon + répétition PT15M armée** (observée en prod).
+7. `nvidia-stack` : 502/401 → **200** ; `eco` **intact** (md5 et `updatedAt` identiques).
+8. PurgeReports : code 1 sans log → **code 0, log UTF-8**, preuves d'audit `hermes_evidence_*` et
+   `archive_sha256*` explicitement protégées, DryRun sans candidat.
+9. 9 tâches planifiées bureau, **aucune supprimée** (1 désactivée : le vestige `HermesGateway`) ;
+   `.env` du bureau **non modifié** ; `hermes-agent` **git propre** (`delegate_tool.py` intact).
+10. Profil `veille` : inerte → **modèle + chaîne de repli, SOUL écrit, 10 skills actifs, clé OmniRoute
+    dédiée restreinte, provider déclaré, inférence prouvée** (`OK VEILLE 2`).
+
+## Ce qui reste ouvert pour le PROCHAIN chantier (activation A2A)
+
+Aucune action ici — c'est un transfert, pas une tâche en cours.
+
+1. **Dette du script d'activation** — `scripts\activer_a2a.ps1` ne sait pas gérer un second profil :
+   pas de paramètre `-Port` ni `-Profile`, `$profile2 = "watch"` codé en dur, vérification limitée à
+   9900. À corriger (paramétrer) ou doubler d'un script dédié côté veille **avant** toute activation.
+2. **Choix du port veille** — le pair est **local** (décision d'architecture : « pas de second agent
+   sur une autre machine »), donc deux profils ⇒ deux ports. 9900 pour le bureau, **9901 à décider**
+   (variable `A2A_PORT` côté profil veille). Aucun port n'est posé aujourd'hui.
+3. **Gateway veille** — reste **arrêté**, par décision : ne pas le démarrer avant le chantier A2A.
+4. Rappels de la checklist : jeton par pair (`A2A_PEER_TOKENS`) à poser **dans les deux** `.env`,
+   plugin `a2a-platform` à activer, `platforms.a2a.enabled` **à la racine** (pas `gateway.platforms`),
+   `a2a_agents` déclaré des deux côtés. `-SelfTest` reste le seul mode sans conséquence.
+
+**Chantier « prérequis veille » : FERMÉ.**
+
+
 
 
