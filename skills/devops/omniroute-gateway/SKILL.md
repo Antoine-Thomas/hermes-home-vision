@@ -54,6 +54,18 @@ retires du catalogue) et chaque appel paie leurs tentatives. Elaguer le combo ne
 re-remplira a son rythme : corriger aussi **son script** (retirer les familles mortes, purger au-dela de
 N echecs consecutifs), le tester sur une copie du combo, puis relire le combo apres le passage horaire.
 
+**Les alias `auto/*` resquillent dans `eco` via le probe lui-meme.** Mesure 2026-09-17 18:00 : `eco`
+contient encore 3 alias (`auto/gemini`, `auto/zai`, `auto/best-free`) alors que le docstring de
+`probe_omniroute.py` interdit `auto/*` dans le combo — parce que `CANDIDATES` les **inclut** et que la
+phase additive ajoute tout modele vivant absent du combo : retirer `auto/*` a la main dans `eco` est
+**annule au tick suivant**. Corriger les deux (liste `CANDIDATES` + `PUT` du combo) ou rien.
+Cout mesure : sur un appel `eco`, le log ecrit exactement 3 x `AUTH No credentials for auto` puis
+`Trying model 1/6:gemini/...` — filtrage pre-dispatch, latence ~0 ms. C'est du poids mort et du bruit,
+pas une panne de latence : ne pas conclure a un combo casse a cause de ces lignes 40. Les 3 cibles
+REELLES restent `gemini/gemini-3-flash-preview` + les 2 NIM : quand gemini prend un
+`Model-only lockout ... 429 rate_limited 21s`, la priorite retombe sur la cible 2 et le combo repond
+toujours `200` en ~3,4 s (verifie le 2026-09-17).
+
 Etat du pool gratuit (verifie 2026-09-17) : tout `oc/*` et `opencode/*` renvoie
 `403 OpenCode's free tier can only be used from within OpenCode` (ou `402 requires an
 opencode API key`) — le pool gratuit OpenCode n'est plus exploitable via OmniRoute.

@@ -14,6 +14,7 @@
     ✓ watch                    — PID 27672
 
 ## cron veille (dc15c35183aa)
+  dc15c35183aa [active] - prochaine execution : 2026-09-21T08:00:00+02:00
     dc15c35183aa [active]
       Next run:  2026-09-21T08:00:00+02:00
 
@@ -30,4 +31,8 @@
   state.db-wal   : 64.0 Mo
 
 ## doctor
-    Found 5 issue(s) to address:
+  Found 4 issue(s) to address:
+  1. Browser tools (agent-browser) has 2 npm vulnerabilities
+  2. web workspace has 6 npm vulnerabilities
+  3. WhatsApp bridge has 4 npm vulnerabilities
+  4. Run 'hermes setup' to configure missing API keys for full tool access
