@@ -1,0 +1,26 @@
+context_lengths:
+  deepseek-v4-pro:cloud@http://127.0.0.1:11434/v1: 524288
+  gemma4:12b@http://127.0.0.1:11434/v1: 262144
+  glm-4.7-flash:latest@http://127.0.0.1:11434/v1: 202752
+  minimax-m3:cloud@http://127.0.0.1:11434/v1: 524288
+  nemotron-3-super:cloud@http://127.0.0.1:11434/v1: 262144
+  nemotron-3-super:cloud@http://127.0.0.1:11434/v1/: 262144
+  qwen3.5:cloud@http://127.0.0.1:11434/v1: 262144
+  oc/mimo-v2.5-free@http://localhost:20128/v1: 1048576
+  ddgw/gpt-5.4-mini@http://localhost:20128/v1: 409600
+  oc/big-pickle@http://localhost:20128/v1: 200000
+  oc/gemini-3.5-flash-lite@http://localhost:20128/v1: 1048576
+  oc/claude-haiku-4-5@http://localhost:20128/v1: 200000
+  oc/hy3-free@http://localhost:20128/v1: 200000
+  eco@http://localhost:20128/v1: 200000
+  free-stack@http://localhost:20128/v1: 128000
+  free-stack@http://127.0.0.1:20128/v1: 128000
+  eco-fast@http://127.0.0.1:20128/v1: 128000
+  auto/best-reasoning@http://127.0.0.1:20128/v1: 1050000
+  auto/best-vision@http://127.0.0.1:20128/v1: 1050000
+  oc/nemotron-3.5-lightning-free@http://127.0.0.1:20128/v1: 200000
+  auto/zai@http://127.0.0.1:20128/v1: 128000
+  auto/best-chat@http://127.0.0.1:20128/v1: 1048576
+  auto/best-coding@http://127.0.0.1:20128/v1: 1048576
+  auto/best-fast@http://127.0.0.1:20128/v1: 1048576
+  eco@http://127.0.0.1:20128/v1: 128000

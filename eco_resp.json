@@ -1,0 +1,17 @@
+data: {"id":"dd116f0e-e3e3-4ba2-bf67-f6bdbc011b32","object":"chat.completion.chunk","created":1787786365,"model":"hy3-free","choices":[{"index":0,"delta":{"role":"assistant"},"finish_reason":null}]}
+
+data: {"id":"dd116f0e-e3e3-4ba2-bf67-f6bdbc011b32","object":"chat.completion.chunk","created":1787786365,"model":"hy3-free","choices":[{"index":0,"delta":{"reasoning_content":"The user wants me to say \"bonjour\" (hello) in one sentence, in French.\n\"dis bonjour en une phrase\" means \"say hello in one sentence\".\nSo I need to say hello in a single sentence.\nExample: \"Bonjour, comment allez-vous ?\" or simply \"Bonjour !\" or \"Je vous dis bonjour.\"\nWait, \""},"finish_reason":null}]}
+
+data: {"id":"dd116f0e-e3e3-4ba2-bf67-f6bdbc011b32","object":"chat.completion.chunk","created":1787786365,"model":"hy3-free","choices":[{"index":0,"delta":{},"finish_reason":"length"}],"usage":{"prompt_tokens":18,"completion_tokens":80,"total_tokens":98,"cached_tokens":0,"reasoning_tokens":80}}
+
+: x-omniroute-cache-hit=false
+: x-omniroute-latency-ms=2
+: x-omniroute-response-cost=0.0000000000
+: x-omniroute-tokens-in=18
+: x-omniroute-tokens-out=80
+: x-omniroute-version=3.8.49
+: x-omniroute-model=hy3-free
+: x-omniroute-provider=oc
+: x-omniroute-decision=provider=oc; latency_ms=2
+data: [DONE]
+

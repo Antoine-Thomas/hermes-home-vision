@@ -1,0 +1,80 @@
+---
+# CORRECTED roles_mapping.yml — Wazuh 4.7.3 single-node Docker
+# Fix: added "admin" and "kibanaserver" to all_access.users
+# This resolves the 403 "no permissions for [indices:data/read/search]" error
+# in the Wazuh dashboard when user "admin" has empty backend_roles at auth time.
+#
+# To apply:
+#   1. Copy this file into the indexer container
+#   2. Run securityadmin.sh -t rolesmapping
+#   3. Restart the dashboard container
+#   4. Wait 120s for full initialization
+#
+# Rollback: restore the original file and re-run securityadmin.sh.
+
+_meta:
+  type: "rolesmapping"
+  config_version: 2
+
+all_access:
+  reserved: false
+  backend_roles:
+  - "admin"
+  users:
+  - "admin"
+  - "kibanaserver"
+  description: "Maps admin to all_access"
+
+own_index:
+  reserved: false
+  users:
+  - "*"
+  description: "Allow full access to an index named like the username"
+
+logstash:
+  reserved: false
+  backend_roles:
+  - "logstash"
+
+kibana_user:
+  reserved: false
+  backend_roles:
+  - "kibanauser"
+  users:
+  - "wazuh_user"
+  - "wazuh_admin"
+  description: "Maps kibanauser to kibana_user"
+
+readall:
+  reserved: false
+  backend_roles:
+  - "readall"
+
+manage_snapshots:
+  reserved: false
+  backend_roles:
+  - "snapshotrestore"
+
+kibana_server:
+  reserved: true
+  users:
+  - "kibanaserver"
+
+wazuh_ui_admin:
+  reserved: true
+  hidden: false
+  backend_roles: []
+  hosts: []
+  users:
+  - "wazuh_admin"
+  - "kibanaserver"
+  and_backend_roles: []
+
+wazuh_ui_user:
+  reserved: true
+  hidden: false
+  backend_roles: []
+  hosts: []
+  users:
+  - "wazuh_user"
+  and_backend_roles: []

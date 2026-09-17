@@ -1,0 +1,31 @@
+# head_animation_config.yaml — pipeline portrait parlant VALIDÉ (V7, 2026-09-06)
+#
+# Corrections vs la proposition initiale :
+#   - model: liveportrait        → engine: sadtalker  (LivePortrait ABANDONNÉ : bouche/labiale mauvaise)
+#   - motion_intensity + driving_video supprimés (params LivePortrait, inapplicables à SadTalker)
+#   - audio_source: voix_v5.wav  (voix « Hermesse », PAS voix_v3.wav)
+#   - source_image: photo_v4_capuche.jpg  (PAS moi_hermes_vision_optimized.png)
+#   - background: bois uni 0x7d562a  (PAS fond_blanc.mp4)
+
+engine: sadtalker
+resolution: 512
+batch_size: 1
+preprocess: crop
+enhancer: gfpgan
+fps: 25
+output_resolution: 1920x1080
+
+tts_model: tts_models/multilingual/multi-dataset/xtts_v2
+tts_temperature: 0.75
+tts_speed: 1.0
+tts_language: fr
+reference_voice: voix_reference.wav
+audio_source: voix_v5.wav
+
+source_image: photo_v4_capuche.jpg
+background: "bois uni 0x7d562a + fondu bords geq 100px"
+logo: hermes_logo_icon.png
+
+assembler: assemble_final_v7.py
+final_output: video_finale_1080p_v7.mp4
+output_dir: C:/Users/searc/AppData/Local/hermes/data/video_youtube/

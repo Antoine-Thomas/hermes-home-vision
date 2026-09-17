@@ -1,0 +1,1624 @@
+[
+  {
+    "_file": "apple\\macos-computer-use\\SKILL.md",
+    "name": "macos-computer-use",
+    "description": "|",
+    "version": "1.0.0",
+    "platforms": "[macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[computer-use, macos, desktop, automation, gui]",
+      "category": "desktop",
+      "related_skills": "[browser]"
+    }
+  },
+  {
+    "_file": "autonomous-ai-agents\\SKILL.md",
+    "name": "autonomous-ai-agents",
+    "description": "\"Orchestrate autonomous AI coding agents — delegate coding tasks to Claude Code, OpenAI Codex, or OpenCode with patterns for one-shot tasks, interactive sessions, parallel execution, PR reviews, and CI integration.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent (consolidated from claude-code, codex, opencode)",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Coding-Agent, Autonomous, Delegation, PTY, Automation, Code-Review, Refactoring, Multi-Agent]"
+    }
+  },
+  {
+    "_file": "autonomous-ai-agents\\computer-use\\SKILL.md",
+    "name": "computer-use",
+    "description": "\"Drive the desktop background-first; escalate on signal.\"",
+    "version": "2.0.0",
+    "author": "Francesco Bonacci (f-trycua), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[macos, windows, linux]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[computer-use, desktop, automation, gui, cross-platform]",
+      "category": "desktop",
+      "related_skills": "[]"
+    }
+  },
+  {
+    "_file": "autonomous-ai-agents\\hermes-agent\\SKILL.md",
+    "name": "hermes-agent",
+    "description": "\"Configure, extend, or contribute to Hermes Agent.\"",
+    "version": "2.3.0",
+    "author": "Hermes Agent + Teknium",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[hermes, setup, configuration, multi-agent, spawning, cli, gateway, development]",
+      "homepage": "https://github.com/NousResearch/hermes-agent",
+      "related_skills": "[claude-code, codex, opencode]"
+    }
+  },
+  {
+    "_file": "autonomous-ai-agents\\merge-reconciler\\SKILL.md",
+    "name": "merge-reconciler",
+    "description": "\"Neutral third-party resolution of agent merge conflicts.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Multi-Agent, Git, Merge-Conflict, Kanban, Arbitration]",
+      "related_skills": "[hermes-agent]"
+    }
+  },
+  {
+    "_file": "autonomous-ai-agents\\quick-skill\\SKILL.md",
+    "name": "quick-skill",
+    "description": "\"Creer un skill Hermes depuis une description en francais.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[windows, linux, macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[skills, meta, generation, scaffold, validation, hermes]",
+      "related_skills": "[hermes-agent]"
+    },
+    "prerequisites": {
+      "commands": "[python, hermes]"
+    }
+  },
+  {
+    "_file": "creative\\architecture-diagram\\SKILL.md",
+    "name": "architecture-diagram",
+    "description": "\"Dark-themed SVG architecture/cloud/infra diagrams as HTML.\"",
+    "version": "1.0.0",
+    "author": "Cocoon AI (hello@cocoon-ai.com), ported by Hermes Agent",
+    "license": "MIT",
+    "dependencies": "[]",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[architecture, diagrams, SVG, HTML, visualization, infrastructure, cloud]",
+      "related_skills": "[concept-diagrams, excalidraw]"
+    }
+  },
+  {
+    "_file": "creative\\ascii-art\\SKILL.md",
+    "name": "ascii-art",
+    "description": "\"ASCII art: pyfiglet, cowsay, boxes, image-to-ascii.\"",
+    "version": "4.0.0",
+    "author": "0xbyt4, Hermes Agent",
+    "license": "MIT",
+    "dependencies": "[]",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[ASCII, Art, Banners, Creative, Unicode, Text-Art, pyfiglet, figlet, cowsay, boxes]",
+      "related_skills": "[excalidraw]"
+    }
+  },
+  {
+    "_file": "creative\\ascii-video\\SKILL.md",
+    "name": "ascii-video",
+    "description": "\"ASCII video: convert video/audio to colored ASCII MP4/GIF.\"",
+    "version": "1.0.0",
+    "author": "SHL0MS, Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[ASCII, Video, FFmpeg, Terminal-Art]",
+      "related_skills": "[]"
+    }
+  },
+  {
+    "_file": "creative\\baoyu-infographic\\SKILL.md",
+    "name": "baoyu-infographic",
+    "description": "\"Infographics: 21 layouts x 21 styles (信息图, 可视化).\"",
+    "version": "1.56.1",
+    "author": "宝玉 (JimLiu)",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[infographic, visual-summary, creative, image-generation]",
+      "homepage": "https://github.com/JimLiu/baoyu-skills#baoyu-infographic"
+    }
+  },
+  {
+    "_file": "creative\\claude-design\\SKILL.md",
+    "name": "claude-design",
+    "description": "Design one-off HTML artifacts (landing, deck, prototype).",
+    "version": "1.0.0",
+    "author": "BadTechBandit",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[design, html, prototype, ux, ui, creative, artifact, deck, motion, design-system]",
+      "related_skills": "[design-md, popular-web-designs, excalidraw, architecture-diagram]"
+    }
+  },
+  {
+    "_file": "creative\\comfyui\\SKILL.md",
+    "name": "comfyui",
+    "description": "Generate images, video, and audio via diffusion workflows.",
+    "version": "5.1.0",
+    "author": "[kshitijk4poor, alt-glitch, purzbeats]",
+    "license": "MIT",
+    "platforms": "[macos, linux, windows]",
+    "compatibility": "\"Requires ComfyUI (local, Comfy Desktop, or Comfy Cloud) and comfy-cli (auto-installed via pipx/uvx by the setup script).\"",
+    "prerequisites": {
+      "commands": "[\"python\"]"
+    },
+    "setup": {
+      "help": "\"Run scripts/hardware_check.py FIRST to decide local vs Comfy Cloud; then scripts/comfyui_setup.sh auto-installs locally (or use Cloud API key for platform.comfy.org).\""
+    },
+    "metadata": [
+      "comfyui",
+      "image-generation",
+      "stable-diffusion",
+      "flux",
+      "sd3",
+      "wan-video",
+      "hunyuan-video",
+      "creative",
+      "generative-ai",
+      "video-generation"
+    ]
+  },
+  {
+    "_file": "creative\\design-md\\SKILL.md",
+    "name": "design-md",
+    "description": "Author/validate/export Google's DESIGN.md token spec files.",
+    "version": "1.1.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[design, design-system, tokens, ui, accessibility, wcag, tailwind, dtcg, google]",
+      "related_skills": "[popular-web-designs, claude-design, excalidraw, architecture-diagram]"
+    }
+  },
+  {
+    "_file": "creative\\excalidraw\\SKILL.md",
+    "name": "excalidraw",
+    "description": "\"Hand-drawn Excalidraw JSON diagrams (arch, flow, seq).\"",
+    "version": "1.0.1",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "dependencies": "[]",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Excalidraw, Diagrams, Flowcharts, Architecture, Visualization, JSON]",
+      "related_skills": "[]"
+    }
+  },
+  {
+    "_file": "creative\\humanizer\\SKILL.md",
+    "name": "humanizer",
+    "description": "\"Humanize text: strip AI-isms and add real voice.\"",
+    "version": "2.5.1",
+    "author": "Siqi Chen (@blader, https://github.com/blader/humanizer), ported by Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[writing, editing, humanize, anti-ai-slop, voice, prose, text]",
+      "category": "creative",
+      "homepage": "https://github.com/blader/humanizer",
+      "related_skills": "[songwriting-and-ai-music]"
+    }
+  },
+  {
+    "_file": "creative\\manim-video\\SKILL.md",
+    "name": "manim-video",
+    "description": "\"Manim CE animations: 3Blue1Brown math/algo videos.\"",
+    "version": "1.0.0",
+    "author": "SHL0MS, Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Manim, Animation, Math, Video]",
+      "related_skills": "[]"
+    }
+  },
+  {
+    "_file": "creative\\nle-video-assembly\\SKILL.md",
+    "name": "nle-video-assembly",
+    "description": "\"Assemble Premiere/FCP into MP4 keeping only one audio track.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[ffmpeg, premiere, final-cut, video, xml, mp4, audio-replace]",
+      "related_skills": "[creative/architecture-diagram]"
+    }
+  },
+  {
+    "_file": "creative\\p5js\\SKILL.md",
+    "name": "p5js",
+    "description": "\"p5.js sketches: gen art, shaders, interactive, 3D.\"",
+    "version": "1.0.0",
+    "author": "SHL0MS, Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[creative-coding, generative-art, p5js, canvas, interactive, visualization, webgl, shaders, animation]",
+      "related_skills": "[ascii-video, manim-video, excalidraw]"
+    }
+  },
+  {
+    "_file": "creative\\popular-web-designs\\SKILL.md",
+    "name": "popular-web-designs",
+    "description": "54 real design systems (Stripe, Linear, Vercel) as HTML/CSS.",
+    "version": "1.0.0",
+    "author": "Hermes Agent + Teknium (design systems sourced from VoltAgent/awesome-design-md)",
+    "license": "MIT",
+    "tags": "[design, css, html, ui, web-development, design-systems, templates]",
+    "platforms": "[linux, macos, windows]",
+    "triggers": [
+      "build a page that looks like",
+      "make it look like stripe",
+      "design like linear",
+      "vercel style",
+      "create a UI",
+      "web design",
+      "landing page",
+      "dashboard design",
+      "website styled like"
+    ]
+  },
+  {
+    "_file": "creative\\pretext\\SKILL.md",
+    "name": "pretext",
+    "description": "Build creative browser demos with DOM-free text layout.",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[creative-coding, typography, pretext, ascii-art, canvas, generative, text-layout, kinetic-typography]",
+      "related_skills": "[p5js, claude-design, excalidraw, architecture-diagram]"
+    }
+  },
+  {
+    "_file": "creative\\smll-talk-podcast\\SKILL.md",
+    "name": "smll-talk-podcast",
+    "description": "\"Use when writing or producing 'smll talk' podcast episodes.\""
+  },
+  {
+    "_file": "creative\\songwriting-and-ai-music\\SKILL.md",
+    "name": "songwriting-and-ai-music",
+    "description": "\"Songwriting craft, Suno AI music prompts, open-source music generation (HeartMuLa), and audio analysis/visualization (songsee).\"",
+    "tags": "[songwriting, music, suno, parody, lyrics, creative]",
+    "platforms": "[linux, macos, windows]",
+    "triggers": [
+      "writing a song",
+      "song lyrics",
+      "music prompt",
+      "suno prompt",
+      "parody song",
+      "adapting a song",
+      "AI music generation"
+    ]
+  },
+  {
+    "_file": "data-science\\jupyter-live-kernel\\SKILL.md",
+    "name": "jupyter-live-kernel",
+    "description": "\"Iterative Python via live Jupyter kernel (hamelnb).\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[jupyter, notebook, repl, data-science, exploration, iterative]",
+      "category": "data-science"
+    }
+  },
+  {
+    "_file": "devops\\auto-heal\\SKILL.md",
+    "name": "auto-heal",
+    "description": "\"Auto-heal system: check and fix common issues at startup.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "platforms": "[windows]"
+  },
+  {
+    "_file": "devops\\compression-tokens\\SKILL.md",
+    "name": "compression-tokens",
+    "description": "\"Reduce LLM tokens via OmniRoute compression pipeline.\"",
+    "version": "2.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[omniroute, compression, tokens, cost, rtk, caveman]",
+      "created": "\"2026-08-26\"",
+      "updated": "\"2026-08-26\""
+    }
+  },
+  {
+    "_file": "devops\\docker-gpu-windows\\SKILL.md",
+    "name": "docker-gpu-windows",
+    "description": "Run GPU Docker containers on Windows (Docker Desktop)."
+  },
+  {
+    "_file": "devops\\fallback-intelligent\\SKILL.md",
+    "name": "fallback-intelligent",
+    "description": "\"Chaine de repli: gratuit d'abord, payant en secours.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[fallback, omniroute, resilience, cout, routing]",
+      "created": "\"2026-08-26\""
+    }
+  },
+  {
+    "_file": "devops\\hermes-install-troubleshooting\\SKILL.md",
+    "name": "hermes-install-troubleshooting",
+    "description": "\"Diagnose Hermes update/install failures and dual installs.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[windows, linux, macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[hermes, install, update, troubleshooting, diagnosis]",
+      "related_skills": "[hermes-agent]"
+    }
+  },
+  {
+    "_file": "devops\\kanban-orchestrator\\SKILL.md",
+    "name": "kanban-orchestrator",
+    "description": "Decomposition playbook + anti-temptation rules for an orchestrator profile routing work through Kanban. The \"don't do the work yourself\" rule and the basic lifecycle are auto-injected into every kanban worker's system prompt; this skill is the deeper playbook when you're specifically playing the orchestrator role.",
+    "version": "3.0.0",
+    "platforms": "[linux, macos, windows]",
+    "environments": "[kanban]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[kanban, multi-agent, orchestration, routing]",
+      "related_skills": "[kanban-worker]"
+    }
+  },
+  {
+    "_file": "devops\\kanban-worker\\SKILL.md",
+    "name": "kanban-worker",
+    "description": "Pitfalls, examples, and edge cases for Hermes Kanban workers. The lifecycle itself is auto-injected into every worker's system prompt as KANBAN_GUIDANCE (from agent/prompt_builder.py); this skill is what you load when you want deeper detail on specific scenarios.",
+    "version": "2.0.0",
+    "platforms": "[linux, macos, windows]",
+    "environments": "[kanban]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[kanban, multi-agent, collaboration, workflow, pitfalls]",
+      "related_skills": "[kanban-orchestrator]"
+    }
+  },
+  {
+    "_file": "devops\\omniroute-cost-tracker\\SKILL.md",
+    "name": "omniroute-cost-tracker",
+    "description": "\"Use when tracking OmniRoute model cost (free vs paid).\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "metadata": {
+      "hermes": "",
+      "tags": "[omniroute, cost, tracking, models, llm, observability]"
+    }
+  },
+  {
+    "_file": "devops\\omniroute-gateway\\SKILL.md",
+    "name": "omniroute-gateway",
+    "description": "Use when reordering OmniRoute combos to prefer free models.",
+    "version": "1",
+    "author": "hermes-agent",
+    "license": "mit",
+    "metadata": {
+      "hermes": "",
+      "tags": "[omniroute, llm-routing, free-models, hermes-config, devops]",
+      "related_skills": "[hermes-agent]"
+    }
+  },
+  {
+    "_file": "devops\\python-dependency-guard\\SKILL.md",
+    "name": "python-dependency-guard",
+    "description": "\"Auto-install missing Python packages when an import fails.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "platforms": "[windows]"
+  },
+  {
+    "_file": "devops\\sdlc-review\\SKILL.md",
+    "name": "sdlc-review",
+    "description": "Review Kanban handoffs and route verified outcomes.",
+    "version": "1.1.0",
+    "author": "Jakub Wolniewicz (@frizikk) + Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[kanban, review, quality, verification]",
+      "category": "devops",
+      "requires_toolsets": "[kanban]"
+    },
+    "environments": [
+      "kanban"
+    ]
+  },
+  {
+    "_file": "devops\\security-audit\\SKILL.md",
+    "name": "security-audit",
+    "description": "\"Auditer deps, ports, logs web et secrets exposes.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[windows, linux, macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[securite, audit, npm, vulnerabilites, ports, logs, wordpress, telegram, cron]",
+      "related_skills": "[wordpress-security, requesting-code-review]"
+    },
+    "prerequisites": {
+      "commands": "[python, npm]"
+    }
+  },
+  {
+    "_file": "devops\\ssl-expiry-check\\SKILL.md",
+    "name": "ssl-expiry-check",
+    "description": "\"Verifier l'expiration des certificats SSL.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[windows,  linux,  macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[ssl, tls, monitoring]",
+      "category": "devops",
+      "created": "\"2026-08-25\""
+    },
+    "prerequisites": {
+      "commands": "[openssl]"
+    }
+  },
+  {
+    "_file": "devops\\ssl-monitor\\SKILL.md",
+    "name": "ssl-monitor",
+    "description": "\"Surveiller les certificats SSL de mes domaines.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[windows, linux, macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[]",
+      "category": "devops",
+      "created": "\"2026-08-25\""
+    }
+  },
+  {
+    "_file": "devops\\supply-chain-hardening\\SKILL.md",
+    "name": "supply-chain-hardening",
+    "description": "\"Harden npm/pnpm projects against supply chain attacks.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[windows, linux, macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[supply-chain, pnpm, npm, dependencies, security, lockfile]",
+      "category": "devops",
+      "created": "\"2026-08-26\""
+    }
+  },
+  {
+    "_file": "devops\\telegram-bot-polling\\SKILL.md",
+    "name": "telegram-bot-polling",
+    "description": "Use when building/debugging Telegram bots via getUpdates."
+  },
+  {
+    "_file": "devops\\wazuh-troubleshooting\\SKILL.md",
+    "name": "wazuh-troubleshooting",
+    "description": "\"Wazuh Docker deployment troubleshooting: 403 dashboard errors, Opensearch security config, agent enrollment, and diagnostics for single-node Wazuh stacks.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[wazuh, opensearch, security, docker, siem, agent-enrollment]"
+    }
+  },
+  {
+    "_file": "devops\\windows-performance-tuning\\SKILL.md",
+    "name": "windows-performance-tuning",
+    "description": "\"Optimize a Windows PC: audit, power/GPU tune, debloat.\"",
+    "version": "1.0.1",
+    "author": "hermes-curator"
+  },
+  {
+    "_file": "email\\email-campaign\\SKILL.md",
+    "name": "email-campaign",
+    "description": "\"Create and send HTML email campaigns — responsive templates, Python smtplib delivery, Gmail App Password auth, and brand template management.\"",
+    "version": "1.0.0",
+    "platforms": "[windows, linux, macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[email, campaign, html, smtp, gmail, template]"
+    }
+  },
+  {
+    "_file": "email\\email-inbox-triage\\SKILL.md",
+    "name": "email-inbox-triage",
+    "description": "\"Triage an inbox: prioritize threads, draft replies safely.\"",
+    "version": "0.1.0",
+    "author": "Ben Barclay (benbarclay), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Email, Inbox, Triage, Replies, Productivity]",
+      "related_skills": "[himalaya, google-workspace]"
+    }
+  },
+  {
+    "_file": "email\\himalaya\\SKILL.md",
+    "name": "himalaya",
+    "description": "\"Himalaya CLI: IMAP/SMTP email from terminal.\"",
+    "version": "1.1.0",
+    "author": "community",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Email, IMAP, SMTP, CLI, Communication]",
+      "homepage": "https://github.com/pimalaya/himalaya"
+    },
+    "prerequisites": {
+      "commands": "[himalaya]"
+    }
+  },
+  {
+    "_file": "github\\SKILL.md",
+    "name": "github",
+    "description": "\"Complete GitHub workflow: auth, PR lifecycle, code review, issues, and repo management via gh CLI or git+curl fallback.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent (consolidated from github-auth, github-pr-workflow, github-code-review, github-issues, github-repo-management)",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[GitHub, Authentication, Pull-Requests, Code-Review, Issues, Repositories, Git, gh-cli, CI/CD]"
+    }
+  },
+  {
+    "_file": "github\\github-issue-to-pr\\SKILL.md",
+    "name": "github-issue-to-pr",
+    "description": "\"Carry a GitHub issue to a verified PR with honest CI state.\"",
+    "version": "0.1.0",
+    "author": "Ben Barclay (benbarclay), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[GitHub, Issues, Coding, Pull-Requests, CI]",
+      "related_skills": "[github-issues, github-pr-workflow, systematic-debugging, test-driven-development, requesting-code-review]"
+    }
+  },
+  {
+    "_file": "media\\audio-event-detection\\SKILL.md",
+    "name": "audio-event-detection",
+    "description": "Detect specific sounds with YAMNet to trigger actions.",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "metadata": {
+      "hermes": "",
+      "tags": "[audio, yamnet, sound-classification, surveillance, tensorflow, sounddevice]"
+    }
+  },
+  {
+    "_file": "media\\ffmpeg-music-montage\\SKILL.md",
+    "name": "ffmpeg-music-montage",
+    "description": "\"Music-synced montage from librosa energy analysis.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[video, ffmpeg, montage, music, librosa, xfade, audio-analysis]",
+      "related_skills": "[video-editing-automation, media]"
+    }
+  },
+  {
+    "_file": "media\\gif-search\\SKILL.md",
+    "name": "gif-search",
+    "description": "\"Search/download GIFs from Tenor via curl + jq.\"",
+    "version": "1.1.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "prerequisites": {
+      "env_vars": "[TENOR_API_KEY]",
+      "commands": "[curl, jq]"
+    },
+    "metadata": {
+      "hermes": "",
+      "tags": "[GIF, Media, Search, Tenor, API]"
+    }
+  },
+  {
+    "_file": "media\\photo-realistic-face-swap\\SKILL.md",
+    "name": "photo-realistic-face-swap",
+    "description": "\"Swap a face in a portrait and animate it via motion control.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "metadata": {
+      "hermes": "",
+      "tags": "[face-swap, insightface, motion-control, liveportrait, video, youtube]",
+      "related_skills": "[talking-head-video]"
+    }
+  },
+  {
+    "_file": "media\\talking-head-video\\SKILL.md",
+    "name": "talking-head-video",
+    "description": "Lip-sync a portrait to audio into a talking-head video.",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "metadata": {
+      "hermes": "",
+      "tags": "[wav2lip, lip-sync, talking-head, video, youtube, torch, ffmpeg, tts]"
+    }
+  },
+  {
+    "_file": "media\\video-api-integration\\SKILL.md",
+    "name": "video-api-integration",
+    "description": "Choose JSON2Video/Descript or local ffmpeg for big video.",
+    "version": "1",
+    "author": "hermes-agent",
+    "license": "mit",
+    "metadata": {
+      "hermes": "",
+      "tags": "[video, api, json2video, descript, ffmpeg, 4k]",
+      "related_skills": "[windows-scheduled-tasks]"
+    }
+  },
+  {
+    "_file": "media\\video-editing-automation\\SKILL.md",
+    "name": "video-editing-automation",
+    "description": "\"Automate video assembly from Premiere Pro with FFmpeg.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[video, editing, premiere-pro, ffmpeg, automation, xml, audio]",
+      "related_skills": "[media]"
+    }
+  },
+  {
+    "_file": "media\\youtube-content\\SKILL.md",
+    "name": "youtube-content",
+    "description": "\"YouTube transcripts to summaries, threads, blogs.\"",
+    "version": "1.0.0",
+    "author": "Teknium (teknium1), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[YouTube, Video, Transcripts, Media]",
+      "related_skills": "[]"
+    }
+  },
+  {
+    "_file": "mlops\\evaluation\\evaluating-llms-harness\\SKILL.md",
+    "name": "evaluating-llms-harness",
+    "description": "\"lm-eval-harness: benchmark LLMs (MMLU, GSM8K, etc.).\"",
+    "version": "1.0.1",
+    "author": "Orchestra Research",
+    "license": "MIT",
+    "dependencies": "[lm-eval, transformers, vllm]",
+    "platforms": "[linux, macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Evaluation, LM Evaluation Harness, Benchmarking, MMLU, HumanEval, GSM8K, EleutherAI, Model Quality, Academic Benchmarks, Industry Standard]"
+    }
+  },
+  {
+    "_file": "mlops\\evaluation\\weights-and-biases\\SKILL.md",
+    "name": "weights-and-biases",
+    "description": "\"W&B: log ML experiments, sweeps, model registry, dashboards.\"",
+    "version": "1.0.1",
+    "author": "Orchestra Research",
+    "license": "MIT",
+    "dependencies": "[wandb]",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[MLOps, Weights And Biases, WandB, Experiment Tracking, Hyperparameter Tuning, Model Registry, Collaboration, Real-Time Visualization, PyTorch, TensorFlow, HuggingFace]"
+    }
+  },
+  {
+    "_file": "mlops\\huggingface-hub\\SKILL.md",
+    "name": "huggingface-hub",
+    "description": "\"HuggingFace hf CLI: search/download/upload models, datasets.\"",
+    "version": "1.0.1",
+    "author": "Hugging Face",
+    "license": "MIT",
+    "tags": "[huggingface, hf, models, datasets, hub, mlops]",
+    "platforms": "[linux, macos, windows]"
+  },
+  {
+    "_file": "mlops\\inference\\llama-cpp\\SKILL.md",
+    "name": "llama-cpp",
+    "description": "llama.cpp local GGUF inference + HF Hub model discovery.",
+    "version": "2.1.2",
+    "author": "Orchestra Research",
+    "license": "MIT",
+    "dependencies": "[llama-cpp-python>=0.2.0]",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[llama.cpp, GGUF, Quantization, Hugging Face Hub, CPU Inference, Apple Silicon, Edge Deployment, AMD GPUs, Intel GPUs, NVIDIA, URL-first]"
+    }
+  },
+  {
+    "_file": "mlops\\inference\\obliteratus\\SKILL.md",
+    "name": "obliteratus",
+    "description": "\"OBLITERATUS: abliterate LLM refusals (diff-in-means).\"",
+    "version": "2.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "dependencies": "[obliteratus, torch, transformers, bitsandbytes, accelerate, safetensors]",
+    "platforms": "[linux, macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Abliteration, Uncensoring, Refusal-Removal, LLM, Weight-Projection, SVD, Mechanistic-Interpretability, HuggingFace, Model-Surgery]",
+      "related_skills": "[vllm, gguf, huggingface-tokenizers]"
+    }
+  },
+  {
+    "_file": "mlops\\inference\\serving-llms-vllm\\SKILL.md",
+    "name": "serving-llms-vllm",
+    "description": "\"vLLM: high-throughput LLM serving, OpenAI API, quantization.\"",
+    "version": "1.0.1",
+    "author": "Orchestra Research",
+    "license": "MIT",
+    "dependencies": "[vllm, torch, transformers]",
+    "platforms": "[linux, macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[vLLM, Inference Serving, PagedAttention, Continuous Batching, High Throughput, Production, OpenAI API, Quantization, Tensor Parallelism]"
+    }
+  },
+  {
+    "_file": "mlops\\models\\audiocraft\\SKILL.md",
+    "name": "audiocraft-audio-generation",
+    "description": "\"AudioCraft: MusicGen text-to-music, AudioGen text-to-sound.\"",
+    "version": "1.0.0",
+    "author": "Orchestra Research",
+    "license": "MIT",
+    "dependencies": "[audiocraft, torch>=2.0.0, transformers>=4.30.0]",
+    "platforms": "[linux, macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Multimodal, Audio Generation, Text-to-Music, Text-to-Audio, MusicGen]"
+    }
+  },
+  {
+    "_file": "mlops\\models\\segment-anything\\SKILL.md",
+    "name": "segment-anything-model",
+    "description": "\"SAM: zero-shot image segmentation via points, boxes, masks.\"",
+    "version": "1.0.0",
+    "author": "Orchestra Research",
+    "license": "MIT",
+    "dependencies": "[segment-anything, transformers>=4.30.0, torch>=1.7.0]",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Multimodal, Image Segmentation, Computer Vision, SAM, Zero-Shot]"
+    }
+  },
+  {
+    "_file": "mlops\\nvidia-nim\\SKILL.md",
+    "name": "nvidia-nim",
+    "description": "Use NVIDIA NIM APIs for LLM, vision, and video detection.",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "metadata": {
+      "hermes": "",
+      "tags": "[nvidia, nim, vision, llm, synthetic-video-detector, stable-diffusion, gemma]"
+    }
+  },
+  {
+    "_file": "mlops\\tts-voice-cloning\\SKILL.md",
+    "name": "tts-voice-cloning",
+    "description": "Use when cloning a voice or generating speech locally — XTTS-v2 (Coqui) for natural French, VibeVoice for long-form/multi-speaker."
+  },
+  {
+    "_file": "mlops\\vibevoice-tts\\SKILL.md",
+    "name": "vibevoice-tts",
+    "description": "\"Use for VibeVoice TTS: voice cloning and long-form audio.\""
+  },
+  {
+    "_file": "note-taking\\obsidian\\SKILL.md",
+    "name": "obsidian",
+    "description": "Read, search, create, and edit notes in the Obsidian vault.",
+    "version": "1.0.0",
+    "author": "Teknium (teknium1), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Obsidian, Notes, Markdown, Vault]",
+      "related_skills": "[]"
+    }
+  },
+  {
+    "_file": "omniroute-auto-update\\SKILL.md",
+    "name": "omniroute-auto-update",
+    "description": "\"Use when auto-launching OmniRoute or discovering new free AI models (GLM, nemotron, etc.) for the eco combo.\"",
+    "version": "1.0.0",
+    "author": "searching-murphy",
+    "license": "mit",
+    "metadata": {
+      "hermes": "",
+      "tags": "[omniroute, auto-launch, model-discovery, cron, free-models]",
+      "related_skills": "[omniroute-gateway, omniroute-cost-tracker]"
+    }
+  },
+  {
+    "_file": "productivity\\airtable\\SKILL.md",
+    "name": "airtable",
+    "description": "Airtable REST API via curl. Records CRUD, filters, upserts.",
+    "version": "1.1.0",
+    "author": "community",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "prerequisites": {
+      "env_vars": "[AIRTABLE_API_KEY]",
+      "commands": "[curl]"
+    },
+    "metadata": {
+      "hermes": "",
+      "tags": "[Airtable, Productivity, Database, API]",
+      "homepage": "https://airtable.com/developers/web/api/introduction"
+    }
+  },
+  {
+    "_file": "productivity\\box\\SKILL.md",
+    "name": "box",
+    "description": "Box manages cloud files, sharing, search, and metadata.",
+    "version": "1.0.0",
+    "author": "Chris Kim (iskysun96), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "prerequisites": {
+      "commands": "[box]"
+    },
+    "metadata": {
+      "hermes": "",
+      "tags": "[Box, Productivity, Cloud Storage, Collaboration, Metadata, Content Extraction, CLI, SDK]",
+      "related_skills": "[google-workspace]",
+      "homepage": "https://developer.box.com/"
+    }
+  },
+  {
+    "_file": "productivity\\business-outreach\\SKILL.md",
+    "name": "business-outreach",
+    "description": "\"Crawl SIRENE for companies, scrape emails, build outreach.\"",
+    "version": "1.0.0",
+    "metadata": {
+      "hermes": "",
+      "tags": "[business, outreach, lead-generation, prospecting, email]",
+      "category": "productivity"
+    }
+  },
+  {
+    "_file": "productivity\\contact-filtering\\SKILL.md",
+    "name": "contact-filtering",
+    "description": "Clean, filter, segment, and enrich contact databases (CSV) for B2B prospection. Remove spam, bots, and pseudos; extract names from emails; score and segment contacts.",
+    "version": "1.0.0",
+    "metadata": {
+      "hermes": "",
+      "tags": "[contacts, csv, filtering, prospection, email, segmentation, b2b]"
+    }
+  },
+  {
+    "_file": "productivity\\document-to-action-items\\SKILL.md",
+    "name": "document-to-action-items",
+    "description": "\"Extract cited obligations, deadlines, tasks from documents.\"",
+    "version": "0.1.0",
+    "author": "Ben Barclay (benbarclay), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Documents, OCR, Action-Items, Deadlines, Extraction]",
+      "related_skills": "[pdf, pdf, docx, notion]"
+    }
+  },
+  {
+    "_file": "productivity\\docx\\SKILL.md",
+    "name": "docx",
+    "description": "Create, read, edit, template, and review Word .docx files.",
+    "version": "1.1.0",
+    "author": "Nous Research",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[word, docx, documents, office, templates, revisions, comments]",
+      "category": "productivity",
+      "related_skills": "[pdf, xlsx, powerpoint]"
+    }
+  },
+  {
+    "_file": "productivity\\french-business-prospecting\\SKILL.md",
+    "name": "french-business-prospecting",
+    "description": "\"FR prospecting: SIRENE API, email finder, candidatures.\"",
+    "version": "1.0.0",
+    "metadata": {
+      "hermes": "",
+      "tags": "[France, Prospecting, API, Email, Business, SIRENE]",
+      "category": "productivity"
+    }
+  },
+  {
+    "_file": "productivity\\google-workspace\\SKILL.md",
+    "name": "google-workspace",
+    "description": "\"Gmail, Calendar, Drive, Docs, Sheets via gws CLI or Python.\"",
+    "version": "1.1.0",
+    "author": "Nous Research",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "required_credential_files": [
+      "path: google_token.json",
+      "path: google_client_secret.json"
+    ],
+    "metadata": {
+      "hermes": "",
+      "tags": "[Google, Gmail, Calendar, Drive, Sheets, Docs, Contacts, Email, OAuth]",
+      "homepage": "https://github.com/NousResearch/hermes-agent",
+      "related_skills": "[himalaya]"
+    }
+  },
+  {
+    "_file": "productivity\\maps\\SKILL.md",
+    "name": "maps",
+    "description": "\"Geocode, POIs, routes, timezones via OpenStreetMap/OSRM.\"",
+    "version": "1.2.0",
+    "author": "Mibayy",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[maps, geocoding, places, routing, distance, directions, nearby, location, openstreetmap, nominatim, overpass, osrm]",
+      "category": "productivity",
+      "requires_toolsets": "[terminal]",
+      "supersedes": "[find-nearby]"
+    }
+  },
+  {
+    "_file": "productivity\\meeting-action-items\\SKILL.md",
+    "name": "meeting-action-items",
+    "description": "\"Turn meeting notes into cited decisions, owners, tickets.\"",
+    "version": "0.1.0",
+    "author": "Ben Barclay (benbarclay), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Meetings, Action-Items, Follow-Up, Productivity]",
+      "related_skills": "[teams-meeting-pipeline, google-workspace, notion]"
+    }
+  },
+  {
+    "_file": "productivity\\notion\\SKILL.md",
+    "name": "notion",
+    "description": "\"Notion API + ntn CLI: pages, databases, markdown, Workers.\"",
+    "version": "2.0.0",
+    "author": "community",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "prerequisites": {
+      "env_vars": "[NOTION_API_KEY]"
+    },
+    "metadata": {
+      "hermes": "",
+      "tags": "[Notion, Productivity, Notes, Database, API, CLI, Workers]",
+      "homepage": "https://developers.notion.com"
+    }
+  },
+  {
+    "_file": "productivity\\ocr-and-documents\\SKILL.md",
+    "name": "ocr-and-documents",
+    "description": "\"Extract text from PDFs/scans (pymupdf, marker-pdf), edit PDFs via natural language (nano-pdf), split/merge/search PDFs, and process Arxiv papers.\"",
+    "version": "2.3.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[PDF, Documents, Research, Arxiv, Text-Extraction, OCR]",
+      "related_skills": "[powerpoint]"
+    }
+  },
+  {
+    "_file": "productivity\\pdf\\SKILL.md",
+    "name": "pdf",
+    "description": "\"PDF files: create, read, merge, fill, OCR, edit text.\"",
+    "version": "1.1.0",
+    "author": "Nous Research",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[pdf, documents, forms, ocr, text-extraction, reportlab, pypdf, pdfplumber, pymupdf, marker]",
+      "category": "productivity",
+      "related_skills": "[docx, xlsx, powerpoint]"
+    }
+  },
+  {
+    "_file": "productivity\\powerpoint\\SKILL.md",
+    "name": "powerpoint",
+    "description": "Create, read, edit .pptx decks with python-pptx.",
+    "version": "1.1.0",
+    "author": "Nous Research",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[pptx, powerpoint, presentations, slides, office, python-pptx]",
+      "category": "productivity",
+      "related_skills": "[docx, xlsx, pdf]"
+    }
+  },
+  {
+    "_file": "productivity\\product-price-monitor\\SKILL.md",
+    "name": "product-price-monitor",
+    "description": "\"Watch product, flight, or listing prices; alert on target.\"",
+    "version": "0.1.0",
+    "author": "Ben Barclay (benbarclay), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Prices, Availability, Shopping, Travel, Alerts]",
+      "related_skills": "[maps]"
+    }
+  },
+  {
+    "_file": "productivity\\session-librarian\\SKILL.md",
+    "name": "session-librarian",
+    "description": "\"Organize sessions by prompt: find, rename, archive, prune.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent + Teknium",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Sessions, Organization, Cleanup, Library, Productivity]",
+      "category": "productivity",
+      "related_skills": "[weekly-review-planning]"
+    }
+  },
+  {
+    "_file": "productivity\\teams-meeting-pipeline\\SKILL.md",
+    "name": "teams-meeting-pipeline",
+    "description": "Teams meeting summaries, job replay, Graph subscriptions.",
+    "version": "1.1.0",
+    "author": "Hermes Agent + Teknium",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "prerequisites": {
+      "env_vars": "[MSGRAPH_TENANT_ID, MSGRAPH_CLIENT_ID, MSGRAPH_CLIENT_SECRET]",
+      "commands": "[hermes]"
+    },
+    "metadata": [
+      "/docs/guides/microsoft-graph-app-registration",
+      "/docs/user-guide/messaging/teams-meetings",
+      "/docs/guides/operate-teams-meeting-pipeline"
+    ]
+  },
+  {
+    "_file": "productivity\\weekly-review-planning\\SKILL.md",
+    "name": "weekly-review-planning",
+    "description": "\"Weekly reset: commitments, stalled work, next-week plan.\"",
+    "version": "0.1.0",
+    "author": "Ben Barclay (benbarclay), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Weekly-Review, Planning, Tasks, Calendar, Productivity]",
+      "related_skills": "[obsidian, notion, airtable, google-workspace, email-inbox-triage]"
+    }
+  },
+  {
+    "_file": "productivity\\xlsx\\SKILL.md",
+    "name": "xlsx",
+    "description": "Create, read, edit Excel .xlsx workbooks and CSVs.",
+    "version": "1.1.0",
+    "author": "Nous Research",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[excel, spreadsheet, xlsx, csv, openpyxl, productivity]",
+      "category": "productivity",
+      "related_skills": "[docx, pdf, powerpoint]"
+    }
+  },
+  {
+    "_file": "red-teaming\\godmode\\SKILL.md",
+    "name": "godmode",
+    "description": "\"Jailbreak LLMs: Parseltongue, GODMODE, ULTRAPLINIAN.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent + Teknium",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[jailbreak, red-teaming, G0DM0D3, Parseltongue, GODMODE, uncensoring, safety-bypass, prompt-engineering, L1B3RT4S]",
+      "related_skills": "[obliteratus]"
+    }
+  },
+  {
+    "_file": "research\\arxiv\\SKILL.md",
+    "name": "arxiv",
+    "description": "\"Search arXiv papers by keyword, author, category, or ID.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Research, Arxiv, Papers, Academic, Science, API]",
+      "related_skills": "[pdf]"
+    }
+  },
+  {
+    "_file": "research\\blogwatcher\\SKILL.md",
+    "name": "blogwatcher",
+    "description": "\"Monitor blogs and RSS/Atom feeds via blogwatcher-cli tool.\"",
+    "version": "2.0.0",
+    "author": "JulienTant (fork of Hyaxia/blogwatcher)",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[RSS, Blogs, Feed-Reader, Monitoring]",
+      "homepage": "https://github.com/JulienTant/blogwatcher-cli"
+    },
+    "prerequisites": {
+      "commands": "[blogwatcher-cli]"
+    }
+  },
+  {
+    "_file": "research\\company-research\\SKILL.md",
+    "name": "company-research",
+    "description": "\"Compile business registries by sector. Export to Excel.\"",
+    "version": "1.0.0",
+    "metadata": {
+      "hermes": "",
+      "tags": "[business, companies, outreach, lead-generation, france, sirene]",
+      "category": "research"
+    }
+  },
+  {
+    "_file": "research\\competitor-news-monitor\\SKILL.md",
+    "name": "competitor-news-monitor",
+    "description": "\"Watch named companies for material news; cited digests.\"",
+    "version": "0.1.0",
+    "author": "Ben Barclay (benbarclay), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Competitors, News, Market-Research, Monitoring]",
+      "related_skills": "[blogwatcher, rss-feeds, reddit-reading]"
+    }
+  },
+  {
+    "_file": "research\\grounded-citations\\SKILL.md",
+    "name": "grounded-citations",
+    "description": "\"Ground answers and documents in cited, verifiable sources.\"",
+    "version": "1.2.0",
+    "author": "Hermes Agent + Teknium",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Research, Citations, Grounding, Sources, Web, Reports]",
+      "category": "research",
+      "related_skills": "[arxiv, pdf, reddit-reading, rss-feeds, youtube-content]"
+    }
+  },
+  {
+    "_file": "research\\llm-wiki\\SKILL.md",
+    "name": "llm-wiki",
+    "description": "\"Karpathy's LLM Wiki: build/query interlinked markdown KB.\"",
+    "version": "2.1.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[wiki, knowledge-base, research, notes, markdown, rag-alternative]",
+      "category": "research",
+      "related_skills": "[obsidian, arxiv]"
+    }
+  },
+  {
+    "_file": "research\\polymarket\\SKILL.md",
+    "name": "polymarket",
+    "description": "\"Query Polymarket: markets, prices, orderbooks, history.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent + Teknium",
+    "tags": "[polymarket, prediction-markets, market-data, trading]",
+    "platforms": "[linux, macos, windows]"
+  },
+  {
+    "_file": "research\\rss-feeds\\SKILL.md",
+    "name": "rss-feeds",
+    "description": "\"Read RSS, Atom, JSON feeds; discover feeds behind a page.\"",
+    "version": "1.0.0",
+    "author": "Teknium (teknium1), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[RSS, Atom, Feeds, Monitoring, Research, Blogs, Releases]",
+      "related_skills": "[reddit-reading, competitor-news-monitor, grounded-citations, youtube-content, blogwatcher]"
+    }
+  },
+  {
+    "_file": "social-media\\reddit-reading\\SKILL.md",
+    "name": "reddit-reading",
+    "description": "\"Read Reddit: subreddits, search, threads, users. No browser.\"",
+    "version": "1.0.0",
+    "author": "Teknium (teknium1), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Reddit, Social Media, Research, Discussions, Community]",
+      "related_skills": "[rss-feeds, grounded-citations, blocked-page-recovery, xurl]"
+    }
+  },
+  {
+    "_file": "software-development\\code-review\\SKILL.md",
+    "name": "code-review",
+    "description": "\"Revue d'un depot Git : bugs, dette, secu, tests, issues.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[windows, linux, macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[revue, code-review, git, dette-technique, securite, tests, github, issues, refactoring]",
+      "related_skills": "[codebase-inspection, github-issue-to-pr, dogfood, test-driven-development, requesting-code-review]"
+    },
+    "prerequisites": {
+      "commands": "[python, git]"
+    }
+  },
+  {
+    "_file": "software-development\\codebase-inspection\\SKILL.md",
+    "name": "codebase-inspection",
+    "description": "\"Inspect codebases w/ pygount: LOC, languages, ratios.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[LOC, Code Analysis, pygount, Codebase, Metrics, Repository]",
+      "related_skills": "[github]"
+    },
+    "prerequisites": {
+      "commands": "[pygount]"
+    }
+  },
+  {
+    "_file": "software-development\\detector-calibration\\SKILL.md",
+    "name": "detector-calibration",
+    "description": "\"Calibrer un detecteur : faux positifs et controle positif.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[windows, linux, macos]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[calibration, faux-positifs, scanner, detection, qualite, tests]",
+      "related_skills": "[security-audit, code-review, systematic-debugging]",
+      "created": "\"2026-08-25\""
+    }
+  },
+  {
+    "_file": "software-development\\dogfood\\SKILL.md",
+    "name": "dogfood",
+    "description": "\"Exploratory QA of web apps: find bugs, evidence, reports.\"",
+    "version": "1.0.0",
+    "author": "Teknium (teknium1), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[qa, testing, browser, web, dogfood]",
+      "related_skills": "[]"
+    }
+  },
+  {
+    "_file": "software-development\\github\\SKILL.md",
+    "name": "github",
+    "description": "\"GitHub via gh CLI: PRs, issues, reviews, repos, auth.\"",
+    "version": "2.0.0",
+    "author": "Ben Barclay (benbarclay), Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[github, gh, git, pull-requests, issues, code-review, repos, auth, ci]",
+      "category": "software-development",
+      "related_skills": "[codebase-inspection, requesting-code-review]"
+    }
+  },
+  {
+    "_file": "software-development\\inspecting-hermes-desktop-dom\\SKILL.md",
+    "name": "inspecting-hermes-desktop-dom",
+    "description": "\"Read the live Hermes desktop DOM/CSS over CDP.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[desktop, electron, cdp, dom, ui-verification, self-inspection]",
+      "related_skills": "[node-inspect-debugger, systematic-debugging, dogfood]"
+    }
+  },
+  {
+    "_file": "software-development\\kimi-k3\\SKILL.md",
+    "name": "kimi-k3",
+    "description": "\"Kimi K3 fallback: when DeepSeek fails, user asks, premium.\"",
+    "version": "1.0.0"
+  },
+  {
+    "_file": "software-development\\plan\\SKILL.md",
+    "name": "plan",
+    "description": "Write a markdown plan to .hermes/plans/; no execution.",
+    "version": "2.0.0",
+    "author": "Hermes Agent (writing-craft adapted from obra/superpowers)",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[planning, plan-mode, implementation, workflow, design, documentation]",
+      "related_skills": "[subagent-driven-development, test-driven-development, requesting-code-review]"
+    }
+  },
+  {
+    "_file": "software-development\\requesting-code-review\\SKILL.md",
+    "name": "requesting-code-review",
+    "description": "\"Pre-commit review: security scan, quality gates, auto-fix.\"",
+    "version": "2.0.0",
+    "author": "Hermes Agent (adapted from obra/superpowers + MorAlekss)",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[code-review, security, verification, quality, pre-commit, auto-fix]",
+      "related_skills": "[subagent-driven-development, test-driven-development, github]"
+    }
+  },
+  {
+    "_file": "software-development\\seo-audit-wordpress\\SKILL.md",
+    "name": "seo-audit-wordpress",
+    "description": "\"Complete SEO audit workflow for WordPress sites — metadata extraction, duplicate detection, competitor keyword research, content gap analysis, pillar/cluster content architecture, and 4-week action planning. Production-tested on French local-business sites with Yoast SEO.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[SEO, WordPress, Audit, Content-Strategy, Keyword-Research, Yoast, Local-SEO]"
+    }
+  },
+  {
+    "_file": "software-development\\simplify-code\\SKILL.md",
+    "name": "simplify-code",
+    "description": "\"Parallel 4-agent cleanup of recent code changes.\"",
+    "version": "1.1.0",
+    "author": "Hermes Agent (inspired by Claude Code /simplify)",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[code-review, cleanup, refactor, delegation, subagent, parallel, simplify]",
+      "related_skills": "[requesting-code-review, test-driven-development]"
+    }
+  },
+  {
+    "_file": "software-development\\sparc-wp-dev\\SKILL.md",
+    "name": "sparc-wp-dev",
+    "description": "\"Use when developing a WordPress feature with SPARC workflow.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "metadata": {
+      "hermes": "",
+      "tags": "[wordpress, methodology, sparc, development, planning]"
+    }
+  },
+  {
+    "_file": "software-development\\spike\\SKILL.md",
+    "name": "spike",
+    "description": "\"Throwaway experiments to validate an idea before build.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent (adapted from gsd-build/get-shit-done)",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[spike, prototype, experiment, feasibility, throwaway, exploration, research, planning, mvp, proof-of-concept]",
+      "related_skills": "[sketch, subagent-driven-development]"
+    }
+  },
+  {
+    "_file": "software-development\\systematic-debugging\\SKILL.md",
+    "name": "systematic-debugging",
+    "description": "\"4-phase root cause debugging: understand bugs before fixing.\"",
+    "version": "1.1.0",
+    "author": "Hermes Agent (adapted from obra/superpowers)",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[debugging, troubleshooting, problem-solving, root-cause, investigation]",
+      "related_skills": "[test-driven-development, plan, subagent-driven-development]"
+    }
+  },
+  {
+    "_file": "software-development\\test-driven-development\\SKILL.md",
+    "name": "test-driven-development",
+    "description": "\"TDD: enforce RED-GREEN-REFACTOR, tests before code.\"",
+    "version": "1.1.0",
+    "author": "Hermes Agent (adapted from obra/superpowers)",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[testing, tdd, development, quality, red-green-refactor]",
+      "related_skills": "[systematic-debugging, subagent-driven-development]"
+    }
+  },
+  {
+    "_file": "software-development\\verify-specs-before-implementing\\SKILL.md",
+    "name": "verify-specs-before-implementing",
+    "description": "\"Verify prescribed commands and values before implementing.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[verification, setup, integration, config, honesty, measurement]",
+      "created": "\"2026-08-26\""
+    }
+  },
+  {
+    "_file": "software-development\\wordpress-performance\\SKILL.md",
+    "name": "wordpress-performance",
+    "description": "\"Optimize WordPress PageSpeed scores and Core Web Vitals.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[WordPress, Performance, Lighthouse, PageSpeed, CSS, Caching, Core-Web-Vitals]"
+    }
+  },
+  {
+    "_file": "software-development\\wordpress-security\\SKILL.md",
+    "name": "wordpress-security",
+    "description": "\"WP backdoor detection: find hidden admins, scan mu-plugins.\"",
+    "version": "1.0.0",
+    "created_by": "agent"
+  },
+  {
+    "_file": "software-development\\wp-audit-swarm\\SKILL.md",
+    "name": "wp-audit-swarm",
+    "description": "\"Use when auditing a WordPress site end-to-end in one shot.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "metadata": {
+      "hermes": "",
+      "tags": "[wordpress, audit, multi-agent, security, performance, seo, code-review]"
+    }
+  },
+  {
+    "_file": "web\\blocked-page-recovery\\SKILL.md",
+    "name": "blocked-page-recovery",
+    "description": "\"Use when a fetch fails: 403/429, paywall, WAF, bot wall.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[Research, Archives, Wayback, Paywall, WAF, Fallback]",
+      "related_skills": "[grounded-citations]"
+    }
+  },
+  {
+    "_file": "windows-system-backup\\SKILL.md",
+    "name": "windows-system-backup",
+    "description": "\"Create Windows system image backups via wbadmin.\"",
+    "version": "1.0.0",
+    "author": "hermes-curator"
+  },
+  {
+    "_file": "wordpress-theme\\SKILL.md",
+    "name": "wordpress-theme",
+    "description": "\"WordPress theme modification, optimization, and auditing — safe editing workflows for child themes, CSS/PHP/JS changes, security audits, performance tuning, and SEO improvements.\"",
+    "version": "1.0.0",
+    "author": "Hermes Agent (consolidated from wp-theme-modification, wordpress-theme-modification, wordpress-theme-optimization)",
+    "license": "MIT",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[WordPress, Themes, Child-Themes, CSS, PHP, Security, Performance, SEO, Auditing]"
+    }
+  },
+  {
+    "_file": "yuanbao\\SKILL.md",
+    "name": "yuanbao",
+    "description": "\"Yuanbao (元宝) groups: @mention users, query info/members.\"",
+    "version": "1.0.0",
+    "platforms": "[linux, macos, windows]",
+    "metadata": {
+      "hermes": "",
+      "tags": "[yuanbao, mention, at, group, members, 元宝, 派, 艾特]",
+      "related_skills": "[]"
+    }
+  }
+]

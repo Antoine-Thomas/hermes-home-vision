@@ -1,0 +1,75 @@
+# ============================================================================
+#  pnpm-workspace.yaml — supply chain hardening
+#  Refs: https://pnpm.io/settings/dependency-resolution
+#        https://pnpm.io/supply-chain-security
+#
+#  REQUIRES pnpm >= 11.3.0 (therefore Node >= 22.13) for ALL of the below.
+#  On pnpm 10.x the four settings marked "v11" are SILENTLY IGNORED.
+#  pnpm 11 warns about unrecognized TOP-LEVEL keys; it does NOT validate
+#  nested keys, so silence about a nested key proves nothing.
+#
+#  Verified on pnpm 11.24.0 / Node 24.15.0.
+# ============================================================================
+
+# --- Quarantine window for newly published versions -----------------------
+# Added v10.16.0. Default: 1440 (24 h) since pnpm 11, 0 before.
+# 10080 minutes = 7 days. Most compromised packages are yanked within hours,
+# so a 7-day delay avoids the exposure window at little cost.
+# TRADE-OFF: it also delays legitimate security patches. Use
+# minimumReleaseAgeExclude for packages that must stay current.
+minimumReleaseAge: 10080
+
+# Added v11.0.0. Default: true when minimumReleaseAge is set explicitly.
+# true  = FAIL when no version satisfies the age constraint
+# false = silently fall back to a too-recent version
+# Keep true: a warning nobody reads protects nothing.
+minimumReleaseAgeStrict: true
+
+# Added v11.0.0. Default: true (permissive).
+# true  = skip the age check when the registry does not date a package
+# false = do not trust an undated package  <-- STRICTER THAN DEFAULT
+# Set false for public registries. Flip to true if an internal registry or
+# mirror omits the "time" field, otherwise installs from it will break.
+minimumReleaseAgeIgnoreMissingTime: false
+
+# --- Trust policy ---------------------------------------------------------
+# Added v11. no-downgrade: skip (with a warning) a package the registry cannot
+# date, instead of failing the whole install on ERR_PNPM_MISSING_TIME.
+trustPolicy: no-downgrade
+
+# --- Exotic sources -------------------------------------------------------
+# Added v10.26.0. Default: true (already on in pnpm 11).
+# Only DIRECT dependencies may come from git+ or a tarball URL; a transitive
+# dependency attempting it is blocked.
+# Written explicitly to document intent and survive an upstream default change.
+blockExoticSubdeps: true
+
+# Added v11.3.0. Default: false (already correct).
+# false = re-apply age + trust policy to EVERY lockfile entry on install.
+# A lockfile from a third party, or edited by hand, must never be trusted.
+# When active, each install prints: "Lockfile passes supply-chain policies".
+trustLockfile: false
+
+# --- Dependency build scripts ---------------------------------------------
+# Added v10.3.0. Default: true (already on).
+# Non-zero exit if any dependency has an unreviewed build script.
+strictDepBuilds: true
+
+# Added v10.9.0. Default: false (already correct).
+# true would run every preinstall/install/postinstall unreviewed. Never.
+dangerouslyAllowAllBuilds: false
+
+# Explicitly approved builds (added v10.26.0).
+# `pnpm approve-builds` fills this in interactively.
+# Empty = no dependency script runs at all.
+allowBuilds: {}
+
+# ============================================================================
+#  DO NOT ADD:
+#    audit:
+#      level: high
+#  There is no audit/auditLevel setting here. It is a CLI flag
+#  (`pnpm audit --audit-level=high`, confirmed via `pnpm audit --help`).
+#  Put it in package.json scripts instead:
+#    "scripts": { "audit": "pnpm audit --audit-level=high" }
+# ============================================================================

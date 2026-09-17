@@ -1,0 +1,76 @@
+<!--
+  Known-good skeleton for custom Wazuh rules fed by a Windows event source.
+  Verified on Wazuh 4.7.3 + Windows agent.
+
+  HOW TO USE
+    1. Replace MYSOURCE     with your Write-EventLog -Source name.
+    2. Replace MYMARKER     with your literal marker prefix.
+    3. Pick an ID block in 100000-120000 that nothing else uses
+       (deploy_rules.ps1 asserts this for you).
+    4. Deploy with scripts/deploy_rules.ps1 (validates + rolls back).
+
+  DESIGN RULES BAKED IN
+    - Children match <field name="win.eventdata.data">, NOT <match>:
+      the Windows decoder leaves full_log empty, so <match> never fires and
+      the built-in rule 60602 wins instead.
+    - No <regex>/<pcre2> anywhere: OS_Regex lacks negated classes and
+      optional groups, and 4.7.3 rejects pcre2 in rules. Do complex pattern
+      recognition in the collector and emit a literal marker.
+    - Level 0 parent scoped by providerName so unrelated Windows events are
+      never evaluated against these children.
+    - Levels: 12 CRITICAL, 10 HIGH, 7 MEDIUM, 3 INFO.
+-->
+<group name="mygroup,">
+
+  <!-- ============ PARENT : Windows event log transport ============ -->
+  <rule id="100199" level="0">
+    <if_group>windows</if_group>
+    <field name="win.system.providerName">^MYSOURCE$</field>
+    <description>MYMARKER events via the Windows log (parent, no alert)</description>
+  </rule>
+
+  <!-- ============ CRITICAL ============ -->
+  <rule id="100201" level="12">
+    <if_sid>100199</if_sid>
+    <field name="win.eventdata.data">MYMARKER CRITICAL_CODE</field>
+    <description>CRITICAL: describe the concrete observed condition</description>
+    <group>mygroup,critical,</group>
+  </rule>
+
+  <!-- ============ HIGH ============ -->
+  <rule id="100200" level="10">
+    <if_sid>100199</if_sid>
+    <field name="win.eventdata.data">MYMARKER HIGH_CODE</field>
+    <description>HIGH: describe the concrete observed condition</description>
+    <group>mygroup,high,</group>
+  </rule>
+
+  <!-- ============ MEDIUM ============ -->
+  <rule id="100202" level="7">
+    <if_sid>100199</if_sid>
+    <field name="win.eventdata.data">MYMARKER MEDIUM_CODE</field>
+    <description>MEDIUM: describe the concrete observed condition</description>
+    <group>mygroup,medium,</group>
+  </rule>
+
+  <!-- ============ INFO : proof the control is working ============ -->
+  <!-- Emit one of these when a protection actively blocks something. It gives
+       evidence the pipeline is alive without adding alert noise. -->
+  <rule id="100206" level="3">
+    <if_sid>100199</if_sid>
+    <field name="win.eventdata.data">MYMARKER BLOCKED_OK</field>
+    <description>INFO: a protection blocked an action as designed</description>
+    <group>mygroup,info,</group>
+  </rule>
+
+  <!-- ============ FALLBACK : flat-file transport ============ -->
+  <!-- One deliberately generic rule. If a marker ever arrives through a
+       syslog <localfile> instead of the eventchannel, we still get an alert
+       rather than silence. Do not duplicate every child here. -->
+  <rule id="100198" level="10">
+    <match>MYMARKER </match>
+    <description>MYMARKER event seen in a log file (fallback transport)</description>
+    <group>mygroup,fallback,</group>
+  </rule>
+
+</group>

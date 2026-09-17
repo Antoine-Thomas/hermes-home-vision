@@ -1,0 +1,20 @@
+diff --git a/plugins/platforms/telegram/adapter.py b/plugins/platforms/telegram/adapter.py
+--- a/plugins/platforms/telegram/adapter.py
++++ b/plugins/platforms/telegram/adapter.py
+@@ -3158,6 +3158,16 @@ class TelegramAdapter(BasePlatformAdapter):
+                         app.updater.stop(), timeout=_UPDATER_STOP_TIMEOUT
+                     )
+                 except asyncio.TimeoutError:
++                    if getattr(self, "_polling_teardown_started", False):
++                        # Teardown is already in progress: the hung stop() is
++                        # expected (the transport is being torn down), so do not
++                        # escalate to a fatal error + rebuild during shutdown.
++                        logger.debug(
++                            "[%s] updater.stop() timed out during teardown; "
++                            "skipping fatal-error recovery",
++                            self.name,
++                        )
++                        return
+                     message = (
+                         "Telegram updater.stop() did not finish before the network-"
+                         "recovery deadline; rebuilding the adapter instead of reusing "

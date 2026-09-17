@@ -1,0 +1,9 @@
+{
+  "last_report_path": "C:\\Users\\searc\\AppData\\Local\\hermes\\profiles\\watch\\logs\\curator\\20260912-094911",
+  "last_run_at": "2026-09-12T09:49:11.221898+00:00",
+  "last_run_duration_seconds": 26.830617,
+  "last_run_summary": "auto: 8 marked stale, 1 reactivated; llm: skipped (consolidation off)",
+  "last_run_summary_shown_at": "2026-09-04T14:05:28.365459+00:00",
+  "paused": false,
+  "run_count": 10
+}

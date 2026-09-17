@@ -1,0 +1,52 @@
+{
+  "jobs": [
+    {
+      "id": "dc15c35183aa",
+      "name": "veille-hebdo",
+      "prompt": "Veille hebdomadaire (7 derniers jours) sur deux thèmes :\n1) Agents autonomes : papers arXiv, frameworks open-source, actualités des labos\n2) MLOps : outils, releases, breaking changes\n\nPour chaque item :\n- Titre + date + source (URL obligatoire)\n- Une phrase : quoi, et pourquoi ça compte\n- Impact sur mon parc (Windows 11, RTX 3070 Ti 8 Go, Hermes, SiYuan, WordPress, pipelines vidéo) : « impact direct », « à surveiller » ou « bruit »\n- Ne remonter que « impact direct » et « à surveiller » — pas de bruit\n\nFormat : synthèse markdown, 3 à 5 items maximum par thème.\nSi rien d'actionnable cette semaine, dis-le explicitement — n'invente rien.\n\nPuis, avec le skill siyuan (SIYUAN_TOKEN et SIYUAN_URL sont dans l'environnement du profil) :\n- crée un document nommé YYYY-MM-DD-veille (date du jour) dans le notebook « veille » (id 20260915170851-ricqsr6)\n- écris-y la même synthèse en markdown\n- contrôle la création (API) et donne l'id du document créé dans ta réponse finale.",
+      "skills": [
+        "siyuan"
+      ],
+      "skill": "siyuan",
+      "model": null,
+      "provider": null,
+      "provider_snapshot": "custom",
+      "model_snapshot": "auto/best-reasoning",
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "monitor_script": null,
+      "monitor_url": null,
+      "monitor_state": null,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 8 * * 1",
+        "display": "0 8 * * 1"
+      },
+      "schedule_display": "0 8 * * 1",
+      "repeat": {
+        "times": null,
+        "completed": 3
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-09-17T14:32:27.886394+02:00",
+      "next_run_at": "2026-09-21T08:00:00+02:00",
+      "last_run_at": "2026-09-17T15:03:12.863183+02:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "last_delivery_unverified": null,
+      "failure_streak": 0,
+      "deliver": "telegram",
+      "origin": null,
+      "enabled_toolsets": null,
+      "workdir": null,
+      "fire_claim": null
+    }
+  ],
+  "updated_at": "2026-09-17T15:03:12.865805+02:00"
+}

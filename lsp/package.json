@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "intelephense": "^1.18.5",
+    "pyright": "^1.1.411",
+    "typescript": "^6.0.3",
+    "typescript-language-server": "^5.3.0",
+    "yaml-language-server": "^1.24.0"
+  }
+}

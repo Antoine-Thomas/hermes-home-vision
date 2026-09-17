@@ -1,0 +1,11 @@
+model:
+  base_url: http://127.0.0.1:20128/v1
+  default: auto/best-reasoning
+  provider: omniroute
+plugins:
+  enabled: []
+_config_version: 45
+agent: {}
+fallback_model:
+  provider: omniroute
+  model: nvidia-stack

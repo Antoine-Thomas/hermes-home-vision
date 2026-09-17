@@ -1,0 +1,2 @@
+host,ip,date_scan,os,role,connections_external,connections_internal,processes_suspects,process_hashes,files_modified_recently,agents_wazuh_non_reconnus,alerts_wazuh_recentes,filebeat_status,security_recommendation,action_taken,notes
+HOSTNAME,192.168.1.10,2026-07-19T00:00:00Z,Windows 11 Pro,workstation,0,0,0,0,0,0,0,connected,Recommendation here,monitor;notify-owner,Scan notes here
