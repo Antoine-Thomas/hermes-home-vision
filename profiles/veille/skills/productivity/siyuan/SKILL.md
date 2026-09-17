@@ -255,6 +255,33 @@ curl -s -X POST "${SIYUAN_URL:-http://127.0.0.1:6806}/api/export/exportMdContent
   -d '{"id": "DOCUMENT_ID"}' | jq -r '.data.content'
 ```
 
+### Configure the AI settings (editor / agent / image generation)
+
+SiYuan keeps its AI config in `conf/conf.json` under `ai` and exposes **only** a write endpoint:
+`POST /api/setting/getAI` returns 404, `POST /api/setting/setAI` returns 200 — **and it writes even
+with an empty body** (probing it regenerates `embedding.id` / `rerank.id` and clears `providers`).
+Therefore: read the current `ai` object from `conf.json`, change only what you need, and POST the
+whole object back (round-trip). Never probe `setAI` "just to see".
+
+- `editing.modelId`, `agent.modelId`, `imageGeneration.modelId` reference a `provider.models[].id`;
+  the UI also accepts a model `name` (`app/src/ai/editor.ts` matches `item.id === modelID ||
+  item.name === modelID`) and silently falls back to the first enabled model otherwise.
+- **SiYuan rewrites the ids on write**: the provider and each model are re-keyed to
+  `YYYYMMDDHHmmss-xxxxxxx`. Write a set of models, re-read `conf.json` to learn the real ids, then
+  point `agent.modelId` / `editing.modelId` at them — resolving both in the same POST falls back to
+  the first model.
+- `apiKey` is stored **encrypted** (a 35-char key becomes a ~160-char blob): never compare the stored
+  value against what you sent. Prove the provider end-to-end with
+  `POST /api/ai/testModel {"model": "<model name>", "provider": "<saved provider id>"}` → `code: 0`,
+  `data.matched: true`, plus `data.available` = the list the upstream actually returned through that
+  key (the readable proof the scope is right).
+- One API token per workspace: `kernel/conf/api.go` is `type API struct { Token string }` — there is
+  no per-consumer token. The same token therefore lives in `conf.json` and in every profile `.env`
+  that writes to SiYuan; rotate it in one place (Settings → About) and re-upload the new one.
+- **Archive instead of deleting**: create the parent (`createDocWithMd` with `path: "/archive"`) then
+  `POST /api/filetree/moveDocsByID {"fromIDs": ["<doc id>"], "toID": "<parent id>"}`. `hpath` in the
+  `blocks` table lags a second or two behind the move — re-read before concluding it failed.
+
 ## Block Types
 
 Common `type` values in SQL queries:

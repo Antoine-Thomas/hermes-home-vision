@@ -520,6 +520,12 @@ hermes -p <profil> cron run <job_id>  # test immédiat, part au tick suivant (< 
   contexte de session, donc il doit être auto-portant.
 - `--deliver telegram` = canal home du profil (`TELEGRAM_HOME_CHANNEL`). Sans gateway vivant, pas de
   ticker : `cron status` le dit.
+- **`execute_code` est refusé dans un job cron** : « BLOCKED: execute_code runs arbitrary local Python
+  … Cron jobs run without a user present to approve it ». Le job doit passer par `terminal` (+ `write_file`
+  pour un payload), pas par Python — un run qui compte sur `execute_code` échoue une fois sur deux.
+- **Un job relancé deux fois le même jour produit deux artefacts**, pas un remplacement : SiYuan accepte
+  deux documents portant le même titre (ids distincts). Après un test manuel, vérifier et ranger le
+  doublon, sinon la note « quotidienne » se dédouble en silence.
 - **`Ran now: succeeded` est le résultat du déclenchement, pas la preuve que le travail a abouti.**
   Vérifier l'artefact réel (fichier, note, message), plus la ligne
   `cron.scheduler: Job '<id>': delivered to telegram:<chat_id>` dans `logs/agent.log`, plus le dernier
