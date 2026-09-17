@@ -44,7 +44,9 @@ proxy NIM local `127.0.0.1:20200`, SiYuan `127.0.0.1:6806`, RAG `127.0.0.1:8200`
 | `scripts\check_memory.ps1` | contrôle de saturation mémoire (tâche 08 h) | lecture seule |
 | `scripts\desaturer_memoire.py` | désaturation hebdomadaire (tâche dimanche 04 h) | écriture contrôlée |
 | `scripts\check_gateways.ps1`, `audit_tasks.ps1`, `fix_monitoring.ps1` | santé des gateways, audit des tâches, veilleurs | lecture seule |
-| `scripts\activer_a2a.ps1` / `desactiver_a2a.ps1` | activation / retour arrière A2A en 8 étapes | `-SelfTest` valide add/remove (md5 identique) sans rien toucher |
+| `scripts\verif_24h.ps1` | rapport T+24h : compare l'état courant à la baseline T0 (SiYuan, RAG, cron, ticks horaires du healthcheck, 3 gateways vivants, alertes, A2A OFF) → résumé + `snapshot\verif_24h_<date>.txt`, exit 1 si un contrôle est rouge | lecture seule (`-NoReport` pour ne rien écrire) |
+| `Desktop\hermes_install\scripts\baseline_t0.py` | produit `snapshot\baseline_T0.json` : l'état de référence mesuré (SiYuan, RAG, services, gateways, cron, healthcheck, A2A) | lecture seule |
+| `scripts\activer_a2a.ps1` / `desactiver_a2a.ps1` | activation / retour arrière A2A, **paramétrés par profil et par port** (`-LocalProfile`, `-LocalPort`, `-Profile`, `-Port`, `-PeerToken`, `-WriteEnvKeys`), avec affichage du diff avant écriture | `-SelfTest` valide add/remove sur une copie (md5 du config réel identique) sans rien toucher |
 | `scripts\hidden_SecurityMonitoring-*.vbs` | 4 veilleurs (alertes, log, ports, mises à jour) | service |
 | `Desktop\hermes_install\historique_qualite.py`, `rollback_update.ps1` | historique qualité, retour arrière de mise à jour | — |
 
@@ -152,6 +154,8 @@ cd "$LOCALAPPDATA/hermes" && git log --oneline -5 && git status --short
 4. `profiles\watch\.env` : **jeton du bureau retiré le 17/09** (ligne commentée `# TELEGRAM_BOT_TOKEN=8802352038:…` supprimée ; le fichier ne contient plus que le jeton de `watch`, `@Omaths2_watch_bot`, `getMe` 200). **Credential email partagé : tranché et appliqué le 17/09 — option A (retrait).** Le motif réel de l'avertissement était bien `EMAIL_PASSWORD` (seule clé email retenue par la détection de collision : elle filtre les clés se terminant par `_PASSWORD/_TOKEN/_KEY/…`, ce qui exclut `EMAIL_ADDRESS`, `EMAIL_IMAP_HOST`, `EMAIL_SMTP_HOST`, `EMAIL_POLL_INTERVAL`). Les **6 lignes `EMAIL_*`** ont été retirées de `profiles\watch\.env` (backup `backups\chantier_triple_p1a_20260917_161834\env.watch.avant`, sha256[:16] avant `1603f5ea039e9eeb`, après `21fe62abfcd8f03e`), puis gateway `watch` redémarré : `✓ Gateway running with 1 platform(s)` (log) et `hermes profile list` **ne signale plus rien**. Preuve du diagnostic : `gateway_state.json` de `watch` annonçait `email: connected` avant le retrait — le profil tenait donc un **second poller IMAP sur la même boîte** (`searching.murphy@gmail.com`) que `default`, avec 0 session email traitée et 0 job cron côté `watch`. **Option B (mot de passe d'application dédié) écartée** : elle ferait taire l'avertissement mais laisserait les deux gateways sur la **même boîte** (le mot de passe n'est pas l'identité du canal) ; si `watch` doit un jour traiter l'email, la correction est une **boîte distincte**, pas un second mot de passe. Rollback : restaurer le backup puis `hermes -p watch gateway restart`.
 5. **Dépôt externe** : dé-suivi et motifs faits (§8) ; **purge d'historique reportée** (décision du 17/09 : aucun remote, risque local, et les identifiants de commit servent à la traçabilité actuelle).
 6. Le scanner de secrets (`data\rag\scan_secrets.py`) **n'a pas de mode export/redaction** : `snapshot\config.yaml.redacted` ne peut pas être régénéré proprement — à implémenter ou à abandonner volontairement.
+7. **A2A : préparé, NON activé (17/09)** — `scripts\activer_a2a.ps1` est désormais paramétrable (`-LocalProfile`/`-LocalPort`/`-Profile`/`-Port`/`-PeerToken`/`-WriteEnvKeys`) et affiche le diff avant écriture ; `desactiver_a2a.ps1` est symétrique ; les deux passent `-SelfTest` sans toucher au `config.yaml` (md5 identique). Jetons par paire **générés mais non posés** (`%TEMP%\a2a_tokens_*.txt`, empreintes seules : bureau `9885f0a0ee963974`, veille `394117de841c207f`). `a2a_agents` **non déclaré**, plugin off, 9900/9901 muets, 0 clé `A2A_*`. Procédure complète et checklist : `A2A_PREPARATION.md`. **Correction à retenir** : `a2a_agents` est une **table indexée par nom de pair**, pas une liste `- name:` (vérifié dans `plugins/platforms/a2a/tools.py`).
+8. **Observation 24 h en cours** → voir §10. La décision d'activer A2A ou non se prend **après** cette fenêtre.
 
 ### 7.1 Piste 2ᵉ clé Google — procédure (documentation seule, aucune action effectuée)
 
@@ -202,3 +206,68 @@ Gemini d'OmniRoute ne contient **qu'un seul compte** : dès que ce compte prend 
 | `watch` : clé OmniRoute dédiée + repli gratuit | **fait** : clé `hermes_watch` (5 modèles, `restricted`), `model.default: nvidia-stack`, repli `nemotron-3-super-120b` → `auto/best-free` → `deepseek-flash`, prouvé par échec primaire simulé (servi en gratuit, pas en payant) |
 | `eco` dégradé | **traité le 17/09 (option A)** : `probe_omniroute.py` élague après 3 échecs terminaux consécutifs (plancher 2 cibles) → `eco` passe de **15 à 8 cibles** ; les échecs transitoires ne comptent pas. Option B refusée (128 K), option C sans 2ᵉ clé Google (piste ouverte) |
 | Dépôt externe : secrets et volumes | **fait** (dé-suivi + motifs) ; purge d'historique **reportée** (commandée documentée en §8) |
+| `watch` : credential email partagé avec `default` | **fait le 17/09 (option A — retrait)** : 6 lignes `EMAIL_*` retirées de `profiles\watch\.env`, gateway `watch` redémarré → `Gateway running with 1 platform(s)`, `hermes profile list` muet. Motif réel de l'avertissement : `EMAIL_PASSWORD` (la détection ne regarde que les clés en `_PASSWORD/_TOKEN/_KEY/…`). Effet de bord voulu : plus de second poller IMAP sur la boîte du bureau. Détail et rollback : §7.4 |
+| Piste 2ᵉ clé Google (point de défaillance unique d'`eco`) | **documentée, aucune action** : procédure de bout en bout en **§7.1**, preuve du diagnostic `gemini \| all 1 active accounts cooling down` dans `~/.omniroute/logs/application/app.log` |
+| A2A (préparation) | **préparé, NON activé** : scripts paramétrés + `-SelfTest` verts des deux côtés, jetons par paire générés non posés, `a2a_agents` non déclaré, 0 clé `A2A_*`, 9900/9901 muets. Checklist d'activation, commandes et rollback : `A2A_PREPARATION.md` |
+| Observation 24 h | **en place** : baseline T0 mesurée (`snapshot\baseline_T0.json`), battement horaire du healthcheck, `scripts\verif_24h.ps1` — critères en **§10** |
+
+---
+
+## 10. Mode observation 24 h — critères de validation
+
+Fenêtre : **T0 = 2026-09-17 16:25:33** → **T+24 h = 2026-09-18 16:25**. Rien n'est activé pendant la
+fenêtre : elle sert à mesurer la stabilité avant de trancher sur A2A.
+
+### Ce qui produit la trace
+
+| Producteur | Cadence | Sortie |
+|---|---|---|
+| `check_gateways.ps1` (tâche `Hermes_Gateway_HealthCheck`) | PT5M | lignes par tick **et** une ligne `[battement] <heure>h : N/M gateways up, X alerte(s)` par heure, état persistant dans `logs\gateway-health.state.json`, rotation du journal à 10 Mo |
+| cron `veille-hebdo` | lundi 08h00 (hors fenêtre) | document SiYuan + message Telegram |
+| Réindex RAG / contrôle mémoire | 03h00 / 08h00 | tâches Windows, succès à lire dans le Task Scheduler |
+
+Battement ajouté le 17/09 : l'historique horaire n'existait pas (seules les transitions d'état étaient
+visibles d'un coup d'œil) ; il donne 24 points de mesure par jour, lisibles et parsables.
+
+### Comment lire le résultat
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "$env:LOCALAPPDATA\hermes\scripts\verif_24h.ps1"
+```
+
+Sortie : un résumé d'une ligne
+(`24,0 h écoulées | 3/3 gateways up au dernier tick (24 ticks horaires tracés) | 0 alerte(s) | cron veille armé | A2A OFF : oui | verdict VERT`)
+puis un rapport horodaté dans `snapshot\verif_24h_<date>.txt`. Code de sortie **1** si un contrôle est
+rouge. `-BaselinePath <json>` compare à une autre référence, `-NoReport` n'écrit rien.
+
+### Critères verts (tous obligatoires)
+
+| Contrôle | Attendu |
+|---|---|
+| Écart horaire | ≥ 22 h (en dessous, le rapport est prématuré) |
+| SiYuan | `code=0`, **6** notebooks (mêmes identifiants qu'au T0) |
+| RAG | `/sante` **200**, `status=ok`, fragments ≥ **2367** |
+| Cron veille | `dc15c35183aa` `[active]`, prochaine exécution lundi 08h00 |
+| Ticks horaires | ≥ **23** heures distinctes tracées sur la fenêtre |
+| Disponibilité par profil | **100 %** des ticks `up` pour `default`, `watch`, `veille` |
+| Gateways maintenant | **3/3** vivants (PID *et* commande `gateway run`) |
+| Alertes | **0** alerte envoyée pendant la fenêtre (les 3 alertes présentes dans le journal sont **antérieures** au T0) |
+| A2A | 9900 **et** 9901 muets, **0** clé `A2A_*` |
+
+### Ce que l'observation ne couvre pas
+
+- Le **premier run automatique** du cron veille tombe le **lundi 21/09 à 08h00**, au-delà de la fenêtre :
+  à vérifier séparément (document SiYuan créé, message Telegram reçu, durée du run) — procédure dans le
+  skill `veille-2-agent` (§6, « Vérification du premier run automatique »).
+- Les tâches Windows 03h00/08h00 (réindex RAG, contrôle mémoire) : leur succès n'apparaît pas dans
+  `verif_24h.ps1`, seulement dans le Task Scheduler.
+- Le comportement sous charge (sessions longues sur `eco`) : non mesuré ici.
+
+### Décision à T+24 h
+
+- **Tout vert** → il ne reste qu'une décision : **activer A2A ou non**. Commandes d'activation croisées
+  et rollback : `A2A_PREPARATION.md` §6 et §7. Aucun prérequis manquant par ailleurs.
+- **Un contrôle rouge** → le rapport le nomme ; rien à annuler côté A2A (aucune activation n'a eu lieu).
+  Les leviers par contrôle : gateway → `schtasks /Run /TN Hermes_Gateway_<profil>` ; RAG → redémarrer le
+  service 8200 ; SiYuan → vérifier le jeton du `.env` ; ticks manquants → la tâche
+  `Hermes_Gateway_HealthCheck` (état, `Start-ScheduledTask`).
