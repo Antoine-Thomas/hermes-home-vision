@@ -1,15 +1,19 @@
 """Probe des modeles gratuits OmniRoute + maintien du combo `eco` (defaut Hermes).
 
 Regle: le combo eco ne contient QUE des modeles gratuits, ordre = priorite.
-Le script est ADDITIF, jamais destructif: il ajoute en tete les modeles
-nouvellement vivants absents du combo, et ne retire rien. Un ancien modele qui
-echoue au probe reste en place (il peut etre rate-limite ponctuellement).
+Le script est ADDITIF par defaut et ELAGUE seulement les cibles mortes :
+il ajoute en tete les modeles nouvellement vivants absents du combo, et retire
+une cible apres PRUNE_AFTER echecs consecutifs a code TERMINAL (401/402/403/404
+= acces ferme ou modele retire du catalogue). Les echecs transitoires (429
+quota, 502/504 surcharge, timeout) ne comptent PAS : un modele rate-limite
+revient tout seul, et un modele vivant n'est jamais retire.
 
 Historique du piege: la version precedente reconstruisait eco a partir des seuls
 modeles sous un seuil de latence de 5s. Quand aucun ne passait le seuil (tous
 rate-limites), eco se retrouvait avec 1 seul modele, qui echouait aussi -> toutes
 les requetes Hermes partaient sur le fallback PAYANT DeepSeek. Ne jamais
-resserrer la liste sur les seuls "vivants" du moment.
+resserrer la liste sur les seuls "vivants" du moment : d'ou le plancher
+FLOOR_MODELS qui refuse tout elagage qui viderait eco.
 """
 import concurrent.futures
 import json
@@ -28,6 +32,12 @@ PROBE_TIMEOUT = 40
 # max_tokens realiste: avec un budget minuscule, les modeles "reasoning" mettent
 # tout dans reasoning_content -> validation qualite OmniRoute -> 502 (faux mort).
 MAX_TOKENS = 200
+# --- Elagage des cibles mortes (decision du 17/09/2026) ---
+STATE_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                          "data", "omniroute", "probe_omniroute_state.json")
+PRUNE_AFTER = 3      # N passages horaires consecutifs en echec TERMINAL avant retrait
+FLOOR_MODELS = 2     # garde-fou : ne jamais descendre sous ce nombre de cibles
+TERMINAL_CODES = {401, 402, 403, 404}   # acces ferme / modele retire du catalogue
 
 CANDIDATES = [
     # Routes concretes (provider/model reels). Les alias auto/* fonctionnent en appel
@@ -127,10 +137,48 @@ except Exception as e:
     print(f"warn: lecture eco impossible ({str(e)[:60]})")
     current = None
 
-# --- Phase 3: Fusion additive (jamais de reduction de la liste) ---
+# --- Phase 3: Fusion additive + elagage des cibles mortes ---
+state = {}
+try:
+    if os.path.exists(STATE_FILE):
+        state = json.load(open(STATE_FILE, encoding="utf-8")) or {}
+except Exception:
+    state = {}
+failures = state.get("terminal_failures", {}) or {}
+
+results_by_model = {r["model"]: r for r in results}
+# Compteur d'echecs TERMINAUX consecutifs : remis a zero des qu'un modele repond.
+for m in CANDIDATES:
+    r = results_by_model.get(m)
+    if not r:
+        continue
+    if r["ok"]:
+        failures.pop(m, None)
+    elif r["status"] in TERMINAL_CODES:
+        failures[m] = failures.get(m, 0) + 1
+    # transitoire (429 quota, 502/504, timeout, 200-content-vide) : ne compte pas
+
 incoming = [m for m in alive_ids if m not in current_models]
-new_model_ids = incoming + [m for m in current_models if m not in incoming]
-changed = bool(incoming) and bool(current) and new_model_ids != current_models
+merged = incoming + [m for m in current_models if m not in incoming]
+pruned = [m for m in merged
+          if m not in alive_ids
+          and failures.get(m, 0) >= PRUNE_AFTER
+          and results_by_model.get(m, {}).get("status") in TERMINAL_CODES]
+
+new_model_ids = [m for m in merged if m not in pruned]
+if len(new_model_ids) < FLOOR_MODELS:                 # garde-fou : ne jamais vider eco
+    print(f"warn: elagage refuse ({len(new_model_ids)} cible(s) restante(s) < FLOOR_MODELS={FLOOR_MODELS})")
+    pruned, new_model_ids = [], merged
+changed = bool(current) and new_model_ids != current_models
+
+state["terminal_failures"] = failures
+state["updated_at"] = time.time()
+try:
+    os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+    with open(STATE_FILE, "w", encoding="utf-8") as sf:
+        json.dump(state, sf, indent=1, ensure_ascii=False)
+except Exception as e:
+    print(f"warn: ecriture de l'etat impossible ({str(e)[:60]})")
 
 # --- Phase 4: Write only if a new living model is detected ---
 if changed:
@@ -143,14 +191,16 @@ if changed:
         "config": current.get("config", {"maxRetries": 1, "retryDelayMs": 2000, "handoffThreshold": 0.85}),
     }
     r = requests.put(f"{API_COMBO}/{ECO_ID}", headers=HDR, json=payload, timeout=20)
-    print(f"eco updated: {r.status_code} added={incoming} models={new_model_ids}")
+    print(f"eco updated: {r.status_code} added={incoming} pruned={pruned} models={new_model_ids}")
 else:
     reason = "aucun nouveau modele vivant" if not incoming else "eco illisible"
-    print(f"eco unchanged: {len(current_models)} modeles ({reason})")
+    print(f"eco unchanged: {len(current_models)} modeles ({reason})" + (f" | elagues={pruned}" if pruned else ""))
 
 # --- Phase 5: Log ---
 with open(OUT, "w", encoding="utf-8") as f:
     json.dump({"ts": time.time(), "results": results, "alive": alive_ids, "dead": dead,
-               "added_to_eco": incoming, "eco_models": new_model_ids, "changed": changed},
+               "added_to_eco": incoming, "pruned_from_eco": pruned,
+               "terminal_failures": failures, "prune_after": PRUNE_AFTER,
+               "eco_models": new_model_ids, "changed": changed},
               f, indent=2, ensure_ascii=False)
 print(f"probe done: {len(alive)}/{len(results)} alive, log={OUT}")

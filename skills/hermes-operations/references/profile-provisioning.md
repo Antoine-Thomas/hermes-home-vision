@@ -77,9 +77,20 @@ base_url)`. Trois conséquences pratiques :
 
 - Écrire la chaîne dans **une seule** des deux clés. Avec les deux, l'ordre effectif n'est pas l'ordre
 du fichier mais « toutes les entrées de `fallback_providers`, puis celles de `fallback_model` ».
-- **Un repli gratuit avant le repli payant.** Un profil dont le seul repli est payant bascule sur la
-  facturation à la première défaillance du primaire — et rien ne le signale dans la réponse. Un
+- **Un repli gratuit avant le repli payant.** Un profil dont le seul repli est payant bascule sur
+  la facturation à la première défaillance du primaire — et rien ne le signale dans la réponse. Un
 target local/gratuit (`nvidia-stack` via le proxy NIM, par exemple) passe avant le payant.
+- **Chaque entrée de repli doit être un modèle CONCRET, jamais un alias `auto/*`.** Un alias résout sa
+  cible à chaque appel dans un pool qui peut être entièrement mort : mesuré `502` sur un alias présenté
+  comme « gratuit », là où un `provider/modèle` concret répondait en ~3 s. Écrire l'entrée en
+  `provider: <nom>` / `model: <provider>/<modèle>` ; si l'alias reste utile, le placer APRÈS le concret.
+- **Une clé restreinte au consommateur impose un modèle déterministe de bout en bout.** Dès que
+  `allowedModels` n'est pas vide, la clé passe en `modelAccessMode: restricted` et le filtre s'applique
+  aux cibles **résolues** : un `model.default` qui est un alias dynamique (`eco`) échoue en `503`
+  (`all targets were skipped by pre-dispatch filters`) dès que la rotation sort de la liste. Aligner les
+  trois — `model.default` concret, entrées de repli concrètes, et toutes présentes dans `allowedModels`
+  — puis prouver par un vrai tour `hermes -p <profil> -z "…"` **et** par la défaillance forcée du
+  primaire (voir plus bas) : une clé restreinte posée sans cet alignement casse le profil en silence.
 - **La preuve se fait par défaillance forcée, pas par lecture du YAML** : forcer un primaire inexistant
   et regarder qui a réellement servi, options **avant** `-z`.
 

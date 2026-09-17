@@ -39,6 +39,21 @@ Validation obligatoire apres toute ecriture de combo : `POST /v1/chat/completion
 {"model":"eco"}` -> `200` + `content` non vide, et lire `model` dans la reponse (route
 reellement servie) + 3 essais pour ecarter un coup de chance.
 
+**Un combo qui echoue n'est pas forcement casse : verifier le PLAFOND DE CONTEXTE des cibles vivantes.**
+Un combo dont les seules cibles vivantes n'ont pas le meme plafond echoue uniquement AU-DESSUS de ce
+plafond. Mesure : le meme combo repond `200` en 2-5 s sur un prompt court (la premiere cible vivante
+sert) et echoue en session longue parce que la cible a grand contexte (1 M) est en `429 cooldown` et
+que les survivantes plafonnent a 128 K. Diagnostic dans cet ordre : (1) sonde courte — si elle passe,
+le combo n'est pas en panne ; (2) `GET /v1/models` pour lire `context_length` de chaque cible vivante ;
+(3) comparer au contexte reel de la session qui echoue. Ne jamais reconstruire un combo sur un seul
+echec en session longue.
+
+**Un job de maintenance additif accumule les cibles mortes.** Un probe qui n'ajoute jamais ne retire
+rien : au bout de quelques semaines la majorite des cibles peut etre morte (providers fermes, modeles
+retires du catalogue) et chaque appel paie leurs tentatives. Elaguer le combo ne suffit pas — le job le
+re-remplira a son rythme : corriger aussi **son script** (retirer les familles mortes, purger au-dela de
+N echecs consecutifs), le tester sur une copie du combo, puis relire le combo apres le passage horaire.
+
 Etat du pool gratuit (verifie 2026-09-17) : tout `oc/*` et `opencode/*` renvoie
 `403 OpenCode's free tier can only be used from within OpenCode` (ou `402 requires an
 opencode API key`) — le pool gratuit OpenCode n'est plus exploitable via OmniRoute.
@@ -124,7 +139,7 @@ les modeles sont casses alors que c'est la cle de la connexion :
 
 | Reponse du modele | Cause | Correctif |
 |---|---|---|
-| `401 A valid API key is required. Get one at …` | cle de la connexion morte/expiree (`testStatus: expired`) | renouveler cote fournisseur, ou desactiver la connexion **et** retirer ses modeles des combos (sinon le bruit continue) |
+| `401 A valid API key is required. Get one at …` | cle de la connexion morte/expiree (`testStatus: expired`) | renouveler cote fournisseur, ou desactiver la connexion **et** retirer ses modeles des combos (sinon le bruit continue). `PATCH /api/providers/<id> {"isActive": false}` desactive sans supprimer (garder la trace) — relire `isActive` pour le prouver, `DELETE` n'est pas necessaire |
 | `502 spawn <binaire> ENOENT` | provider adosse a un executable local, sans connexion enregistree : le modele reste au catalogue et rend `0 token` indefiniment | installer/configurer le provider, ou retirer le modele |
 | `429 All credentials for model X are cooling down` | quota fournisseur epuise, transitoire | attendre — ne pas conclure a une panne de configuration |
 | `404 … no longer available to new users` | modele retire du catalogue cote fournisseur | retirer des combos |
@@ -135,7 +150,7 @@ Un modele du catalogue sans connexion pour son prefixe n'est pas « a tester » 
 ## Fallback payant — canonique DeepSeek V4.1 Flash
 
 DeepSeek V4.1 Flash (552B MoE, 10/09/2026) — nom canonique `deepseek-flash` (version-less, futur-proof). `deepseek-v4-flash` n'est qu'un alias de compatibilite ; `deepseek-v4-pro` sera route vers Flash apres le 14/09/2026 12:00 Pekin. Toujours configurer `model: deepseek-flash` (pas l'alias) dans `fallback_providers` et dans l'alias `flash:` du config.yaml.
-Option B validee : fallback mono-entree `provider: deepseek / model: deepseek-flash` — retirer `omniroute/auto/best-chat` du fallback economise 60s de timeout a chaque echec d'eco. Editer via `terminal` (le guard `patch` refuse `~/AppData/Local/hermes/config.yaml`), appliquer sur default ET `profiles/watch/config.yaml` en une commande.
+Option B validee : fallback mono-entree `provider: deepseek / model: deepseek-flash` — retirer `omniroute/auto/best-chat` du fallback economise 60s de timeout a chaque echec d'eco. **Mais le mono-entree payant n'est plus la cible** : l'etage gratuit deterministe passe AVANT le payant (voir ci-dessous) — ne garder le mono-entree payant que si aucun target gratuit fiable n'existe, car il facture au premier rate-limit du primaire. Editer via `terminal` (le guard `patch` refuse `~/AppData/Local/hermes/config.yaml`), appliquer sur default ET `profiles/watch/config.yaml` en une commande.
 
 **Mais un repli mono-entree payant facture au premier hoquet du primaire.** Mesure : sur le profil
 du bureau (`fallback_providers: [deepseek/deepseek-flash]`), un `hermes -z` de controle a ete servi

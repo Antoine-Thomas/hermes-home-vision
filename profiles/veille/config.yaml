@@ -69,6 +69,10 @@ skills:
 _config_version: 45
 agent: {}
 fallback_model:
+  # Repli 1 = modele gratuit CONCRET et autorise par la cle hermes_veille
+  # (auto/best-free est bancal : 502 sur felo et oc).
+  - provider: omniroute
+    model: openai/nvidia/nemotron-3-super-120b-a12b
   - provider: omniroute
     model: auto/best-free
   - provider: omniroute
