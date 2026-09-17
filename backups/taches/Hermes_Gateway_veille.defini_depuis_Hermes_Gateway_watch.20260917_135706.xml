@@ -1,0 +1,46 @@
+﻿<?xml version="1.0" encoding="UTF-16"?>
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Hermes Agent Gateway - Messaging Platform Integration</Description>
+    <URI>\Hermes_Gateway_veille</URI>
+  </RegistrationInfo>
+  <Principals>
+    <Principal id="Author">
+      <UserId>S-1-5-21-2708967539-4005782061-2718665167-1001</UserId>
+      <LogonType>S4U</LogonType>
+    </Principal>
+  </Principals>
+  <Settings>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <RestartOnFailure>
+      <Count>999</Count>
+      <Interval>PT1M</Interval>
+    </RestartOnFailure>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <UseUnifiedSchedulingEngine>true</UseUnifiedSchedulingEngine>
+  </Settings>
+  <Triggers>
+    <LogonTrigger>
+      <Delay>PT30S</Delay>
+    </LogonTrigger>
+    <TimeTrigger>
+      <StartBoundary>2026-09-17T00:05:00</StartBoundary>
+      <Repetition>
+        <Interval>PT15M</Interval>
+      </Repetition>
+    </TimeTrigger>
+  </Triggers>
+  <Actions Context="Author">
+      <Exec>
+    <Command>wscript.exe</Command>
+    <Arguments>//B //Nologo "C:\Users\searc\AppData\Local\hermes\profiles\veille\gateway-service\Hermes_Gateway_veille.vbs"</Arguments>
+  </Exec>
+  </Actions>
+</Task>

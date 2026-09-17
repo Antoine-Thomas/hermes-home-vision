@@ -30,7 +30,10 @@ param(
     [switch]$Apply,
     [string]$TaskName = 'Hermes_Gateway',
     [int]$IntervalMinutes = 15,
-    [string]$StartBoundary = '00:05:00'
+    [string]$StartBoundary = '00:05:00',
+    [string]$TemplateTask,
+    [string]$VbsPath,
+    [switch]$Disabled
 )
 
 $ErrorActionPreference = 'Stop'
@@ -40,6 +43,58 @@ function Export-TaskXmlSafe([string]$name) {
     $xml = Export-ScheduledTask -TaskName $name
     if (-not $xml) { throw "Export-ScheduledTask a renvoye vide pour '$name'" }
     return $xml
+}
+
+# ------------------------------------------------------------------ branche CREATION
+# La tache n'existe pas encore : on clone une tache gateway du parc (principal S4U + SID
+# identiques) et on remplace nom, action (VBS cible) et intervalle. Rien n'est invente.
+$tacheExistante = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+if (-not $tacheExistante) {
+    Write-Output "=== $TaskName : CREATION depuis le modele ==="
+    if (-not $TemplateTask) { throw "tache '$TaskName' inexistante : -TemplateTask est obligatoire pour la creer" }
+    if (-not $VbsPath) { throw "tache '$TaskName' inexistante : -VbsPath est obligatoire pour la creer" }
+    if (-not (Test-Path $VbsPath)) { throw "VBS introuvable : $VbsPath" }
+    if (-not (Get-ScheduledTask -TaskName $TemplateTask -ErrorAction SilentlyContinue)) { throw "modele '$TemplateTask' introuvable" }
+
+    $xml = Export-ScheduledTask -TaskName $TemplateTask
+    $xml = $xml -replace [regex]::Escape("<URI>\$TemplateTask</URI>"), "<URI>\$TaskName</URI>"
+    $blocAction = [regex]::Match($xml, '(?s)<Exec>.*?</Exec>').Value
+    if (-not $blocAction) { throw 'bloc <Exec> introuvable dans le modele' }
+    $nouvelleAction = "  <Exec>`r`n    <Command>wscript.exe</Command>`r`n    <Arguments>//B //Nologo `"$VbsPath`"</Arguments>`r`n  </Exec>"
+    $xml = $xml.Replace($blocAction, $nouvelleAction)
+    if ($xml -notmatch "<Interval>$interval</Interval>") {
+        $sb = (Get-Date).ToString('yyyy-MM-dd') + 'T00:05:00'
+        $blocTrigger = "      <TimeTrigger>`r`n        <StartBoundary>$sb</StartBoundary>`r`n        <Repetition>`r`n          <Interval>$interval</Interval>`r`n        </Repetition>`r`n      </TimeTrigger>`r`n    </Triggers>"
+        $xml = $xml -replace '(?s)(\s*)</Triggers>', ("`r`n" + $blocTrigger)
+    }
+
+    Write-Output "  modele            : $TemplateTask"
+    Write-Output "  VBS               : $VbsPath"
+    ($xml -split "`n" | Select-String -Pattern 'URI|Command|Arguments|Interval|StartBoundary|MultipleInstancesPolicy|StartWhenAvailable|UserId|LogonType').Line | ForEach-Object { Write-Output ("    " + $_.Trim()) }
+    $controles = @{
+        'une seule action'   = ([regex]::Matches($xml, '<Exec>')).Count -eq 1
+        'intervalle attendu' = $xml -match "<Interval>$interval</Interval>"
+        'VBS bien cible'     = $xml -match [regex]::Escape($VbsPath)
+        'MultipleInstances'  = $xml -match 'IgnoreNew'
+        'StartWhenAvailable' = $xml -match '<StartWhenAvailable>true</StartWhenAvailable>'
+        'LogonTrigger'       = $xml -match '<LogonTrigger>'
+    }
+    foreach ($k in $controles.Keys) { Write-Output ("  controle {0,-20} : {1}" -f $k, $(if ($controles[$k]) { 'OK' } else { 'ECHEC' })) }
+    if ($controles.Values -contains $false) { throw 'un controle a echoue : aucune ecriture' }
+
+    if (-not $Apply) { Write-Output "  MODE DRYRUN : aucune ecriture. Relancer avec -Apply."; exit 0 }
+
+    $backupDir = Join-Path $env:USERPROFILE 'Desktop\hermes_install\backups\taches'
+    New-Item -ItemType Directory -Force -Path $backupDir | Out-Null
+    Set-Content -Path (Join-Path $backupDir "$TaskName.defini_depuis_$TemplateTask.$(Get-Date -Format 'yyyyMMdd_HHmmss').xml") -Value $xml -Encoding UTF8
+    Register-ScheduledTask -TaskName $TaskName -Xml $xml -Force | Out-Null
+    if ($Disabled) { Disable-ScheduledTask -TaskName $TaskName | Out-Null }
+    $t = Get-ScheduledTask -TaskName $TaskName
+    $i = $t | Get-ScheduledTaskInfo
+    Write-Output "  ecriture          : OK | etat=$($t.State) | next=$($i.NextRunTime)"
+    Write-Output "  declencheurs      : $((($t.Triggers | ForEach-Object { $_.CimClass.CimClassName -replace 'MSFT_Task','' }) -join ' + '))"
+    Write-Output "  resultat          : SUCCES"
+    exit 0
 }
 
 Write-Output "=== $TaskName ==="
