@@ -1,7 +1,10 @@
+9c12c05 gitignore: etat du curateur (.curator_state) - regeneré a chaque revue, hors depot
+c7eb694 skills + etat runtime : lecons elagage eco (omniroute-gateway), versionnement du home (hermes-home-git-baseline), compteurs cron/skills a jour - arbre propre avant publication
+c94765c docs: README d'installation + 3 .env.example (noms de variables seuls) + .gitattributes (fins de ligne) + .gitignore (exceptions !.env.example) - aucun secret versionne
+eab4f8e skills : lecons du chantier triple (windows-path-handling: ecriture en mode texte = fins de ligne reecrites, $"\r$" non fiable, octet de controle apres insertion de chemin ; hermes-operations: battement horaire du healthcheck + piege du marqueur d'idempotence non reporte + a2a_agents est une table, scripts A2A parametres)
+92a05be scripts : activer/desactiver_a2a parametres par profil et port (diff avant ecriture, SelfTest vert), healthcheck avec battement horaire, nouveau verif_24h.ps1 (rapport T+24h vs baseline T0)
+feb98db veille-2-agent (2 copies) : verification obligatoire du premier run automatique de lundi 08h00 (document SiYuan, livraison Telegram, duree du run)
 263b15f eco: elagage des cibles mortes (3 echecs terminaux consecutifs, plancher 2 cibles); veille: repli gratuit concret (nemotron-super); watch: jeton bureau retire du .env
 a1d0d7b profil watch: cle OmniRoute dediee hermes_watch, modele nvidia-stack, repli gratuit (nemotron-super -> auto/best-free -> deepseek)
 c3e5223 skills: lecons du 17/09 (hermes-operations: execute_code en cron, artefacts doubles; siyuan: config IA par API, moveDocsByID)
 aac90d5 config bureau: repli gratuit nvidia-stack avant deepseek-flash
-1160cad housekeeping: retirer tous les fichiers de ticker cron de l'index
-ffc77ef housekeeping: ignorer les fichiers de ticker cron (volatils, ecrits chaque minute)
-5ce40c0 Baseline post-reconfiguration 2026-09-17
