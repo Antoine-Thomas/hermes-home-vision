@@ -145,3 +145,20 @@ skills_backup_*/
 
 # --- Vestige de l ancien depot externe (copie locale, jamais versionnee) ---
 hermes_install/
+
+# --- Volatils retires du suivi le 17/09/2026 (regeneres ou sans interet) ---
+.npm_lock_hash_*
+.restart_last_processed.json
+.update_check
+combos_backup_*.json
+config.yaml.bak_*
+*-build-stamp.json
+eco3_raw.txt
+eco_resp.json
+head_animation_config.yaml
+install_id
+omniroute-launch.cmd.bak_*
+omniroute-launch.vbs.bak_*
+node/
+lsp/
+docs/snapshot/bootstrap_*.log

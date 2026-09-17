@@ -91,7 +91,8 @@ document SiYuan daté et le livre sur Telegram.
     ├── README.md                rôle du dossier docs et notes de fusion
     ├── RAPPORT_*.md             rapports de session
     ├── snapshot\                baselines et copies de référence
-    └── scripts\                 baseline_t0.py, scan_secrets_history.py, push-to-github.md
+    └── scripts\                 bootstrap.ps1, restore-from-github.md, push-to-github.md,
+                                 baseline_t0.py, scan_secrets_history.py
 ```
 
 Non versionné volontairement : `.env`, `auth.json`, `state.db*`, `sessions/`, `cache/`, `logs/`,
@@ -138,17 +139,29 @@ Non versionné volontairement : `.env`, `auth.json`, `state.db*`, `sessions/`, `
    ```
    Sans cette étape, les gateways démarrent sans Telegram ni modèle.
 
-4. **Recréer les tâches planifiées et démarrer les services.** Le script `docs\scripts\bootstrap.ps1`
-   est **prévu mais pas encore écrit** (spec rédigée, en attente de validation) : en attendant, la
-   remise en route se fait à la main —
+4. **Recréer les tâches planifiées et démarrer les services** — c'est le rôle de
+   `docs\scripts\bootstrap.ps1` (DryRun par défaut : il n'écrit rien sans `-Apply`) :
+   ```powershell
+   .\docs\scripts\bootstrap.ps1 -RepoUrl https://github.com/Antoine-Thomas/hermes-home-vision.git
+   .\docs\scripts\bootstrap.ps1 -RepoUrl https://github.com/Antoine-Thomas/hermes-home-vision.git -Apply
+   ```
+   Il installe Hermes si besoin, pose la configuration du dépôt, copie les `.env.example`, recrée les
+   **14 tâches** dont la cible est dans le dépôt, démarre les services dans l'ordre
+   (SiYuan → OmniRoute → proxy NIM → RAG → backend → gateways) et écrit son journal dans
+   `docs\snapshot\bootstrap_<horodatage>.log`. Il **liste** les 6 tâches dont le fichier cible est
+   hors dépôt (`data\`, `C:\ProgramData\Hermes`, SiYuan, cua-driver) sans les créer.
+   Procédure complète, y compris les étapes manuelles : `docs\scripts\restore-from-github.md`.
+
+   *Variante manuelle* (si tu préfères ne pas lancer le bootstrap) — recréer les tâches avec les
+   scripts du dépôt, puis démarrer les services dans l'ordre :
    ```powershell
    # tâches : les 3 gateways + le healthcheck
-   .\scripts\creer_tache_gateway.ps1 -TaskName Hermes_Gateway        # (voir -DryRun par défaut)
+   .\scripts\creer_tache_gateway.ps1 -TaskName Hermes_Gateway        # (-DryRun par défaut, puis -Apply)
    .\scripts\creer_tache_gateway.ps1 -TaskName Hermes_Gateway_watch
    .\scripts\creer_tache_gateway.ps1 -TaskName Hermes_Gateway_veille
    .\scripts\check_gateways.ps1 -InstallTask -Apply
    ```
-   puis démarrer dans l'ordre : **SiYuan** → **OmniRoute** (`omniroute-launch.vbs`) → **proxy NIM**
+   puis **SiYuan** → **OmniRoute** (`omniroute-launch.vbs`) → **proxy NIM**
    (tâche `Hermes_NVIDIA_NIM_Proxy`) → **RAG** (`data\rag\serveur_rag.py` — attention : aucun lanceur
    n'existe pour celui-ci, cf. `ARCHITECTURE_HERMES.md` §7.9) → **backend**
    (`gateway-service\Hermes_Serve.vbs`) → gateways `default`, `watch`, `veille`.
@@ -266,6 +279,9 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
 | `docs\RAPPORT_*.md`, `docs\INSTALL_LOG.md` | rapports de session et journal d'installation, commande par commande |
 | `docs\snapshot\` | baselines T0, configs de référence, diffs des scripts livrés |
 | `docs\scripts\push-to-github.md` | procédure de publication (dépôt privé, contrôles bloquants) |
+| `docs\scripts\bootstrap.ps1` | remise en route sur une machine vierge — DryRun par défaut, `-Apply` pour exécuter |
+| `docs\scripts\restore-from-github.md` | restauration pas-à-pas : bots Telegram, clés OmniRoute, jeton SiYuan, `data/`, tâches hors dépôt |
+| `docs\scripts\baseline_t0.py` | mesure la baseline T0 (notebooks SiYuan, fragments RAG, cron) — à régénérer sur une nouvelle machine |
 
 ---
 
