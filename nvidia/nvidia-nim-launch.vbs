@@ -1,7 +1,8 @@
 ' NVIDIA NIM proxy auto-launch for Hermes — hidden window (no console flash)
 Option Explicit
-Dim sh, env, rc, py, script, logPath
+Dim sh, env, rc, py, script, logPath, fso
 Set sh = CreateObject("WScript.Shell")
+Set fso = CreateObject("Scripting.FileSystemObject")
 Set env = sh.Environment("PROCESS")
 ' Redirecting stdout to a file drops Python to the locale code page (cp1252) and the
 ' '[PROXY] x -> y' lines then raise UnicodeEncodeError, killing every request. Force UTF-8.
@@ -14,5 +15,12 @@ logPath = "C:\Users\searc\AppData\Local\hermes\data\nvidia\proxy.log"
 ' this launcher refuse to restart a dead proxy.
 rc = sh.Run("cmd /c netstat -an | findstr "":20200 "" | findstr ""LISTENING"" >nul", 0, True)
 If rc = 0 Then WScript.Quit 0
+' Rotation simple : au-dela de 10 Mo, proxy.log devient proxy.log.1 (un seul historique).
+If fso.FileExists(logPath) Then
+  If fso.GetFile(logPath).Size > 10485760 Then
+    If fso.FileExists(logPath & ".1") Then fso.DeleteFile logPath & ".1", True
+    fso.MoveFile logPath, logPath & ".1"
+  End If
+End If
 ' Launch detached, hidden, unbuffered; stdout+stderr appended to proxy.log
 sh.Run "cmd /c """"" & py & """ -u """ & script & """ >> """ & logPath & """ 2>&1""", 0, False

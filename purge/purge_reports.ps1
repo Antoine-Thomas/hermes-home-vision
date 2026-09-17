@@ -30,7 +30,7 @@ $ProtectedPatterns = @('*hermes_evidence*', 'archive_sha256*')
 function Write-Log {
     param([string]$Msg)
     $ts = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    "$ts | $Msg" | Out-File $logFile -Append
+    "$ts | $Msg" | Out-File $logFile -Append -Encoding utf8
     Write-Host "$ts | $Msg"
 }
 

@@ -80,6 +80,12 @@ class NIMProxyHandler(BaseHTTPRequestHandler):
         for key in ("prompt_cache_key", "prompt_cache_behavior"):
             body.pop(key, None)
 
+        # Ce proxy ne relaie que du JSON complet : s'il transmet stream=true, NVIDIA repond en
+        # SSE et json.loads echoue -> 502 "Expecting value: line 1 column 1 (char 0)". On force
+        # donc le non-stream en amont ; OmniRoute refabrique le flux SSE cote client.
+        body["stream"] = False
+        body.pop("stream_options", None)
+
         print(f"[PROXY] {original} → {model}", flush=True)
 
         try:
@@ -115,6 +121,10 @@ class NIMProxyHandler(BaseHTTPRequestHandler):
             parts = model.split("/", 1)
             if parts[0] in ("openai", "pollinations", "auto"):
                 body["model"] = parts[1]
+
+        # Meme raison que dans _forward_chat : le proxy ne sait pas relayer du SSE.
+        body["stream"] = False
+        body.pop("stream_options", None)
 
         try:
             data = json.dumps(body).encode("utf-8")
@@ -180,7 +190,8 @@ def main():
     server = ThreadingHTTPServer((args.host, args.port), NIMProxyHandler)
     print(f"[NIM Proxy] Listening on {args.host}:{args.port}")
     print(f"[NIM Proxy] Upstream: {NVIDIA_NIM_URL}")
-    print(f"[NIM Proxy] API key: {NVIDIA_API_KEY[:12]}...")
+    # Ne JAMAIS journaliser la cle : ce log est un fichier en clair sur disque.
+    print("[NIM Proxy] API key: nvapi-***")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

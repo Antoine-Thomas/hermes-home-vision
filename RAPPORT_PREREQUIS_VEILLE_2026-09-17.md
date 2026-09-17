@@ -846,3 +846,201 @@ plugin des deux côtés puis poser `platforms.a2a.enabled` **à la racine** ; (5
 des deux côtés ; (6) **adapter le script d'activation**, qui aujourd'hui ne sait faire que le profil
 `default` sur 9900.
 
+**Dette confirmée à documenter** : `activer_a2a.ps1` doit recevoir des paramètres `-Port` et
+`-Profile` (ou un script dédié côté veille) **avant toute activation future**. C'est une dette
+identifiée, pas un blocage : le pair est local, rien n'est cassé, et la checklist reste valable telle
+quelle. `$profile2 = "watch"` est codé en dur et la vérification de port ne connaît que 9900.
+
+---
+
+# EXÉCUTION DES DÉCISIONS (Phase 3a → 3d, hors-périmètre)
+
+## MEMORY.md — décision actée, commande préservée
+
+Pas de restauration. La commande perdue est récupérée là où elle sert : nouvelle section
+**« Référence rapide (commandes) »** en tête du skill `hermes-operations`, avec `hermes curator
+archive <skill>` en première ligne, plus `list-archived` / `restore` / `pin` / `ledger`.
+
+Vérifié avant écriture, par `hermes curator --help` : la commande existe bien, elle prend un nom de
+skill, et l'aide confirme la propriété qui compte — « archives are recoverable; auto-deletion never
+happens ». Documenter un `archive` récupérable plutôt qu'un `rm` est exact.
+
+La version d'avant consolidation est vérifiée : `backups/MEMORY.md.avant_consolidation_20260917_123637.md`,
+**2120 octets / 2076 chars / 7 sections**, contient bien `hermes curator archive`, versionnée dans git.
+L'état courant reste 1938/2100 (lecteur `check_memory.ps1`), sous le seuil.
+
+Note : au passage, le *background review* de Hermes a lui-même patché `hermes-operations` (×2),
+`omniroute-gateway` et créé deux références (`local-service-triage.md`,
+`windows-task-failure-triage.md`) à partir des leçons de cette session. Copies versionnées incluses.
+
+## Phase 3a — Modèle : appliqué et vérifié
+
+Backups : `backups/veille/config.yaml.20260917_124557` (avant), `config.yaml.final` (après).
+
+| Clé | Valeur | Vérification |
+|---|---|---|
+| `model.default` | `auto/best-reasoning` | `hermes -p veille config get model.default` → **`auto/best-reasoning`** |
+| `model.provider` / `base_url` | `omniroute` / `http://127.0.0.1:20128/v1` | inchangés |
+| `fallback_model.provider` / `.model` | `omniroute` / `nvidia-stack` | relus conformes |
+
+Le CLI a émis un avertissement « Did you mean: fallback_providers.provider » : **fausse alerte
+vérifiée dans le code** — `hermes_cli/config.py` déclare `_FB_SINGLE_REQUIRED_FIELDS = (("provider", …),
+("model", …))` et valide `fallback_model` comme « optional single dict or chain list ». La forme est
+la bonne. `hermes -p veille config check` → « Config version: 45 ✓ », section Required vide.
+
+Nemotron après modification : `model=nvidia-stack` → **HTTP 200 en 0,75 s**.
+
+## Phase 3b — SOUL.md : écrit, diff produit
+
+Défaut (667 o, md5 `b1b237b2…`) sauvegardé sous `backups/veille/SOUL.md.defaut.20260917_124702`.
+Nouveau : **2603 octets, 4 sections** (Rôle, Règles de travail, Périmètre interdit, Isolation),
+md5 `1504240d…`. Le diff intégral a été affiché avant écriture.
+
+L'ajout demandé est en place, avec une correction de chemin : le `.env` du profil bureau n'est pas
+`profiles/default/.env` — **le profil `default` n'a pas de `.env` à lui**, il vit à la racine du
+install (`%LOCALAPPDATA%\hermes\.env`). Le SOUL nomme donc les deux formes pour ne pas créer un
+faux repère. `auth.json` est nommé explicitement, et la section « Isolation — état connu » acte la
+fuite : `.env` propre au profil, mais `auth.json` partagé à la racine (c'est lui qui fournit la
+recherche web).
+
+## Phase 3c — Skills : enquête, application, écart déclaré
+
+**Pourquoi `competitor-news-monitor` et `grounded-citations` sont désactivés au bureau** — trouvé
+dans `snapshot/skills_audit.md` (audit du 16/09, « réduction skills », 101 skills alors) :
+
+```
+## Candidats désactivation (usage nul, sans dépendance)
+| competitor-news-monitor | builtin | research | jamais | aucune | **désactiver** |
+| grounded-citations      | builtin | research | jamais | aucune | **désactiver** |
+```
+
+Raison = **usage nul, aucune dépendance**. Pas « buggé », pas « obsolète ». Confirmation croisée :
+`snapshot/skills_audit_raw.json` porte `"usage": "—", "verdict": "désactiver"`, et l'historique de
+session (@session:default/20260916_184028_2ee1fa) montre la désactivation des 7 candidats comme un
+arbitrage de réduction, pas un correctif. Le `.curator_ledger.jsonl` ne les mentionne pas (0
+occurrence) : le curateur n'y est pour rien.
+
+**Décision qui en découle** : la règle posée par l'opérateur (« si la raison est *pas utile au
+bureau* → activer pour veille ») s'applique. Ces deux skills **restent actifs dans le profil veille**
+et sont donc proposés au maintien (voir « en attente » ci-dessous).
+
+**Mécanisme d'écriture** — section `skills:` **absente** du config veille avant modification
+(aucun `skills.disabled`). Insertion textuelle ciblée par script, jamais `config set` sur cette clé
+liste. Backup `config.yaml.bak_20260917_124817`. `hermes -p veille config check` → v45 ✓.
+
+**Manquants ajoutés** : `research/rss-feeds` et `research/veille-2-agent` copiés depuis le bureau
+vers `profiles/veille/skills/research/` — **copie, pas symlink** (0 lien symbolique vérifié), pour
+garder l'isolation.
+
+**Comptage — l'écart demandé, affiché.**
+
+| Mesure | Valeur |
+|---|---|
+| `SKILL.md` sur disque dans le profil | **60** (58 bundled + 2 copiés) |
+| Skills reconnus par `hermes -p veille skills list` | **54** |
+| `skills.disabled` écrit | **45** noms |
+| Noms appliqués | **39** |
+| Noms non reconnus par le CLI sous Windows | **6** : `apple-notes`, `apple-reminders`, `findmy`, `imessage`, `python-debugpy`, `xurl` |
+| **Activés** | **15** — 6 gardés + 7 en attente + 2 ajoutés |
+| **Désactivés** | **39** |
+
+Les 6 noms non appliqués sont **inertes** (entrées sans effet, à laisser : elles redeviendraient
+utiles le jour où ces skills sont reconnus). L'écart avec l'attendu « 8 enabled » **vient des 7
+« à examiner » encore actifs** : 6 gardés + 7 en attente + 2 ajoutés = 15. Le compte ne pouvait pas
+faire 8 sans trancher les 7 — c'est exactement la validation qui reste ouverte.
+
+## Phase 3d — Clé dédiée : créée, isolée, vérifiée
+
+**Deux imprévus, tous deux levés.**
+
+**Imprévu 1 — la création de clé n'applique pas `allowedModels`.** `POST /api/keys` avec
+`allowedModels` renvoie 201 mais la relecture donne `allowedModels = []` (aucune restriction) : le
+corps de création attend d'autres champs (il échoit `allowedConnections`). La restriction se pose
+par **`PATCH /api/keys/<id>`** → 200, et la relecture confirme.
+État final de la clé `hermes_veille` (id `e3b24003-4c17-40af-bbd3-b98bbf01cea4`) :
+`allowedModels = ["auto/best-reasoning","nvidia-stack","openai/nvidia/nemotron-3.5-lightning-30b-a3b",
+"openai/nvidia/nemotron-3-super-120b-a12b","openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"]`,
+`noLog = false`, `expiresAt = null`.
+
+**Découverte associée, importante** : une liste d'autorisation doit nommer **les modèles réellement
+dispatchés**, pas l'alias du combo. Preuve : `nvidia-stack` / clé admin → 200 ; `nvidia-stack` / clé
+restreinte aux seuls alias → **503 « all targets were skipped by pre-dispatch filters »** ; le modèle
+concret `openai/nvidia/nemotron-3.5-lightning-30b-a3b` / clé restreinte → **403 « not allowed for
+this API key »**. C'est pourquoi la clé porte les 5 entrées (2 alias + 3 membres concrets de
+`nvidia-stack`) : c'est ce qui rend la combinaison « clé restreinte + Nemotron » réellement
+fonctionnelle. `auto/best-reasoning` reste couvert **tant que** son alias résout vers un modèle
+autorisé — c'est sa fragilité structurelle, à connaître.
+
+**Imprévu 2 — le profil ne pouvait pas inférer du tout, pour deux raisons cumulées.**
+
+1. **Provider non déclaré** : `hermes -p veille -z` répondait `Unknown provider 'omniroute'`. Le
+   profil n'avait pas de section `providers:` (le bureau la porte avec `api`, `name`, `key_env`,
+   `extra_headers`, `request_timeout_seconds`). Ajoutée à l'identique, `key_env: OMNIROUTE_API_KEY`
+   pointant sur la clé dédiée. Backup `config.yaml.avant_3d_provider.20260917_125842`, v45 ✓.
+2. **Le proxy ne gérait pas le streaming** — cause racine du 502. Hermes streame par défaut ;
+   OmniRoute transmettait `stream: true` au proxy ; le proxy relaie le drapeau à NVIDIA, reçoit du
+   **SSE**, tente `json.loads()` dessus et répond
+   `502 {"error": "Expecting value: line 1 column 1 (char 0)"}` — reproduit en direct :
+   `proxy stream=true → HTTP 502`, `stream=false → 200`. Correctif de 4 lignes dans
+   `_forward_chat` **et** `_forward_completions` : `body["stream"] = False` (+ retrait de
+   `stream_options`) avant l'appel amont. OmniRoute refabrique ensuite le flux SSE côté client
+   (vérifié : `OmniRoute stream=true → HTTP 200` avec des trames `data:`).
+
+**Preuve d'inférence après correctifs** : `hermes -p veille -z "Réponds exactement et uniquement :
+OK VEILLE"` → **`OK VEILLE`**. La clé dédiée a servi (`lastUsedAt` renseigné, `noLog=false`), et la
+clé du bureau reste différente (`KdvEa3RDBt…` vs `sk-d4ebaa3…`).
+
+**Imprévu 3, non corrigeable ici — la deadline locale d'OmniRoute.** Le modèle `nvidia-stack` mesure
+**15,8 s / 16,1 s / 16,2 s** (3 mesures sur 4 en 200, 1 en 503) : juste au-dessus du plafond
+`resilienceSettings.requestQueue.maxWaitMs = 15000 ms` d'OmniRoute, qui produit alors
+`504 Request exceeded OmniRoute's local rate-limit execution expiration`. Ce réglage n'est **exposé
+nulle part** : absent des 80 clés de `/api/settings`, absent des `.env` du paquet, et l'erreur
+elle-même le qualifie de **« legacy »**. Conséquence pratique : **tout modèle plus lent que 15 s est
+intermittent via OmniRoute** (les modèles de raisonnement le sont par nature). Le correctif passe par
+OmniRoute (interface ou bundle), pas par le parc Hermes. Contournement immédiat : sur 3 tentatives,
+Hermes en réussit statistiquement une ; un modèle système resté sous 15 s serait plus sûr.
+
+**Permissions de la clé en pratique** : `GET /v1/models` avec la clé dédiée n'annonce que **2
+modèles** (les deux alias), donc la portée est bien visible côté client.
+
+**Divulgation** : une clé de sondage (`probe-shape-check`) a été créée par erreur par un POST de
+test (HTTP 201 inattendu) ; elle a été **supprimée** (`DELETE /api/keys/<id>` → « Key deleted
+successfully ») et le retour à 6 clés vérifié avant toute création réelle.
+
+## Hors-périmètre
+
+| # | Demande | État |
+|---|---|---|
+| 1 | Rotation de `proxy.log` | **FAIT** — dans le VBS : au-delà de 10 Mo, `proxy.log` → `proxy.log.1` (un seul historique, FSO). Log actuel 45 Ko, loin du seuil ; le VBS modifié a été rejoué (Result 0) |
+| 2 | Masquer la clé NVIDIA dans le log | **FAIT** — le `print` du script affiche désormais `nvapi-***` (plus de clé en clair). Les 2 occurrences historiques ont été **masquées a posteriori** (le proxy tenait le fichier ouvert : arrêt, réécriture, relance — le log ne contient plus qu'une seule forme, `API key: nvapi-***`) |
+| 3 | PurgeReports UTF-16LE | **FAIT** — `Out-File … -Append -Encoding utf8`. Rejoué sous SYSTEM : `Result=0`, log de 6 lignes **lisible par `grep`** |
+| 4 | Port 3080 (harnais DeepSeek) muet | **NON TOUCHÉ**, documenté : le harnais local DeepSeek n'écoute pas depuis l'arrêt du 13/09 ; à relancer si besoin. Il n'est référencé par aucune tâche planifiée |
+| 5 | PurgeReports reste en DryRun par défaut | **NON BASCULÉ**, documenté : `[switch]$DryRun = $true` est le défaut et la tâche ne passe aucun paramètre. La purge réelle exigera `-DryRun:$false`, et le DryRun courant ne liste **aucun** candidat |
+| 6 | Écart 168 fichiers `SKILL.md` au bureau vs 97 skills listés | **NON TOUCHÉ**, à investiguer une autre fois. Piste : le CLI filtre par plateforme (les 4 `apple/*` sont exclus sous Windows) et tronque les noms longs à l'affichage — compter par `find`, jamais par la sortie de `skills list` |
+
+## État final du parc, comparé à la Phase 0
+
+| Élément | Phase 0 | Fin de session |
+|---|---|---|
+| Version | 0.21.3 (2026.9.14) | **0.21.3 identique** |
+| `hermes doctor` | 4 issues préexistants | **4 issues identiques** (npm ×3 + `hermes setup`) |
+| Skills bureau | 98 enabled / 7 disabled | **98 / 7 inchangés** |
+| Mémoire | 2076/2100 · 1193/1300 | **1938/2100 · 1193/1300** (consolidation actée, cf. décision) |
+| Gateway default | ✗ mort depuis 00:02 | **✓ running (PID 28656)**, telegram connecté |
+| Gateway watch | ✓ PID 22876 | ✓ PID 22876 (inchangé) |
+| Gateway veille | ✗ arrêté | ✗ arrêté (voulu) |
+| Port 9900 / clés `A2A_*` | muet / 0 | **muet / 0** (A2A toujours désactivé) |
+| Proxy NIM 20200 | mort, 0 listener | **✓ écoute, loggé, threadé, raw SSE acceptée** |
+| Tâche NIM | logon seul, `NextRunTime` vide | **logon + répétition PT15M, Next armé** (observé en prod : 12:48:49 → 13:18:48) |
+| Combo `nvidia-stack` | 502 / 401 à l'appel | **200** (par nom de combo et par modèle) |
+| Combo `eco` | — | **inchangé** (md5 et `updatedAt` identiques) |
+| PurgeReports | code 1, aucun log | **code 0, log UTF-8, 2 preuves protégées** |
+| Tâches planifiées bureau | 9 recensées, toutes intactes | **9, aucune supprimée** (1 désactivée : le vestige `HermesGateway`) |
+| SiYuan 6806 / RAG 8200 / backend 9119 / OmniRoute 20128 | 401 / 404 / 200 / 307 | **identiques** |
+| ESTOP | absent | **absent** |
+| `.env` du bureau | — | **non modifié** |
+| `hermes-agent` (dont `delegate_tool.py`) | git propre | **git propre, 0 fichier modifié** |
+| Profil veille | inerte (`.env` vide, `eco`, SOUL défaut, 58 skills) | **auto/best-reasoning + fallback, SOUL écrit, 45 skills désactivés, clé dédiée, provider déclaré, inférence prouvée** |
+
+
+
