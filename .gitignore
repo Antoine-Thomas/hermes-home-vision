@@ -21,3 +21,16 @@ snapshot/state.db*
 **/*.db-wal
 **/*.db-shm
 backups/**/*.env*
+
+# --- Motifs defensifs (17/09/2026) : meme regle que le depot principal ---
+auth.json
+*.pem
+*.key
+*.sec
+*secret*.json
+*_token.json
+mcp-tokens/
+pastes/
+**/cache/
+**/logs/
+*.log
