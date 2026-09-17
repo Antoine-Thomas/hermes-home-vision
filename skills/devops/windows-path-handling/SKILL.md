@@ -72,6 +72,12 @@ genere, bloc Python passe en heredoc), deux pieges font echouer la compilation, 
   (`truncated \UXXXXXXXX escape`) parce que `\U` ouvre un echappement Unicode. Ecrire le litteral en
   **chaine brute** (`r"C:\..."`) ou doubler les antislashs. Le meme piege attend un heredoc Python
   qui contient un chemin dans ses triples guillemets : passer la chaine en `r"""..."""`.
+- **Un heredoc bash mange un niveau d'echappement, meme avec un delimiteur quote** (`<<'PY'`) : un
+  motif ecrit `r'Desktop\\hermes_install(?!x)'` arrive au Python avec des antislashs simples et meurt
+  sur `re.error: bad escape \h`. Des qu'un script porte des antislashs (regex, chemin Windows, motif
+  `\b…\b`), ne pas le passer en ligne : `write_file` le script dans `$LOCALAPPDATA/Temp`, puis
+  `python <chemin NATIF>`. Pour rendre l'intention non ambigue, batir le separateur explicitement
+  (`chr(92)`) au lieu de compter les antislashs.
 - **`re.sub` avec une chaine de remplacement** : les `\` du texte insere sont interpretes comme des
   references de groupe — le chemin arrive avec des antislashs Simples, donc invalide. Toujours passer
   une **fonction** : `motif.sub(lambda m: "%s = %s" % (nom, json.dumps(valeur)), source, count=1)`.

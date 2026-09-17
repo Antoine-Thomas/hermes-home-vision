@@ -1,0 +1,24 @@
+# Push GitHub - hermes-home-vision
+
+## reference locale = distante
+  HEAD local        : 1f1f0899cf8e8b72721ccac42d6b7aad8d7a5eff
+  HEAD distant      : 1f1f0899cf8e8b72721ccac42d6b7aad8d7a5eff
+  commit pousse     : 1f1f089 docs: snapshot de cloture (log final 20 commits, etat services/gateways/A2A)
+  branche suivie    : 
+  ecart             : 0 en avance, 0 en retard
+
+## depot
+  url               : https://github.com/Antoine-Thomas/hermes-home-vision.git
+  visibilite        : true
+  branche par defaut: main
+  pousse le         : 2026-09-17T16:00:23Z
+
+## volume envoye
+  2494 objets, 3.16 MiB (dont 5.4 Mo de .git apres purge du secret)
+  force update : le commit initial auto-genere par GitHub (610f053) a ete
+  ecrase par 1f1f089 (notre etat final) - le depot etait vide, aucune perte.
+
+## checks avant/au moment du push
+  - 0 fichier sensible suivi (.env, state.db, auth.json)
+  - 0 valeur de secret dans les 1530 blobs de l'historique
+  - .env du bureau non touche, bot @Hermes_assistante_2026_bot en service

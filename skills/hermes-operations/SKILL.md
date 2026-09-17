@@ -153,7 +153,13 @@ Register-ScheduledTask -TaskName '<nom>' -Action $action -Trigger $trigger -Sett
   fait refuser : presenter l'ordre des etapes, le perimetre exact de chaque action, ce que le script ne
   peut pas faire (secrets, installs hors depot) et les questions ouvertes, puis attendre. Convention
   du parc pour tout script qui modifie quelque chose : **`-DryRun` par defaut, `-Apply` pour executer**,
-  idempotence, journal horodate, et `-SelfTest` quand il reecrit un fichier de config.
+  idempotence, journal horodate, et `-SelfTest` quand il reecrit un fichier de config. **Le test
+  `-DryRun` doit prouver l'ABSENCE d'effet**, pas seulement afficher une sortie plausible : relever le
+  md5 d'un fichier sensible (`config.yaml`) et `git status --short` avant/apres, plus le code de sortie
+  (0 avec 0 echec). Un `-DryRun` qui ecrit son journal dans le depot le salit : poser le motif du
+  journal au `.gitignore`. **Et un controle de prerequis doit viser un vrai ecouteur** : tester la
+  connectivite sortante sur `127.0.0.1:443` ne peut qu'echouer (rien n'ecoute en local) et fait
+  annoncer une panne reseau inexistante a chaque execution — viser un hote distant (`github.com:443`).
 - **Le durcissement est un script, pas une commande.** Livrer le `.ps1` rejouable qui prend le backup
   XML (`Export-ScheduledTask | Out-File -Encoding UTF8`), modifie puis se vérifie lui-même, et
   l'exécuter depuis là : c'est le seul moyen de revenir à l'état cible après incident, et ça rend la
@@ -171,11 +177,15 @@ Register-ScheduledTask -TaskName '<nom>' -Action $action -Trigger $trigger -Sett
   logon », pas « planification récurrente » — deux situations qui appellent des conclusions opposées
   sur la cause de la panne.
 
-### Snapshot git de la config (`Desktop/hermes_install`)
+### Snapshot git de la config (`docs/`)
+
+Le depot est **unique** : runtime a la racine de `%LOCALAPPDATA%\hermes`, documentation sous `docs/`.
+L'ancien depot externe a ete fusionne puis renomme en `*.archive` : ne plus y chercher la doc ni le
+snapshot — tout est sous `docs/`.
 
 La copie versionnée du config live est `docs\snapshot\config.yaml` — il n'y a
 **pas** de `hermes_install\config.yaml` à la racine du dépôt. « Resynchroniser
-hermes_install/config.yaml » désigne donc ce fichier-là : le dire avant d'agir, plutôt que de
+docs/config.yaml » désigne donc ce fichier-là : le dire avant d'agir, plutôt que de
 supposer que la racine contient la copie.
 
 Procédure : `cp` live → snapshot, confirmer les deux `md5sum` identiques, `diff` vide, puis commit.
@@ -603,7 +613,12 @@ la ligne du scheduler dans `agent.log`.
   `references/hermes-home-git-baseline.md` §3 ter (audit d'historique) et §6 (fusion de deux dépôts).
 - **Tout secret collé dans le chat est déjà une fuite** : il est écrit en clair dans `.hermes_history`
   et dans `pastes/`. Le signaler dans le même tour avec son empreinte et sa ligne, et proposer la
-  rotation — nettoyer ne suffit pas tant que le secret est valide.
+  rotation — nettoyer ne suffit pas tant que le secret est valide. L'inventaire se fait **par motif,
+  jamais par valeur**, et il est plus large qu'il n'y parait : dans `state.db` la valeur vit aussi dans
+  `reasoning`, `reasoning_content`, `tool_calls`, `api_content` et dans les index FTS (`messages_fts`,
+  `messages_fts_trigram`) — un `UPDATE` sur `content` seul la laisse dans l'index — et `state.db-wal`
+  compte aussi. Le chiffrer (n lignes, n colonnes) et donner la seule preuve qui rassure l'operateur :
+  `git grep -lE '<motif>'` sur les fichiers **suivis** = 0, donc le push ne l'emporte pas.
 - **Un fichier vivant (`state.db`, `logs/`, `cache/terminal/hermes-snap-*.sh`) se nettoie à longueur
   constante**, pas par suppression : retirer des octets décale la suite du fichier pour un writer en
   append. Un `UPDATE` sur `messages` ne suffit pas — reconstruire `messages_fts` **et**

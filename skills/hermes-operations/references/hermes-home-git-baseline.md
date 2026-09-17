@@ -32,6 +32,16 @@ volumineuses ou sensibles, donc c'est le `.gitignore` qui porte la politique.
   demande).
 - **`.gitignore` ne detache pas un fichier deja suivi** : apres ajout d'un motif, `git rm --cached <f>`
   puis re-commit, sinon l'arbre reste sale en boucle.
+- **Le meme commit doit porter le motif ET le retrait du suivi.** Un `git rm --cached <f>` sans motif
+  dans le `.gitignore` est re-indexe par le `git add -A` suivant (le fichier est toujours sur le
+  disque) : retrait + motif + commit en un seul geste, puis `git check-ignore -v <f>` pour le prouver.
+  Un dossier retire du suivi pendant une fusion est revenu exactement comme ca.
+- **Un home accumule des residus volatils** : stamps de build, `.update_check`, `install_id`,
+  `*.bak_<horodatage>`, copies du runtime Node/LSP, sorties de sondes. Nettoyage :
+  `git ls-files > liste_avant.txt` (le seul retour arriere reellement utile), puis `git rm --cached` —
+  **jamais** un `rm` sans `--cached`, le runtime a besoin de ces fichiers (`install_id`, `node/`) —
+  motifs ajoutes au `.gitignore`, et trois controles : `git ls-files | wc -l` a baisse du compte
+  attendu, les fichiers sont **toujours sur le disque** (`ls`), et `git check-ignore -v` les nomme.
 - **Verifier l'arbre 1 a 2 minutes apres le commit.** Les fichiers volatils (ticker cron, heartbeats)
   ne se revelent qu'a ce delai : `git status --short` doit etre vide a froid.
 
@@ -192,7 +202,10 @@ interchangeable.
 4. **Recreer les taches planifiees et demarrer les services** en distinguant trois groupes : recréables
    depuis le depot (lanceurs VBS/scripts versionnes), dépendant de fichiers **hors depot**
    (`%USERPROFILE%\SiYuan\*.vbs`, `C:\ProgramData\Hermes\*.ps1`, `data\**\*.vbs` — a **lister**, pas a
-   pretendre recreer), et vestiges desactives (a ne pas recreer).
+   pretendre recreer), et vestiges desactives (a ne pas recreer). Pour toute tache dont le **depot fournit le generateur**
+   (`creer_tache_*.ps1 -Apply`, `check_gateways.ps1 -InstallTask`), appeler ce script plutot que de
+   recopier son action `Register-ScheduledTask` : la definition recopiee fige une version qui divergera
+   du generateur, et c'est le generateur que les sessions suivantes reliront.
 5. **Nouvelles cles par machine** : bots Telegram, cle du routeur, jeton SiYuan. Reutiliser celles de la
    machine d'origine casse l'isolation des profils et fait repondre deux machines sur un meme bot.
 
@@ -227,3 +240,14 @@ Objectif courant : un depot prive unique contenant le runtime **et** la document
 8. Ne rien supprimer du second depot avant d'avoir compare les inventaires
    (`git ls-files docs/ | wc -l` vs `git -C <second> ls-files | grep -v '^skills/' | wc -l`) et propose
    de le renommer en `*.archive` plutot que de le supprimer.
+9. **Les renvois de chemins des fichiers deplaces pointent encore sur l'ancien emplacement.** Passer au
+   crible les documents **et** les skills qui citent la doc : remplacer `Desktop` + `<ancien nom>` par
+   `docs`, et la variante a slash inverse (`Desktop/<ancien>`) — un seul fichier l'utilisait et serait
+   reste introuvable. Proteger par un negatif les chemins qui doivent survivre (sauvegarde `.git` hors
+   depot, dossier `*.archive`), et rapporter le nombre de remplacements par fichier plutot qu'un total.
+10. **Le controle d'exhaustivite se fait fichier par fichier, pas par un ecart de totaux.** Chaque
+   entree suivie du second depot doit etre soit presente sous `docs/`, soit **nommable** comme
+   collision laissee a la racine : deux totaux qui different se justifient n'importe comment, une liste
+   « 0 manquant » se verifie. Terminer par un snapshot de cloture dans `docs/snapshot/`
+   (`git log --oneline | head -20`, `git ls-files | wc -l`, `du -sh .git`, etat des services) : c'est la
+   reference que la session suivante comparera.
