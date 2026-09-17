@@ -78,9 +78,92 @@ dépendance manquante (A2A volontairement désactivé).
 
 ---
 
-## Phase 1 — Proxy NVIDIA NIM
+## Phase 1 — Proxy NVIDIA NIM (diagnostic réalisé, décision en attente)
 
-*(en attente de validation opérateur)*
+### Verdict : ENCORE UTILE — mais hors du chemin par défaut, et actuellement mort.
+
+Le proxy n'est pas un vestige : il est référencé par une connexion OmniRoute **active** et par un
+combo dédié. Il est en revanche **hors du chemin par défaut** (le modèle Hermes `eco` ne l'utilise
+pas) et **en panne silencieuse** depuis le 13/09.
+
+### Ce qui consomme le port 20200 — un seul consommateur, identifié
+
+| Élément | Constat |
+|---|---|
+| Connexion provider OmniRoute `NVIDIA NIM (Proxy)` | `id=1910f7a8-8037-4e0a-9024-674fde7df9b7`, `provider=openai`, `auth_type=apikey`, **`is_active=1`**, `test_status=active` |
+| URL déclarée | `provider_specific_data.baseUrl = http://127.0.0.1:20200/v1` |
+| Dernier test OmniRoute | `last_tested = 2026-09-17T08:51:42Z`, `updated_at = 2026-09-17T08:52:41Z` |
+| Combo dépendant | `nvidia-stack` — 3 modèles, tous `providerId: "openai"` (donc via le proxy) |
+| Modèles du combo | `nvidia/nemotron-3.5-lightning-30b-a3b`, `nvidia/nemotron-3-super-120b-a12b`, `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning` |
+| Autres références | **aucune** — pas dans `config.yaml`, pas dans `.env` (hors `NVIDIA_API_KEY_GEMMA4`, lu *par* le proxy), aucune occurrence dans `scripts/`, aucune autre tâche planifiée |
+| Combo `eco` (défaut Hermes) | 0 modèle nvidia → le défaut ne dépend pas du proxy |
+
+### Preuve de panne : 272 appels échoués, encore hier soir
+
+`ECONNREFUSED 127.0.0.1:20200` enregistré dans `proxy_logs` (200) et `call_logs` (72).
+
+| Jour | Échecs |
+|---|---|
+| 2026-09-16 | 45 (dont 20:59:51Z = 22:59 heure locale, **après** le redémarrage d'OmniRoute de 22:09) |
+| 2026-09-12 | 7 |
+| 2026-09-10 | 20 |
+| 2026-09-09 | 5 |
+| 2026-09-08 | 19 |
+| 2026-09-07 | 85 |
+| 2026-09-03 | 18 |
+| 2026-09-02 | 1 |
+
+Aucun échec le 17/09 : le combo `nvidia-stack` n'a simplement pas été sollicité depuis.
+
+### État exact de la tâche planifiée
+
+| Champ | Valeur |
+|---|---|
+| Nom | `Hermes_NVIDIA_NIM_Proxy` |
+| État / Enabled | `Ready` / **`Enabled: True`** |
+| Déclencheur | `MSFT_TaskLogonTrigger` — **au logon uniquement**, `StartBoundary 2026-09-08T19:11:00` |
+| Action | `wscript.exe "…\data\nvidia\nvidia-nim-launch.vbs"` |
+| LastRunTime | **13/09/2026 16:23:29** |
+| LastTaskResult | `0` |
+| NextRunTime | **vide** |
+| NumberOfMissedRuns | 0 |
+| LogonType | `InteractiveToken`, `DisallowStartIfOnBatteries: true` |
+
+Dernier logon machine : **13/09/2026 16:23:29** (Event 7001) — la tâche a donc bien tiré à ce logon
+et rien depuis, faute de nouvelle session. Elle n'a **aucune répétition ni redémarrage sur échec** :
+une fois le process mort, il ne revient qu'au prochain logon.
+
+Le lanceur `nvidia-nim-launch.vbs` est idempotent (si 20200 écoute déjà, il sort) et démarre le proxy
+détaché, fenêtre masquée (`0, False`).
+
+### État du proxy lui-même
+
+- Port 20200 : **aucun listener**. `curl http://127.0.0.1:20200/health` → échec de connexion.
+- **Aucun fichier de log** dans `data/nvidia/` : le proxy écrit sur stdout, la fenêtre est masquée →
+  la sortie est perdue. C'est ce qui rend la panne invisible.
+- Clé : `NVIDIA_API_KEY` n'est posée ni au niveau utilisateur ni machine ; le script retombe sur
+  `data/nvidia/.env` → `NVIDIA_API_KEY_GEMMA4` (présente). Le lancement est donc fonctionnel une
+  fois relancé.
+- Rôle du proxy : traduire les noms de modèles préfixés `openai/` envoyés par OmniRoute vers le
+  format NVIDIA NIM et relayer vers `https://integrate.api.nvidia.com/v1`.
+
+### Ce qui est cassé concrètement
+
+Toute utilisation du combo `nvidia-stack` échoue immédiatement (connexion refusée), sans message
+visible côté Hermes puisque l'échec est consommé par OmniRoute. Le coût est réel : 3 modèles
+NVIDIA (dont Nemotron 3 Super 120B et Lightning 30B) sont annoncés dans le catalogue OmniRoute
+mais inutilisables.
+
+### Options soumises à décision
+
+| # | Option | Contenu | Effet |
+|---|---|---|---|
+| A | **Relancer et durcir** | Redémarrer le proxy maintenant + corriger la tâche : ajouter `-StartWhenAvailable` et une répétition (ex. toutes les 15 min avec `-MultipleInstances IgnoreNew`), rediriger la sortie du proxy vers un log | Le combo `nvidia-stack` redevient utilisable ; l'état du proxy devient observable |
+| B | **Retirer proprement** | Désactiver la tâche (désactivation explicite, pas de suppression) + désactiver la connexion provider `NVIDIA NIM (Proxy)` et le combo `nvidia-stack` côté OmniRoute | Plus d'appels condamnés ; les 3 modèles NVIDIA disparaissent du catalogue utilisable |
+| C | **Statut quo documenté** | Ne rien changer, acter que le combo est HS et que la tâche ne tire qu'au logon | Zéro modification, mais la panne silencieuse demeure |
+
+Aucune action n'a été effectuée : lecture seule. Décision opérateur requise.
+
 
 ## Phase 2 — Cohérence Hermes_Gateway_watch
 
