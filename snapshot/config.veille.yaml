@@ -1,0 +1,90 @@
+model:
+  base_url: http://127.0.0.1:20128/v1
+  default: nvidia-stack
+  provider: omniroute
+providers:
+  omniroute:
+    api: http://127.0.0.1:20128/v1
+    name: OmniRoute
+    default_model: nvidia-stack
+    key_env: OMNIROUTE_API_KEY
+    extra_headers:
+      X-OmniRoute-Compression: default
+    request_timeout_seconds: 120
+plugins:
+  enabled: []
+
+skills:
+  disabled:
+    - airtable
+    - apple-notes
+    - apple-reminders
+    - architecture-diagram
+    - ascii-video
+    - baoyu-infographic
+    - box
+    - claude-code
+    - claude-design
+    - codebase-inspection
+    - codex
+    - design-md
+    - docx
+    - dogfood
+    - email-inbox-triage
+    - findmy
+    - gif-search
+    - google-workspace
+    - hermes-agent-skill-authoring
+    - himalaya
+    - imessage
+    - inspecting-hermes-desktop-dom
+    - manim-video
+    - maps
+    - meeting-action-items
+    - node-inspect-debugger
+    - notion
+    - obsidian
+    - opencode
+    - p5js
+    - pdf
+    - popular-web-designs
+    - powerpoint
+    - product-price-monitor
+    - python-debugpy
+    - requesting-code-review
+    - sdlc-review
+    - simplify-code
+    - songsee
+    - songwriting-and-ai-music
+    - systematic-debugging
+    - teams-meeting-pipeline
+    - test-driven-development
+    - xlsx
+    - xurl
+    - computer-use
+    - document-to-action-items
+    - spike
+    - weekly-review-planning
+    - youtube-content
+_config_version: 45
+agent: {}
+fallback_model:
+  # Repli 1 = modele gratuit CONCRET et autorise par la cle hermes_veille
+  # (auto/best-free est bancal : 502 sur felo et oc).
+  - provider: omniroute
+    model: openai/nvidia/nemotron-3-super-120b-a12b
+  - provider: omniroute
+    model: auto/best-free
+  - provider: omniroute
+    model: auto/best-reasoning
+
+# Restriction du bot Telegram du profil veille : ni shell, ni ecriture de fichiers, ni pilotage
+# machine. Le SOUL.md est le garde-fou de comportement, ceci est le garde-fou technique.
+# La plateforme cli (cron -z) garde terminal/file, necessaires pour ecrire dans SiYuan.
+platform_toolsets:
+  telegram:
+    - web
+    - skills
+    - memory
+    - session_search
+    - todo

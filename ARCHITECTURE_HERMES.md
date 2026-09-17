@@ -36,7 +36,7 @@ proxy NIM local `127.0.0.1:20200`, SiYuan `127.0.0.1:6806`, RAG `127.0.0.1:8200`
 | `data\rag\scan_secrets.py` | scanner de secrets — **scan uniquement, pas de mode export/redaction** | lecture seule |
 | `data\rag\serveur_rag.py` | service HTTP RAG (port 8200) | service |
 | `data\rag\appliquer_fraicheur.py`, `archiver_memoire.py`, `reindex_auto.py`, `pub_carte_memoire.py` | fraîcheur, archivage, ré-indexation, carte mémoire | écriture ciblée |
-| `scripts\probe_omniroute.py` | sonde les modèles gratuits et maintient le combo `eco` (job cron horaire `5c9dd16aaa37`) | **additif par conception** : n'ajoute que, ne retire jamais |
+| `scripts\probe_omniroute.py` | sonde les modèles gratuits et maintient le combo `eco` (job cron horaire `5c9dd16aaa37`) | **additif + élagage** (depuis le 17/09) : ajoute les modèles vivants, retire une cible après 3 échecs terminaux consécutifs, plancher 2 cibles, état dans `data\omniroute\probe_omniroute_state.json` |
 | `data\omniroute\restore_eco_20260912.py` | réparation de `eco` (backup + `PUT` de 10 modèles vérifiés) | backup avant écriture |
 | `data\omniroute\reorder_eco.py`, `fix_eco_combo.py`, `fix_model_default.py` | réordonnancement / réparation de combos et de modèle par défaut | backbone-up avant écriture |
 | `data\nvidia\nvidia-nim-proxy.py` | proxy NIM local (20200) : normalise les noms de modèles, retire les params rejetés | service |
@@ -137,17 +137,20 @@ cd "$LOCALAPPDATA/hermes" && git log --oneline -5 && git status --short
 
 ## 7. Points ouverts (à trancher, non corrigés ici)
 
-1. **`eco` : diagnostic livré, décision en attente** — rien n'a été modifié sur `eco` ni sur `model.default`.
+1. **`eco` : décision tranchée et appliquée le 17/09 — option A (élagage), option C écartée faute de 2ᵉ clé Google, option B refusée** (128 K incompatibles avec les sessions longues du bureau, mesurées à ~262 K). `model.default` du bureau **reste `eco`** (rapide sur petit prompt, le repli gratuit `nvidia-stack` absorbe les échecs gros contexte).
+   - **Appliqué** : `scripts\probe_omniroute.py` élague désormais une cible après **3 échecs consécutifs à code terminal** (401/402/403/404), avec un **plancher `FLOOR_MODELS = 2`** qui refuse tout élagage vidant `eco`, et un état persistant dans `data\omniroute\probe_omniroute_state.json`. Les échecs transitoires (429 quota, 502/504, timeout, 200-content-vide) **ne comptent pas** : un modèle rate-limité revient seul, un modèle vivant n'est jamais retiré.
+   - **Résultat mesuré** (6 passes = 6 ticks simulés) : `eco` passe de **15 à 8 cibles** — les 7 cibles mortes retirées sont les 5 `oc/*` + les 2 `opencode/*` (403/402). Restent les 5 cibles saines (`gemini/gemini-3-flash-preview`, `gemini/gemini-2.5-flash`, `-flash-lite`, les 2 `openai/nvidia`) et `auto/gemini`, `auto/zai`, `auto/best-free`. Les 2 `gemini-2.5-*` (404 « no longer available to new users ») tomberont au fil des ticks **si** elles continuent de renvoyer 404 : actuellement elles flappent en 429 (cooldown), donc le compteur est volontairement remis à zéro.
+   - **Retour arrière** : `backups\decision1_eco_20260917_160700\` (script, `restore_eco_20260912.py`, `eco_combo_avant.json` — les 15 cibles).
    - **Qui écrit eco** : le job cron `5c9dd16aaa37` `omniroute-eco-autorefresh` (`0 * * * *`, script `scripts\probe_omniroute.py`, actif). Il est **additif** : il ajoute les modèles vivants, ne retire jamais → 10 des 15 cibles sont mortes : 7 × `oc/opencode` (403 « OpenCode's free tier can only be used from within OpenCode », 402), `gemini/gemini-2.5-flash` et `-flash-lite` (404 « no longer available to new users »). Cibles vivantes : `gemini/gemini-3-flash-preview` (**1 048 576** ctx, souvent en cooldown 429) et les 3 `openai/nvidia/*` (**128 000** ctx).
    - **Mesuré le 17/09** : `eco` répond **vite** quand il est appelé (2,0 s / 2,7 s / 4,8 s sur 3 appels — servi par gemini puis nemotron-nano), là où `nvidia-stack` prend 11,0 s / 18,3 s / 12,3 s. L'échec réel d'`eco` se produit sur les **gros contextes** (> 128 K, comme la session de travail du jour à ~262 K) : seul gemini peut servir, et quand il est en cooldown les 14 autres cibles échouent → repli.
    - **Consommateurs** : `model.default` de `default` + l'alias `model_aliases.eco` ; **2 jobs cron épinglent `eco` explicitement** (« Relance fin de vacances », « Mémoire auto-consolidation ») ; 5 autres jobs héritent du modèle du profil ; **aucun script d'exécution** n'appelle `eco` (seuls les scripts de maintenance écrivent le combo).
    - **Option A — élaguer `eco`** : effort = 1 patch de `probe_omniroute.py` (retirer les familles mortes, purger au-delà de N échecs) + 1 nettoyage du combo. Gain = moins d'essais inutiles, logs propres, latence stable. **Ne résout pas** le gros contexte. Risque = c'est le script qui réécrit `eco` chaque heure : un bug qui vide `eco` envoie tout le trafic sur le payant (réparation : `data\omniroute\restore_eco_20260912.py`).
    - **Option B — bureau sur `nvidia-stack`** : effort = 1 édition de `config.yaml` (+ 2 jobs à réépingler). Gain = déterministe, gratuit, plus de 503 ni de bascule payante involontaire. Coût = **128 K au lieu de 1 M** (compression bien plus agressive sur les sessions longues) et **~4-6× plus lent**, avec 7 jobs actifs + les sessions sur 3 cibles NIM seulement (risque de 504 sous charge).
    - **Angle racine (option C)** : le point de défaillance unique est le quota Gemini — une seconde clé Google (nouvelle connexion) rétablirait la route 1 M rapide, l'option A suffisant alors pour le reste.
-2. **Le premier repli « gratuit » de `veille` est mort** : `auto/best-free` répond **502** (mesuré : felo 400, oc 400). `watch` a été corrigé le 17/09 (repli 1 = `openai/nvidia/nemotron-3-super-120b-a12b`, gratuit et autorisé par sa clé) ; appliquer le même correctif à `veille` reste à décider.
+2. **Repli « gratuit » de `veille` corrigé le 17/09** : `fallback_model` = `openai/nvidia/nemotron-3-super-120b-a12b` → `auto/best-free` → `auto/best-reasoning` (les 3 autorisés par la clé `hermes_veille`). Prouvé par échec primaire simulé : la session est servie par le nemotron-super (gratuit), plus par le payant. Le diagnostic reste vrai pour `auto/best-free` : **502** mesuré (felo 400, oc 400) — il est conservé en repli 2 pour détecter un rétablissement.
 3. **`config.yaml` du bureau modifiable par plusieurs sessions en parallèle** : le 17/09 la session « MCP scite » a réécrit la fin du fichier (`mcp_servers.scite.enabled: true`, `auth: oauth`) et supprimé un bloc de commentaires `# ── Fallback Model ──`, sans perte fonctionnelle. Recommandation : **ne pas éditer le `config.yaml` du bureau en parallèle d'une session MCP** — une seule session à la fois sur les fichiers de configuration.
-4. `profiles\watch\.env` porte le jeton du bot du bureau en plus du sien (avertissement `hermes profile list`) : à nettoyer avant toute migration multiplex. La clé OmniRoute d'administration n'y est plus.
-5. **Dépôt externe** : dé-suivi et motifs faits (§8) ; **purge d'historique non faite** (blobs de 80 Mo restants).
+4. `profiles\watch\.env` : **jeton du bureau retiré le 17/09** (ligne commentée `# TELEGRAM_BOT_TOKEN=8802352038:…` supprimée ; le fichier ne contient plus que le jeton de `watch`, `@Omaths2_watch_bot`, `getMe` 200). L'avertissement de `hermes profile list` **persiste** et sa cause réelle est ailleurs : **`EMAIL_PASSWORD` est présent dans les deux `.env`** (`default` et `watch`) — c'est le credential email partagé, pas Telegram. À traiter (retirer la ligne de `watch` ou donner un credential propre) avant toute migration multiplex.
+5. **Dépôt externe** : dé-suivi et motifs faits (§8) ; **purge d'historique reportée** (décision du 17/09 : aucun remote, risque local, et les identifiants de commit servent à la traçabilité actuelle).
 6. Le scanner de secrets (`data\rag\scan_secrets.py`) **n'a pas de mode export/redaction** : `snapshot\config.yaml.redacted` ne peut pas être régénéré proprement — à implémenter ou à abandonner volontairement.
 
 ---
@@ -159,17 +162,16 @@ cd "$LOCALAPPDATA/hermes" && git log --oneline -5 && git status --short
 - **Fait le 17/09** (commit « gitignore: retirer secrets et DB du suivi ») : `git rm --cached` sur
   `snapshot\.env` (24 230 o), `snapshot\state.db` (**192,1 Mo**), `backups\veille\.env.avant_telegram.20260917_134303`,
   `.env.avant_3d.*` et `.env.final.MASQUE`. Vérifié : `git ls-files | grep -E '\.env|state\.db'` → **vide**.
-- **Purge d'historique non faite** : les blobs subsistent dans `.git/` (**80 Mo**, l'essentiel étant le
-  `state.db` de 192 Mo compressé). Commande proposée, coût annoncé :
-  `git filter-repo --path snapshot/state.db --path snapshot/.env --invert-paths` (ou BFG) →
-  **tous les SHA changent** (80 commits) et les identifiants cités dans les rapports existants deviennent
-  invalides ; gain ≈ 80 Mo. Le dépôt n'a **aucun remote** (`git remote -v` vide) : le risque est local
-  (un zip ou un partage du dossier `Desktop`), donc la purge est un choix de confort, pas une urgence.
+- **Purge d'historique : reportée le 17/09** — les blobs subsistent dans `.git/` (**80 Mo**, l'essentiel étant le
+  `state.db` de 192 Mo compressé). **Commande disponible si un jour le dépôt est partagé ou envoyé à un tiers** :
+  `git filter-repo --path snapshot/state.db --path snapshot/.env --invert-paths` (ou BFG) → **tous les SHA
+  changent** (80 commits) et les identifiants de commit cités dans les rapports existants deviennent invalides ;
+  gain ≈ 80 Mo. À ne lancer que sur décision explicite, en connaissance de ce coût de traçabilité.
 
 ## 9. Consolidation — état au 17/09
 
 | Chantier | État |
 |---|---|
 | `watch` : clé OmniRoute dédiée + repli gratuit | **fait** : clé `hermes_watch` (5 modèles, `restricted`), `model.default: nvidia-stack`, repli `nemotron-3-super-120b` → `auto/best-free` → `deepseek-flash`, prouvé par échec primaire simulé (servi en gratuit, pas en payant) |
-| `eco` dégradé | **diagnostic livré, décision en attente** (§7.1) — `eco` reste en l'état, le job horaire continue de l'écrire |
-| Dépôt externe : secrets et volumes | **fait** (dé-suivi + motifs) ; purge d'historique à décider (§8) |
+| `eco` dégradé | **traité le 17/09 (option A)** : `probe_omniroute.py` élague après 3 échecs terminaux consécutifs (plancher 2 cibles) → `eco` passe de **15 à 8 cibles** ; les échecs transitoires ne comptent pas. Option B refusée (128 K), option C sans 2ᵉ clé Google (piste ouverte) |
+| Dépôt externe : secrets et volumes | **fait** (dé-suivi + motifs) ; purge d'historique **reportée** (commandée documentée en §8) |

@@ -1,9 +1,5 @@
- M cron/jobs.json
- M cron/usage_audit.jsonl
- M profiles/watch/config.yaml
- M profiles/watch/context_length_cache.yaml
+ M profiles/veille/config.yaml
+ M scripts/probe_omniroute.py
  M skills/.usage.json
- M skills/hermes-operations/SKILL.md
- M skills/hermes-operations/references/config-editing-safety.md
- M skills/hermes-operations/references/hermes-home-git-baseline.md
+ M skills/devops/omniroute-gateway/SKILL.md
  M skills/hermes-operations/references/profile-provisioning.md
