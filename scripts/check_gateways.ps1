@@ -175,6 +175,7 @@ if ($InstallTask) {
 $deja = Get-EtatPrecedent
 $nouvelEtat = @{}
 $alertes = @()
+$surveillesNoms = @()
 
 foreach ($p in $Profils) {
     $surveille = $p.Toujours
@@ -197,6 +198,7 @@ foreach ($p in $Profils) {
         Write-Log ("[{0}] non surveille ({1}) | pid={2} etat_pid={3}" -f $p.Nom, $raisonNonSurveille, $gwPid, $etat)
         continue
     }
+    $surveillesNoms += $p.Nom
 
     if ($vivant) {
         Write-Log ("[{0}] OK pid={1} vivant" -f $p.Nom, $gwPid)
@@ -242,6 +244,27 @@ foreach ($p in $Profils) {
         Write-Log ("[{0}] ECHEC : toujours mort a T+{1}s (pid state={2})" -f $p.Nom, $ConfirmDelaySeconds, $pid2)
         $alertes += "[$($p.Nom)] gateway TOUJOURS MORT apres relevage (T+$ConfirmDelaySeconds s) - intervention requise"
     }
+}
+
+# ---------------------------------------------------------------- battement horaire
+# Un log horaire MEME quand tout va bien : c'est lui qui donne l'historique de disponibilite
+# sur 24 h (une ligne par heure, lisible et parsable par scripts\verif_24h.ps1). Les lignes
+# par tick existent deja plus haut ; ce battement est le resume compact, ecrit une seule fois
+# par heure (premier tick qui suit le changement d'heure).
+$heureCourante = Get-Date -Format 'yyyy-MM-ddTHH'
+$dernierBattement = $deja.'_battement_heure'
+if ($dernierBattement -ne $heureCourante) {
+    $noms = @($surveillesNoms | Select-Object -Unique)
+    $up = @($noms | Where-Object { $nouvelEtat[$_] -eq 'up' })
+    $detail = ($noms | ForEach-Object { "{0}={1}" -f $_, $nouvelEtat[$_] }) -join ' '
+    Write-Log ("[battement] {0}h : {1}/{2} gateways up, {3} alerte(s) | {4}" -f $heureCourante, $up.Count, $noms.Count, $alertes.Count, $detail)
+    $nouvelEtat['_battement_heure'] = $heureCourante
+    $nouvelEtat['_battement_le'] = (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+} else {
+    # L'etat est REEcrit a chaque tick : sans ce report, l'horodatage du dernier battement
+    # disparait au tick suivant et la meme heure est re-journalisee (constate en test).
+    if ($dernierBattement) { $nouvelEtat['_battement_heure'] = $dernierBattement }
+    if ($deja.'_battement_le') { $nouvelEtat['_battement_le'] = $deja.'_battement_le' }
 }
 
 try { $nouvelEtat | ConvertTo-Json | Set-Content -Path $StatePath -Encoding UTF8 } catch { }
