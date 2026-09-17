@@ -136,6 +136,20 @@ Un modele du catalogue sans connexion pour son prefixe n'est pas « a tester » 
 
 DeepSeek V4.1 Flash (552B MoE, 10/09/2026) — nom canonique `deepseek-flash` (version-less, futur-proof). `deepseek-v4-flash` n'est qu'un alias de compatibilite ; `deepseek-v4-pro` sera route vers Flash apres le 14/09/2026 12:00 Pekin. Toujours configurer `model: deepseek-flash` (pas l'alias) dans `fallback_providers` et dans l'alias `flash:` du config.yaml.
 Option B validee : fallback mono-entree `provider: deepseek / model: deepseek-flash` — retirer `omniroute/auto/best-chat` du fallback economise 60s de timeout a chaque echec d'eco. Editer via `terminal` (le guard `patch` refuse `~/AppData/Local/hermes/config.yaml`), appliquer sur default ET `profiles/watch/config.yaml` en une commande.
+
+**Mais un repli mono-entree payant facture au premier hoquet du primaire.** Mesure : sur le profil
+du bureau (`fallback_providers: [deepseek/deepseek-flash]`), un `hermes -z` de controle a ete servi
+par DeepSeek **payant** alors que le primaire `eco` repondait `200` en 2 s en appel direct — l'echec
+etait un `429 cooldown` transitoire de la premiere cible du combo, invisible dans les logs de la
+session. Intercaler un etage **gratuit et deterministe** (combo local dont toutes les cibles sont
+autorisees, p. ex. le combo NIM local) avant l'etage payant : un repli unique payant transforme
+chaque rate-limit en facture.
+
+**Prouver l'etage qui a servi, cote Hermes** : le profil garde le modele et le provider factures —
+`SELECT id, model, billing_provider, api_call_count FROM sessions ORDER BY rowid DESC LIMIT 1` sur le
+`state.db` du profil (lecture en `mode=ro`, le gateway ecrit pendant qu'on lit). C'est cette colonne,
+ou le call log OmniRoute, qui dit si une session a coute : la verifier **avant** d'annoncer « test
+OK », et signaler la bascule payante comme l'exige la regle « gratuit d'abord ».
 Verifier le normaliseur : `hermes_cli/model_normalize.py` doit contenir `deepseek-flash` dans `_DEEPSEEK_CANONICAL_MODELS` et `_normalize_for_deepseek` doit laisser passer `deepseek-flash` tel quel (bug #107389 corrige).
 
 Ne jamais scraper de tokens communautaires — violation ToS et meme pool deja en 429/cooling-down, aucun gain. Ajouter un vrai provider via dashboard OmniRoute (`POST /api/providers`) avec cle API fournie par l'utilisateur. communautaires pour `oc`/`opencode` — ces providers exposent deja le pool `muse-spark`/`big-pickle`/`mimo` en 429 cooling-down, ajouter d'autres tokens ne les dedouane pas et viole le ToS du source.

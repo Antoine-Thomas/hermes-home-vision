@@ -569,6 +569,10 @@ la ligne du scheduler dans `agent.log`.
 - **Un secret partagé entre plusieurs `.env`/configs casse les autres consommateurs à la rotation** : les
   contrôler un par un et nommer la casse ; la réparer est une action distincte, soumise à l'accord de
   l'utilisateur.
+- **Un dépôt git du home est une surface de fuite de plus, pas un rangement.** Il se crée avec un
+  scan pré-commit par empreinte et une liste d'exclusion explicite (jetons tiers, sessions, binaires) :
+  recette et motifs dans `references/hermes-home-git-baseline.md`. Un motif oublié se rattrape
+  (`git rm --cached`) tant que le commit n'est pas poussé — après, la rotation est la seule sortie.
 - Carte des fuites, nettoyage (CRLF, blocs de `.hermes_history`, longueur constante, reconstruction FTS),
   vérification par empreinte quand la valeur n'existe plus, risque selon le type de jeton, séquence de
   rotation : `references/token-leak-audit.md`.
@@ -625,3 +629,7 @@ procédure : une tentative de patch upstream échouée sur du code frais se rejo
   pour trier les jetons encore vivants, nettoyage par correspondance de contenu ou à longueur constante,
   vérification par empreinte quand l'ancienne valeur est détruite, et séquence de rotation sans que le
   secret passe par le chat.
+- `references/hermes-home-git-baseline.md` — versionner le home (`skills/`, `profiles/`, `config.yaml`)
+  sans y laisser de secret : motifs d'exclusion par catégorie (jetons tiers, sessions WhatsApp/MCP,
+  binaires, tickers cron), le fichier `nul` qui fait échouer `git add -A`, et le scan pré-commit par
+  empreinte (yc le piège de la clé réelle cachée dans un exemple `curl` d'une doc de skill).

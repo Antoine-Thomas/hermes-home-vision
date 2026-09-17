@@ -24,3 +24,4 @@ context_lengths:
   auto/best-coding@http://127.0.0.1:20128/v1: 1048576
   auto/best-fast@http://127.0.0.1:20128/v1: 1048576
   eco@http://127.0.0.1:20128/v1: 128000
+  nvidia-stack@http://127.0.0.1:20128/v1: 128000

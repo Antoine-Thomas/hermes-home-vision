@@ -24,6 +24,9 @@ providers:
       X-OmniRoute-Compression: default
     request_timeout_seconds: 120
 fallback_providers:
+  # Repli gratuit d'abord (proxy NIM local via OmniRoute), payant en dernier recours.
+  - provider: omniroute
+    model: nvidia-stack
   - provider: deepseek
     model: deepseek-flash
 toolsets:

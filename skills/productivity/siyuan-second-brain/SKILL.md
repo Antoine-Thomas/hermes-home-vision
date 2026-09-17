@@ -202,6 +202,15 @@ table de notebooks.
 - Une erreur SQL doit AFFICHER le message du noyau : un script qui n'imprime que le code de retour
   laisse passer ces echecs sans rien dire, et on construit ensuite sur du faux.
 
+## IA de SiYuan (editeur, agent) et cles du routeur
+
+Configurer les modeles d'editeur et d'agent, cabler une cle de routeur dediee, verifier en bout de
+chaine, archiver un document sans le detruire : `references/ai-settings-and-consumers.md`.
+A retenir sans le lire : l'ecriture passe par `POST /api/setting/setAI` (jamais a froid dans
+`conf.json`), le noyau **regenere les `id`** des providers/modeles a chaque ecriture, un `modelId`
+qui ne matche rien retombe **silencieusement** sur le premier modele, `apiKey` est chiffree au repos,
+et SiYuan n'a **qu'un seul jeton d'API** (rotation globale a repercuter dans chaque `.env`).
+
 ## A quoi ca sert : memoire d'Hermes vs SiYuan
 
 La memoire permanente est relue a CHAQUE session : n'y garder que des faits courts et transverses.
