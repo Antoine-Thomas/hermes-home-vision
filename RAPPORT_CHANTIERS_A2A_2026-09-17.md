@@ -41,7 +41,7 @@ Un `grep a2a` naïf laisse croire à tort que A2A est activé.
 | Version | 0.21.3 · upstream 97962358 | idem | ✓ |
 | `hermes doctor` | 4 issues (3× npm vulns, 1× `hermes setup`) | mêmes 4 issues, aucun nouveau | ✓ |
 | Skills | 97 enabled / 7 disabled | **98** / 7 | ✓ delta intentionnel : +1 (`veille-2-agent`) |
-| Mémoire | MEMORY 2036/2100, USER 1193/1300 | identique (non touchée) | ✓ |
+| Mémoire | MEMORY 2036/2100, USER 1193/1300 | MEMORY 2076/2100 (7 entrées), USER 1193/1300 — voir § 4 : fichier écrasé par l'outil mémoire puis restauré | ⚠ incident résolu |
 | Tâches planifiées | check memory, desaturer memoire, Reindex RAG, serve backend, PurgeReports, HermesGateway, Hermes_Gateway, Hermes_Gateway_watch (Disabled), NVIDIA_NIM_Proxy — toutes Ready | identique | ✓ |
 | Gateway | default arrêté, watch PID 22876 | identique (veille : non running, attendu) | ✓ |
 | SiYuan 6806 | en écoute | 127.0.0.1:6806 LISTENING, API 200 | ✓ |
@@ -62,7 +62,41 @@ Un `grep a2a` naïf laisse croire à tort que A2A est activé.
 - Profil `watch` partage son credential email avec `default` (avertissement de `hermes profile list`).
 - 3 rapports npm de vulnérabilités (browser tools, web workspace, WhatsApp bridge).
 
-## 4. Ce qui reste à faire (par l'opérateur, non fait)
+## 4. Incident mémoire — survenu et résolu dans cette session
+
+**Ce qui s'est passé.** La mise à jour de la ligne « Skills » via l'outil mémoire (`replace`) a
+réécrit `MEMORY.md` en entier : les 7 sections sont devenues une seule ligne.
+
+**Cause racine.** `tools/memory_tool_store.py` découpe les entrées sur `ENTRY_DELIMITER = "\n§\n"`.
+La restructuration de la mémoire du 16/09 avait remplacé ces séparateurs `§` par des titres markdown
+`##` : le store ne voyait donc plus qu'**une seule entrée** (tout le fichier), et remplacer cette
+entrée unique efface le reste par construction. Aucun garde-fou n'a pu se déclencher : le fichier
+« round-trip » parfaitement (1 entrée → 1 entrée), donc pas de détection de drift.
+
+**Récupération.** Aucune sauvegarde postérieure au 16/09 (les `.bak` datent d'une génération
+antérieure du format ; `hermes memory` n'expose ni historique ni sous-commande `pending`). Le
+fichier a été reconstruit depuis la copie injectée dans la session — copie fidèle du contenu au
+démarrage de session, et source la plus fiable disponible.
+
+**Correction.** Contenu restauré (7 sections) **et** séparateurs `§` rétablis entre les sections :
+le store voit de nouveau 7 entrées, `replace`/`remove` redeviennent chirurgicaux au lieu de
+destructeurs.
+
+**Vérification** (lecture depuis le disque, en répliquant la logique du store) : 7 entrées —
+Environnement, Hermes, Second cerveau, Outils clés, Préférences, Règles transversales, Vidéo —
+2076 chars ; `check_memory.ps1` → 2076/2100 et 1193/1300, « aucune mémoire saturée ».
+
+**Écart résiduel, annoncé franchement** : 2076 chars contre 2036 avant l'incident. La mise à jour
+volontaire de la ligne Skills/Profils explique +82 ; l'écart réel n'est que de +40. Une petite
+différence de mise en forme (fins de ligne, lignes vides) ne peut pas être exclue : la
+reconstruction est fidèle sur le fond (toutes les sections de la version courante sont présentes,
+aucune entrée du fichier de démarrage ne manque) mais n'est pas certifiée identité octet à octet.
+
+**À savoir pour la suite** : le store de la session en cours garde une vue périmée (1 entrée,
+161 chars) et ne doit plus être appelé ici — un flush écraserait la restauration. Une session neuve
+relit le disque. Leçon consignée dans le skill `hermes-memory` (3 puces de pièges).
+
+## 5. Ce qui reste à faire (par l'opérateur, non fait)
 
 1. Clés dédiées du profil `veille` (`veille setup` ou `profiles\veille\.env`) — **ne pas** recopier
    le `.env` du bureau. Attention : sans clé, le profil hérite des variables du shell.
@@ -72,12 +106,13 @@ Un `grep a2a` naïf laisse croire à tort que A2A est activé.
 5. Décider de l'activation : `scripts\activer_a2a.ps1` (jetons + `a2a_agents`), uniquement quand le
    gateway `veille` est joignable. Retour arrière : `scripts\desactiver_a2a.ps1`.
 
-## 5. Synthèse
+## 6. Synthèse
 
 1. A2A reste entièrement désactivé, conforme : plugin off, aucune clé, port 9900 muet.
 2. Le document d'architecture sépare les rôles bureau/veille et fixe les règles d'isolation.
 3. Le profil `veille` existe, isolé sans le moindre credential, gateway arrêté.
 4. Les usages A2A réels (fédération, cross-framework, orchestration, service callable) sont
    documentés ; x402 et le cas « Claude Code en production » du brief sont écartés comme faux.
-5. Aucune régression : 0.21.3, doctor stable, mémoire intacte, tâches planifiées intactes,
-   SiYuan/RAG/backend/OmniRoute répondent ; seul écart observé, le proxy NIM à l'arrêt depuis le 13/09.
+5. Aucune régression : 0.21.3, doctor stable, tâches planifiées intactes, SiYuan/RAG/backend/
+   OmniRoute répondent ; la mémoire a été écrasée par l'outil mémoire puis restaurée et sécurisée,
+   et le proxy NIM est à l'arrêt depuis le 13/09 (préexistant).
