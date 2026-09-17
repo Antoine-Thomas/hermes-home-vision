@@ -1,0 +1,39 @@
+# Rien de volumineux ni de sensible ne doit etre commité.
+# Le snapshot est versionné uniquement sous forme REDACTED (config/environnement)
+# et léger (lists, taches). state.db (420 Mo) et memories/ ne se committent PAS.
+*.tmp
+
+# --- Fichiers bruts/sensibles du snapshot (jamais commité) ---
+snapshot/env.pre_update
+snapshot/config.yaml.pre_update
+snapshot/memories.pre_update/
+snapshot/state.db.pre_update
+
+# --- Varie de l'autre snapshot legacy déjà commité ---
+# config.yaml.redacted et versions.txt sont déjà suivis; on les garde.
+# --- Secrets et volumes : jamais suivis (regle 17/09/2026) ---
+.env
+.env.*
+**/.env
+**/.env.*
+**/state.db
+snapshot/state.db*
+**/*.db-wal
+**/*.db-shm
+backups/**/*.env*
+
+# --- Motifs defensifs (17/09/2026) : meme regle que le depot principal ---
+auth.json
+*.pem
+*.key
+*.sec
+*secret*.json
+*_token.json
+mcp-tokens/
+pastes/
+**/cache/
+**/logs/
+*.log
+
+# --- Sauvegardes locales du .gitignore lui-meme (l'historique git suffit comme reference) ---
+backups/.gitignore.avant_*
