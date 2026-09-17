@@ -1,0 +1,24 @@
+# Etat des services et de la surveillance - 2026-09-17 17:38:47
+
+## ports
+  6806   en ecoute
+  8200   en ecoute
+  9119   en ecoute
+  20128  en ecoute
+  20200  en ecoute
+
+## gateways
+  Gateways:
+    ✓ default (current)        — PID 20460
+    ✓ veille                   — PID 3596
+    ✓ watch                    — PID 27672
+## cron veille (dc15c35183aa)
+    dc15c35183aa [active]
+
+## A2A (doit rester OFF)
+  listeners 9900/9901 : 0
+  cles A2A_* dans les .env : 0
+  platform_toolsets.a2a dans config.yaml : 1
+  plugin a2a-platform : │ a2a-platform │ not enabled │ 1.0.0 │ A2A │ bundled │ │ │ │ │ a2a_discover, │ │ 
+
+## healthcheck : dernieres lignes de journal
