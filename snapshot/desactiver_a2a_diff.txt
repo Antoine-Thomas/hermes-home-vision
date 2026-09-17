@@ -1,0 +1,264 @@
+--- C:\Users\searc\AppData\Local/hermes/scripts/desactiver_a2a.ps1	2026-09-17 11:36:05.669770700 +0200
++++ desactiver_a2a.new.ps1	2026-09-17 16:27:14.507475200 +0200
+@@ -1,28 +1,38 @@
+-# desactiver_a2a.ps1 - Desactive A2A proprement (retour au defaut fail-closed).
++# desactiver_a2a.ps1 - Desactive A2A proprement (retour au defaut fail-closed),
++# pour UN profil local donne.
++#
++# Un agent = une execution. Les deux agents s'eteignent chacun de leur cote :
++#   cote bureau : .\desactiver_a2a.ps1 -LocalProfile default -LocalPort 9900
++#   cote veille : .\desactiver_a2a.ps1 -LocalProfile veille  -LocalPort 9901
+ #
+ # Ce que fait le script, dans cet ordre :
+-#   1. sauvegarde de config.yaml (config.yaml.a2a-backup-<horodatage>)
+-#   2. hermes plugins disable a2a-platform
+-#   3. retrait de "- a2a" dans platform_toolsets.cli
++#   1. sauvegarde de config.yaml du profil local (config.yaml.a2a-off-backup-<horodatage>)
++#   2. hermes [-p <LocalProfile>] plugins disable a2a-platform
++#   3. retrait de "- a2a" dans platform_toolsets.cli, AVEC AFFICHAGE DU DIFF avant ecriture
+ #   4. hermes config unset platforms.a2a.enabled (retour au defaut : cle absente)
+ #   5. hermes config check
+-#   6. hermes gateway restart (+ profil watch s'il existe)
+-#   7. verification : plus rien en ecoute sur le port 9900
++#   6. redemarrage du gateway du profil local
++#   7. verification : plus rien en ecoute sur le port LOCAL <LocalPort>
+ #
+-# Les jetons A2A_BEARER_TOKEN / A2A_PEER_TOKENS / A2A_HOST restent dans .env :
+-# ils sont inertes plugin desactive. Pour les retirer vraiment, editer
+-# %LOCALAPPDATA%\hermes\.env et supprimer ces lignes.
++# Les jetons A2A_BEARER_TOKEN / A2A_PEER_TOKENS / A2A_HOST / A2A_PORT restent dans le .env :
++# ils sont inertes plugin desactive. Pour les retirer vraiment, supprimer ces lignes du
++# .env du profil concerne.
+ #
+ # Texte en ASCII pur (les accents cassent PowerShell 5.1 sans BOM).
+ #
+ # Modes :
+ #   -SelfTest    valide UNIQUEMENT l'insertion/retrait sur une COPIE de config.yaml
++#                (verifie aussi que le md5 du config.yaml reel est inchange)
+ #   -Force       ne demande pas de confirmation
+-#   -SkipGateway ne redemarre pas les gateways
++#   -SkipGateway ne redemarre pas le gateway
+ #   -ConfigPath  utilise un autre config.yaml (tests)
+ 
+ [CmdletBinding()]
+ param(
++    [string]$Profile      = "veille",     # profil du PAIR (documentaire : le pair doit aussi etre desactive de son cote)
++    [int]$Port            = 9901,         # port A2A du PAIR (documentaire)
++    [string]$LocalProfile = "default",    # profil LOCAL a eteindre
++    [int]$LocalPort       = 9900,         # port A2A LOCAL a verifier
+     [switch]$Force,
+     [switch]$SelfTest,
+     [switch]$SkipGateway,
+@@ -32,16 +42,47 @@
+ $ErrorActionPreference = "Stop"
+ 
+ $hermesDir = if ($env:LOCALAPPDATA) { Join-Path $env:LOCALAPPDATA "hermes" } else { Join-Path $env:USERPROFILE "AppData\Local\hermes" }
+-$profile2  = "watch"
+-if (-not $ConfigPath) { $ConfigPath = Join-Path $hermesDir "config.yaml" }
++
++function Get-ProfileDir([string]$nom) {
++    if ($nom -eq "default" -or [string]::IsNullOrWhiteSpace($nom)) { return $hermesDir }
++    return (Join-Path $hermesDir (Join-Path "profiles" $nom))
++}
++function Get-HermesPrefix([string]$nom) {
++    if ($nom -eq "default" -or [string]::IsNullOrWhiteSpace($nom)) { return @() }
++    return @("-p", $nom)
++}
++
++$localDir  = Get-ProfileDir $LocalProfile
++$hermesPre = Get-HermesPrefix $LocalProfile
++$hermesExe = "hermes"
++if (-not $ConfigPath) { $ConfigPath = Join-Path $localDir "config.yaml" }
+ 
+ function Etape($n, $texte) { Write-Host ""; Write-Host (("[{0}] {1}") -f $n, $texte) -ForegroundColor Cyan }
+ function Ok($texte)        { Write-Host ("    OK   " + $texte) -ForegroundColor Green }
+ function Attention($texte) { Write-Host ("    ATTENTION " + $texte) -ForegroundColor Yellow }
++function Info($texte)      { Write-Host ("    " + $texte) }
+ function Fatal($texte)     { Write-Host ("    ECHEC " + $texte) -ForegroundColor Red; exit 1 }
+ 
++function Show-Diff {
++    param([string]$Avant, [string]$Apres, [string]$Titre = "diff")
++    $a = @($Avant -split "\r?\n")
++    $b = @($Apres -split "\r?\n")
++    $debut = 0
++    while ($debut -lt $a.Count -and $debut -lt $b.Count -and $a[$debut] -eq $b[$debut]) { $debut++ }
++    if ($debut -eq $a.Count -and $debut -eq $b.Count) { Info ("diff " + $Titre + " : aucun ecart"); return }
++    $fa = $a.Count - 1; $fb = $b.Count - 1
++    while ($fa -gt $debut -and $fb -gt $debut -and $a[$fa] -eq $b[$fb]) { $fa--; $fb-- }
++    Info ("diff " + $Titre + " (lignes " + ($debut + 1) + " a " + ($fa + 1) + " avant / " + ($fb + 1) + " apres) :")
++    for ($i = $debut; $i -le $fa; $i++) { Write-Host ("      - " + $a[$i]) -ForegroundColor Red }
++    for ($i = $debut; $i -le $fb; $i++) { Write-Host ("      + " + $b[$i]) -ForegroundColor Green }
++}
++
+ function Edit-A2aToolset {
+-    param([string]$Path, [ValidateSet("add", "remove")][string]$Action = "remove")
++    param(
++        [string]$Path,
++        [ValidateSet("add", "remove")][string]$Action = "remove",
++        [switch]$PreviewOnly
++    )
+ 
+     $texte = [System.IO.File]::ReadAllText($Path)
+     $nl = if ($texte -match "`r`n") { "`r`n" } else { "`n" }
+@@ -53,8 +94,8 @@
+     $indent = ($items[0] -replace "^(\s*).*$", '$1')
+     $present = ($items | Where-Object { $_.Trim() -eq "- a2a" }).Count -gt 0
+ 
+-    if ($Action -eq "add" -and $present)  { return @{ Modifie = $false; Motif = "deja present" } }
+-    if ($Action -eq "remove" -and -not $present) { return @{ Modifie = $false; Motif = "deja absent" } }
++    if ($Action -eq "add" -and $present)  { return @{ Modifie = $false; Motif = "deja present"; Avant = $texte; Apres = $texte } }
++    if ($Action -eq "remove" -and -not $present) { return @{ Modifie = $false; Motif = "deja absent"; Avant = $texte; Apres = $texte } }
+ 
+     if ($Action -eq "add") {
+         $nouvelles = @(); $insere = $false
+@@ -72,18 +113,30 @@
+ 
+     $remplacement = $m.Groups["tete"].Value + $m.Groups["entete"].Value + ($nouvelles -join $nl) + $nl
+     $nouveau = $texte.Substring(0, $m.Index) + $remplacement + $texte.Substring($m.Index + $m.Length)
+-    [System.IO.File]::WriteAllText($Path, $nouveau, (New-Object System.Text.UTF8Encoding($false)))
+-    return @{ Modifie = $true; Motif = ("{0} element(s) dans platform_toolsets.cli" -f $nouvelles.Count) }
++    if (-not $PreviewOnly) {
++        [System.IO.File]::WriteAllText($Path, $nouveau, (New-Object System.Text.UTF8Encoding($false)))
++    }
++    return @{ Modifie = $true; Motif = ("{0} element(s) dans platform_toolsets.cli" -f $nouvelles.Count); Avant = $texte; Apres = $nouveau }
++}
++
++function Test-PortEnEcoute([int]$p) {
++    $res = (cmd /c ("netstat -ano | findstr :" + $p + " ")) 2>$null
++    return [bool]$res
+ }
+ 
+ if ($SelfTest) {
+     Write-Host "== SelfTest : insertion/retrait YAML sur une copie, aucune desactivation =="
+-    $copie = Join-Path $env:TEMP ("a2a_selftest_off_" + (Get-Date -Format "yyyyMMdd_HHmmss") + ".yaml")
++    Write-Host ("   cible reelle (jamais touchee) : " + $ConfigPath)
++    Write-Host ("   profil local simule           : " + $LocalProfile + " (port " + $LocalPort + ")")
++    if (-not (Test-Path $ConfigPath)) { Fatal ("config.yaml introuvable : " + $ConfigPath) }
++    $md5Avant = (Get-FileHash $ConfigPath -Algorithm MD5).Hash
++    $copie = Join-Path $env:TEMP ("a2a_selftest_off_" + $LocalProfile + "_" + (Get-Date -Format "yyyyMMdd_HHmmss") + ".yaml")
+     Copy-Item $ConfigPath $copie -Force
+     $r1 = Edit-A2aToolset -Path $copie -Action add
+     Write-Host ("    add    : modifie={0} ({1})" -f $r1.Modifie, $r1.Motif)
+     $r2 = Edit-A2aToolset -Path $copie -Action remove
+     Write-Host ("    remove : modifie={0} ({1})" -f $r2.Modifie, $r2.Motif)
++    Show-Diff -Avant $r2.Avant -Apres $r2.Apres -Titre "retrait"
+     $r3 = Edit-A2aToolset -Path $copie -Action remove
+     Write-Host ("    remove x2 : modifie={0} ({1}) - idempotence" -f $r3.Modifie, $r3.Motif)
+     $a = (Get-Content $ConfigPath -Raw) -replace "`r`n", "`n"
+@@ -91,69 +144,84 @@
+     Write-Host ("    copie identique a l'original apres add+remove : {0}" -f ($a -eq $b))
+     $h1 = (Get-FileHash $ConfigPath -Algorithm MD5).Hash
+     $h2 = (Get-FileHash $copie -Algorithm MD5).Hash
+-    Write-Host ("    md5 identiques (comparaison octet a octet) : {0}" -f ($h1 -eq $h2))
+-    if ($a -ne $b -or $h1 -ne $h2) { exit 1 }
++    $md5Apres = (Get-FileHash $ConfigPath -Algorithm MD5).Hash
++    Write-Host ("    md5 copie == md5 original            : {0}" -f ($h1 -eq $h2))
++    Write-Host ("    md5 config.yaml inchange par le test : {0}" -f ($md5Avant -eq $md5Apres))
++    Write-Host ("    port local {0} en ecoute             : {1}" -f $LocalPort, (Test-PortEnEcoute $LocalPort))
++    Write-Host ("    copie conservee pour inspection : " + $copie)
++    if ($a -ne $b -or $h1 -ne $h2 -or $md5Avant -ne $md5Apres) { exit 1 }
+     exit 0
+ }
+ 
+ Etape 0 "Prealable"
+-if (-not (Test-Path $ConfigPath)) { Fatal ("config.yaml introuvable : " + $ConfigPath) }
++Info ("profil local : " + $LocalProfile + "  (config " + $ConfigPath + ")")
++Info ("pair         : " + $Profile + " (port " + $Port + ") - a desactiver aussi de son cote")
++if (-not (Test-Path $ConfigPath)) { Fatal ("config.yaml du profil local introuvable : " + $ConfigPath) }
++if (-not (Test-PortEnEcoute $LocalPort)) {
++    Attention ("rien n'ecoute sur " + $LocalPort + " : A2A est peut-etre deja inactif pour " + $LocalProfile + ".")
++} else {
++    Ok ("port local " + $LocalPort + " en ecoute : il y a bien quelque chose a eteindre")
++}
+ if (-not $Force) {
+-    $reponse = Read-Host "Desactiver A2A et redemarrer les gateways ? (oui/non)"
++    $reponse = Read-Host ("Desactiver A2A sur '" + $LocalProfile + "' et redemarrer son gateway ? (oui/non)")
+     if ($reponse -notmatch "^(o|oui|y|yes)$") { Write-Host "Abandon, rien modifie."; exit 0 }
+ }
+ 
+ Etape 1 "Sauvegarde de config.yaml"
+-$backup = Join-Path $hermesDir ("config.yaml.a2a-off-backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
++$backup = Join-Path $localDir ("config.yaml.a2a-off-backup-" + (Get-Date -Format "yyyyMMdd-HHmmss"))
+ Copy-Item $ConfigPath $backup -Force
+ Ok ("sauvegarde : " + $backup)
+ 
+ Etape 2 "hermes plugins disable a2a-platform"
+-hermes plugins disable a2a-platform
++& $hermesExe @hermesPre plugins disable a2a-platform
+ if ($LASTEXITCODE -ne 0) { Fatal "hermes plugins disable a2a-platform a echoue" }
+-Ok "plugin a2a-platform desactive (verifier : hermes plugins list -> not enabled)"
++Ok ("plugin a2a-platform desactive pour '" + $LocalProfile + "' (verifier : hermes plugins list)")
++Info ("meme etape a jouer cote pair : hermes -p " + $Profile + " plugins disable a2a-platform")
+ 
+-Etape 3 "Retrait de '- a2a' de platform_toolsets.cli"
+-$r = Edit-A2aToolset -Path $ConfigPath -Action remove
+-if ($r.Modifie) { Ok ("platform_toolsets.cli mis a jour (" + $r.Motif + ")") } else { Ok ("rien a faire (" + $r.Motif + ")") }
+-$cli = hermes config get platform_toolsets.cli
++Etape 3 "Retrait de '- a2a' de platform_toolsets.cli (diff avant ecriture)"
++$r = Edit-A2aToolset -Path $ConfigPath -Action remove -PreviewOnly
++if ($r.Modifie) {
++    Show-Diff -Avant $r.Avant -Apres $r.Apres -Titre "platform_toolsets.cli"
++    if (-not $Force) {
++        $c = Read-Host "Appliquer ce diff a ${ConfigPath} ? (oui/non)"
++        if ($c -notmatch "^(o|oui|y|yes)$") { Write-Host "Abandon a l'etape 3 : config.yaml intact (la sauvegarde de l'etape 1 reste)."; exit 0 }
++    }
++    $w = Edit-A2aToolset -Path $ConfigPath -Action remove
++    Ok ("platform_toolsets.cli mis a jour (" + $w.Motif + ")")
++} else {
++    Ok ("rien a faire (" + $r.Motif + ")")
++}
++$cli = & $hermesExe @hermesPre config get platform_toolsets.cli
+ if (($cli | Select-String -SimpleMatch "a2a") -ne $null) { Fatal "a2a encore present dans platform_toolsets.cli" }
+-Ok "verification hermes config get platform_toolsets.cli : plus d'a2a"
++Ok ("verification hermes config get platform_toolsets.cli : plus d'a2a (profil " + $LocalProfile + ")")
+ 
+ Etape 4 "Retrait de platforms.a2a.enabled"
+-hermes config unset platforms.a2a.enabled
++& $hermesExe @hermesPre config unset platforms.a2a.enabled
+ if ($LASTEXITCODE -ne 0) { Attention "hermes config unset platforms.a2a.enabled a echoue : verifier a la main" }
+-Ok "plateforme entrante desactivee (verifier : hermes config get platforms)"
++Ok "plateforme entrante desactivee"
+ 
+ Etape 5 "hermes config check"
+-hermes config check
++& $hermesExe @hermesPre config check
+ if ($LASTEXITCODE -ne 0) { Fatal "hermes config check a echoue" }
+ Ok "config valide"
+ 
+-Etape 6 "Redemarrage des gateways"
++Etape 6 "Redemarrage du gateway du profil local"
+ if ($SkipGateway) {
+     Attention "-SkipGateway : redemarrage saute (le gateway en cours garde A2A en memoire)"
+ } else {
+-    hermes gateway restart
+-    Ok "gateway default redemarre"
+-    $statut = hermes gateway list 2>$null
+-    if (($statut | Select-String -SimpleMatch $profile2) -ne $null) {
+-        hermes -p $profile2 gateway restart
+-        Ok ("gateway du profil " + $profile2 + " redemarre")
+-    } else {
+-        Attention ("profil " + $profile2 + " absent : rien a redemarrer")
+-    }
++    & $hermesExe @hermesPre gateway restart
++    Ok ("gateway de '" + $LocalProfile + "' redemarre")
+     Start-Sleep -Seconds 8
+ }
+ 
+-Etape 7 "Verification du port 9900 (attendu : plus rien)"
+-$ecoute = (cmd /c "netstat -ano | findstr :9900") 2>$null
+-if ($ecoute) {
+-    Attention "le port 9900 ecoute encore : verifier 'hermes gateway status' et logs/gateway.log"
+-    $ecoute | ForEach-Object { Write-Host ("    " + $_) }
++Etape 7 ("Verification du port local " + $LocalPort + " (attendu : plus rien)")
++if (Test-PortEnEcoute $LocalPort) {
++    Attention ("le port " + $LocalPort + " ecoute encore : verifier 'hermes gateway status' et logs/gateway.log")
++    (cmd /c ("netstat -ano | findstr :" + $LocalPort + " ")) | ForEach-Object { Write-Host ("    " + $_) }
+     exit 1
+ }
+-Ok "plus rien en ecoute sur 9900"
++Ok ("plus rien en ecoute sur " + $LocalPort + " : A2A revenu au defaut fail-closed pour '" + $LocalProfile + "'")
+ Write-Host ""
+-Write-Host "A2A est revenu au defaut fail-closed. Retour arriere si besoin :"
++Write-Host "Reste a faire cote pair : lancer le meme script sur l'autre profil (parametres croises)."
++Write-Host "Retour arriere si besoin :"
+ Write-Host ("    Copy-Item '{0}' '{1}' -Force" -f $backup, $ConfigPath)
