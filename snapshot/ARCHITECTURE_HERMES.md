@@ -11,11 +11,11 @@ Aucun secret en clair dans ce document : seules des empreintes `sha256[:16]` et 
 | | `default` (bureau) | `watch` | `veille` |
 |---|---|---|---|
 | Rôle | opérateur : code, vidéo, WordPress, second cerveau | second profil historique (surveillances et automatisations), porte une copie complète des skills | veille techno : arXiv, HuggingFace, RSS/Atom, catalogue et prix OpenRouter → synthèse datée |
-| Modèle par défaut | `eco` (provider `omniroute`) | `eco` (provider `omniroute`) | `nvidia-stack` (provider `omniroute`) — déterministe, local, gratuit |
-| Chaîne de repli | `omniroute/nvidia-stack` → `deepseek/deepseek-flash` | `deepseek/deepseek-flash` **seul** ⚠ | `omniroute/auto/best-free` → `omniroute/auto/best-reasoning` |
+| Modèle par défaut | `eco` (provider `omniroute`) | `nvidia-stack` (provider `omniroute`) — déterministe, gratuit | `nvidia-stack` (provider `omniroute`) — déterministe, local, gratuit |
+| Chaîne de repli | `omniroute/nvidia-stack` → `deepseek/deepseek-flash` | `omniroute/nemotron-3-super-120b-a12b` → `omniroute/auto/best-free` → `deepseek/deepseek-flash` | `omniroute/auto/best-free` → `omniroute/auto/best-reasoning` ⚠ (1er repli **mort** : 502, voir §7) |
 | Skills (`SKILL.md` sur disque) | 107 (99 activées, 7 désactivées en config) | 124 (0 désactivée en config) | 61 (50 désactivées en config) |
 | Bot Telegram | `8802352038` — sha256[:16] `7da363461151846e` | `8967117033` — sha256[:16] `8b0472877252f691` | `8801969330` — `@Hermesveille1_veille_bot`, sha256[:16] `eaa8b0ce89859d68` |
-| Clé OmniRoute | clé du poste, 32 car., sha256[:16] `6ebeaffc871daef9` : sert **aussi** de jeton d'administration (`Bearer` sur `/api/keys`) | la même clé que `default` (partagée) | clé dédiée `hermes_veille`, 35 car., sha256[:16] `0c79be7af82b3421`, **7 modèles autorisés** (`modelAccessMode: restricted`) |
+| Clé OmniRoute | clé du poste, 32 car., sha256[:16] `6ebeaffc871daef9` : sert **aussi** de jeton d'administration (`Bearer` sur `/api/keys`) | clé dédiée `hermes_watch`, 35 car., sha256[:16] `b62e9571e3543591`, **5 modèles autorisés** (`restricted`) | clé dédiée `hermes_veille`, 35 car., sha256[:16] `0c79be7af82b3421`, **7 modèles autorisés** (`modelAccessMode: restricted`) |
 | Gateway | tâche `\Hermes_Gateway`, PID courant publié dans `gateway_state.json` | tâche `\Hermes_Gateway_watch` | tâche `\Hermes_Gateway_veille` |
 
 Tronc commun vérifié le 17/09 : `TELEGRAM_ALLOWED_USERS` = `TELEGRAM_HOME_CHANNEL` = `8956868107` pour
@@ -74,8 +74,8 @@ proxy NIM local `127.0.0.1:20200`, SiYuan `127.0.0.1:6806`, RAG `127.0.0.1:8200`
 | Point | Nature | État |
 |---|---|---|
 | `%LOCALAPPDATA%\hermes\auth.json` | jetons de plateformes et OAuth, **unique pour l'install** (pas de `auth.json` par profil) | exclu du dépôt ; à considérer comme partagé entre profils |
-| `profiles\watch\.env` | contient **deux** jetons Telegram (`8967117033` et celui du bureau) → `hermes profile list` avertit « credential partagé », et la migration multiplex refuse | à trancher : bot propre pour `watch` ou retrait du doublon |
-| `Desktop\hermes_install` — dépôt git **externe** (157 fichiers, **aucun remote**) | des `.env` bruts y sont **suivis par git** : `snapshot\.env` (24 230 o, copie du `.env` du bureau d'avant rotation), `backups\veille\.env.avant_telegram.20260917_134303` (371 o, une valeur longue) et `snapshot\state.db` (copie de 201 Mo du `state.db`). `.env.final.MASQUE` et `env.pre_update` sont, eux, exclus | risque **local** (aucun remote, aucun push possible), mais tout zip/partage du dossier `Desktop` les exporte. Correctif proposé : `git rm --cached` + motifs `.env*` et `state.db` dans le `.gitignore` du dépôt externe, puis purge d'historique si tu veux effacer aussi les blobs |
+| `profiles\watch\.env` | porte **deux** jetons Telegram (`8967117033` et celui du bureau) → `hermes profile list` avertit « credential partagé », et la migration multiplex refuse. La clé OmniRoute d'administration n'y est **plus** (clé dédiée `hermes_watch` depuis le 17/09) | reste à trancher : bot propre pour `watch` ou retrait du doublon |
+| `Desktop\hermes_install` — dépôt git **externe** | **nettoyé le 17/09** : `snapshot\.env`, `snapshot\state.db` (192,1 Mo) et les copies `backups\veille\.env*` sont **dé-suivis** (`git rm --cached`) et exclus par motifs. Vérifié : plus aucun `.env` ni `state.db` suivi | les blobs subsistent dans `.git/` (80 Mo) : **purge d'historique non faite** → voir §8 |
 | `cache\terminal\hermes-snap-*.sh` | snapshots du shell : le sandbox y déverse l'environnement du profil (`declare -x SIYUAN_TOKEN=…`) | renouvelé à chaque commande → toute passe de nettoyage doit inclure ce dossier |
 | `.hermes_history` | historique de saisie : un secret **collé** dans le chat y atterrit en clair, dans un fichier de blocs `# horodatage` + `+texte` | nettoyé aujourd'hui ; reste un point d'entrée à surveiller après chaque collage |
 | `state.db` (+ index FTS `messages_fts`, `messages_fts_trigram`) | conserve messages et **sorties d'outils** : un dump de config y recrée la fuite | nettoyé aujourd'hui (`UPDATE` + `rebuild`), même vigilance |
@@ -137,9 +137,39 @@ cd "$LOCALAPPDATA/hermes" && git log --oneline -5 && git status --short
 
 ## 7. Points ouverts (à trancher, non corrigés ici)
 
-1. **`eco` est dégradé** : le combo essaie ses 15 cibles et les épuise (`oc/*` et `opencode/*` en 403/402 — pool gratuit OpenCode fermé hors OpenCode, `gemini/gemini-3-flash-preview` en cooldown 429, Cloudflare en 502 « requires an Account ID », Pollinations désactivé le 17/09). Deux options : nettoyer les cibles mortes d'`eco`, ou passer `default` en `nvidia-stack` déterministe comme `veille`. **Ne pas improviser** : le job horaire `omniroute-eco-autorefresh` réécrit `eco` à chaque passage.
-2. **`watch` n'a aucun repli gratuit** (`deepseek/deepseek-flash` seul) : même risque de bascule payante que `default` avant le 17/09. Alignement possible sur `[omniroute/nvidia-stack, deepseek/deepseek-flash]`.
-3. **`watch` partage la clé OmniRoute du poste** (donc les droits d'administration) : une clé dédiée serait cohérente avec `veille`.
-4. `profiles\watch\.env` porte le jeton du bot du bureau (avertissement `hermes profile list`) : à nettoyer avant toute migration multiplex.
-5. `Desktop\hermes_install` : `.env` bruts et copie de `state.db` **suivis par git** (voir §4) — à dé-suivre (`git rm --cached`) et à exclure, puis purge d'historique si souhaité.
+1. **`eco` : diagnostic livré, décision en attente** — rien n'a été modifié sur `eco` ni sur `model.default`.
+   - **Qui écrit eco** : le job cron `5c9dd16aaa37` `omniroute-eco-autorefresh` (`0 * * * *`, script `scripts\probe_omniroute.py`, actif). Il est **additif** : il ajoute les modèles vivants, ne retire jamais → 10 des 15 cibles sont mortes : 7 × `oc/opencode` (403 « OpenCode's free tier can only be used from within OpenCode », 402), `gemini/gemini-2.5-flash` et `-flash-lite` (404 « no longer available to new users »). Cibles vivantes : `gemini/gemini-3-flash-preview` (**1 048 576** ctx, souvent en cooldown 429) et les 3 `openai/nvidia/*` (**128 000** ctx).
+   - **Mesuré le 17/09** : `eco` répond **vite** quand il est appelé (2,0 s / 2,7 s / 4,8 s sur 3 appels — servi par gemini puis nemotron-nano), là où `nvidia-stack` prend 11,0 s / 18,3 s / 12,3 s. L'échec réel d'`eco` se produit sur les **gros contextes** (> 128 K, comme la session de travail du jour à ~262 K) : seul gemini peut servir, et quand il est en cooldown les 14 autres cibles échouent → repli.
+   - **Consommateurs** : `model.default` de `default` + l'alias `model_aliases.eco` ; **2 jobs cron épinglent `eco` explicitement** (« Relance fin de vacances », « Mémoire auto-consolidation ») ; 5 autres jobs héritent du modèle du profil ; **aucun script d'exécution** n'appelle `eco` (seuls les scripts de maintenance écrivent le combo).
+   - **Option A — élaguer `eco`** : effort = 1 patch de `probe_omniroute.py` (retirer les familles mortes, purger au-delà de N échecs) + 1 nettoyage du combo. Gain = moins d'essais inutiles, logs propres, latence stable. **Ne résout pas** le gros contexte. Risque = c'est le script qui réécrit `eco` chaque heure : un bug qui vide `eco` envoie tout le trafic sur le payant (réparation : `data\omniroute\restore_eco_20260912.py`).
+   - **Option B — bureau sur `nvidia-stack`** : effort = 1 édition de `config.yaml` (+ 2 jobs à réépingler). Gain = déterministe, gratuit, plus de 503 ni de bascule payante involontaire. Coût = **128 K au lieu de 1 M** (compression bien plus agressive sur les sessions longues) et **~4-6× plus lent**, avec 7 jobs actifs + les sessions sur 3 cibles NIM seulement (risque de 504 sous charge).
+   - **Angle racine (option C)** : le point de défaillance unique est le quota Gemini — une seconde clé Google (nouvelle connexion) rétablirait la route 1 M rapide, l'option A suffisant alors pour le reste.
+2. **Le premier repli « gratuit » de `veille` est mort** : `auto/best-free` répond **502** (mesuré : felo 400, oc 400). `watch` a été corrigé le 17/09 (repli 1 = `openai/nvidia/nemotron-3-super-120b-a12b`, gratuit et autorisé par sa clé) ; appliquer le même correctif à `veille` reste à décider.
+3. **`config.yaml` du bureau modifiable par plusieurs sessions en parallèle** : le 17/09 la session « MCP scite » a réécrit la fin du fichier (`mcp_servers.scite.enabled: true`, `auth: oauth`) et supprimé un bloc de commentaires `# ── Fallback Model ──`, sans perte fonctionnelle. Recommandation : **ne pas éditer le `config.yaml` du bureau en parallèle d'une session MCP** — une seule session à la fois sur les fichiers de configuration.
+4. `profiles\watch\.env` porte le jeton du bot du bureau en plus du sien (avertissement `hermes profile list`) : à nettoyer avant toute migration multiplex. La clé OmniRoute d'administration n'y est plus.
+5. **Dépôt externe** : dé-suivi et motifs faits (§8) ; **purge d'historique non faite** (blobs de 80 Mo restants).
 6. Le scanner de secrets (`data\rag\scan_secrets.py`) **n'a pas de mode export/redaction** : `snapshot\config.yaml.redacted` ne peut pas être régénéré proprement — à implémenter ou à abandonner volontairement.
+
+---
+
+## 8. Dépôt externe (`Desktop\hermes_install`) — règle et état
+
+- **Règle : ni `.env`, ni `state.db` — jamais, même masqués.** Motifs ajoutés au `.gitignore` du dépôt :
+  `.env`, `.env.*`, `**/.env`, `**/.env.*`, `**/state.db`, `snapshot/state.db*`, `**/*.db-wal`, `**/*.db-shm`, `backups/**/*.env*`.
+- **Fait le 17/09** (commit « gitignore: retirer secrets et DB du suivi ») : `git rm --cached` sur
+  `snapshot\.env` (24 230 o), `snapshot\state.db` (**192,1 Mo**), `backups\veille\.env.avant_telegram.20260917_134303`,
+  `.env.avant_3d.*` et `.env.final.MASQUE`. Vérifié : `git ls-files | grep -E '\.env|state\.db'` → **vide**.
+- **Purge d'historique non faite** : les blobs subsistent dans `.git/` (**80 Mo**, l'essentiel étant le
+  `state.db` de 192 Mo compressé). Commande proposée, coût annoncé :
+  `git filter-repo --path snapshot/state.db --path snapshot/.env --invert-paths` (ou BFG) →
+  **tous les SHA changent** (80 commits) et les identifiants cités dans les rapports existants deviennent
+  invalides ; gain ≈ 80 Mo. Le dépôt n'a **aucun remote** (`git remote -v` vide) : le risque est local
+  (un zip ou un partage du dossier `Desktop`), donc la purge est un choix de confort, pas une urgence.
+
+## 9. Consolidation — état au 17/09
+
+| Chantier | État |
+|---|---|
+| `watch` : clé OmniRoute dédiée + repli gratuit | **fait** : clé `hermes_watch` (5 modèles, `restricted`), `model.default: nvidia-stack`, repli `nemotron-3-super-120b` → `auto/best-free` → `deepseek-flash`, prouvé par échec primaire simulé (servi en gratuit, pas en payant) |
+| `eco` dégradé | **diagnostic livré, décision en attente** (§7.1) — `eco` reste en l'état, le job horaire continue de l'écrire |
+| Dépôt externe : secrets et volumes | **fait** (dé-suivi + motifs) ; purge d'historique à décider (§8) |

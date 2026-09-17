@@ -1,3 +1,4 @@
+c3e5223 skills: lecons du 17/09 (hermes-operations: execute_code en cron, artefacts doubles; siyuan: config IA par API, moveDocsByID)
 aac90d5 config bureau: repli gratuit nvidia-stack avant deepseek-flash
 1160cad housekeeping: retirer tous les fichiers de ticker cron de l'index
 ffc77ef housekeeping: ignorer les fichiers de ticker cron (volatils, ecrits chaque minute)
