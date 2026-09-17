@@ -260,9 +260,123 @@ changent que la lisibilité. Le log s'accumule sans rotation (à borner plus tar
 
 
 
-## Phase 2 — Cohérence Hermes_Gateway_watch
+## Phase 2 — Gateway default : DIAGNOSTIC (aucune action)
 
-*(en attente)*
+### 2a — Pourquoi le gateway default est muet
+
+**Dernier log (`logs/gateway.log`, fin du fichier, aucune ligne après) :**
+
+```
+2026-09-17 00:02:07,144 INFO  gateway.run: Received UNKNOWN as a planned gateway stop — exiting cleanly
+2026-09-17 00:02:07,144 WARN  gateway.run: Shutdown context: signal=UNKNOWN under_systemd=no parent_pid=21884 parent_name=? loadavg_1m=? parent_cmdline='(unknown)'
+2026-09-17 00:02:07,212 INFO  gateway.run: Sent shutdown notification to active chat telegram:8956868107
+2026-09-17 00:02:11,717 INFO  gateway.run: response ready: … time=141.9s api_calls=7 response=1151 chars
+```
+
+**Cause racine — la dernière instance n'était pas détachée.** `logs/gateway-exit-diag.log`
+enregistre le dernier démarrage :
+
+```json
+{"ts":"2026-09-16T17:18:37Z","tag":"gateway.start","pid":21928,
+ "console_window_attached":true,"detached":true,"breakaway":null, ...}
+```
+
+Tous les démarrages précédents portent `"console_window_attached":false` et `"breakaway":true`.
+Cette instance-ci a hérité de la console / du Job Object du shell qui l'a lancée (le `hermes update`
+du 16/09 à 19:18). Quand le parent `21884` a disparu, le gateway a reçu un signal inconnu, l'a
+interprété comme un arrêt planifié, a drainé le tour en cours (141,9 s) puis est sorti proprement —
+il n'y a **aucune entrée `gateway.exit_clean`** pour le pid 21928, donc sortie non gracieuse. La
+tâche planifiée ne l'a pas relevé : elle ne tire qu'au logon, et il n'y a pas eu de logon depuis.
+
+**PID du process mort** : `gateway_state.json` déclare `pid: 21928`. Vérifié : 21928 **absent**,
+21884 **absent** (seuls 22876/24596, le gateway watch, sont vivants).
+
+**Ce que « draining » implique concrètement** (lu dans `gateway/status.py`) :
+
+| Élément | Valeur constatée | Effet |
+|---|---|---|
+| `gateway_state` | `draining` | État de fin de vidage, pas un état de marche |
+| `pid` | 21928 (mort) | `derive_gateway_drainable` exige un PID **vivant** ⇒ non drainable |
+| `updated_at` | `2026-09-16T22:02:37Z` (≈ 10 h) | `_RUNTIME_STATUS_STALE_TTL_S = 120` s ⇒ `runtime_status_is_stale` = vrai |
+| `exit_reason` | `null` | Le drain n'a jamais été conclu |
+| `restart_requested` | `false` | Aucun redémarrage demandé par l'updater |
+| `start_time` | `178957911544` | Identifie l'instance 21928 |
+
+Autrement dit : **ce fichier est inerte**. Il est périmé (10 h > TTL 120 s), donc sa prétention de
+vivacité n'est pas crue ; le PID est mort et l'état n'est pas `running`, donc le gateway n'est ni
+« drainable » ni « occupé ». Rien à supprimer à la main : un redémarrage réécrit le fichier
+(`starting` → `running`). C'est aussi ce qui fait dire à `hermes gateway status` :
+`✗ No gateway process detected`.
+
+### Hermes_Gateway vs HermesGateway — lequel est le bon ?
+
+| | **Hermes_Gateway** | **HermesGateway** (sans underscore) |
+|---|---|---|
+| Description | « Hermes Agent Gateway - Messaging Platform Integration » | **aucune** |
+| Action | `wscript.exe //B //Nologo "…\hermes\gateway-service\Hermes_Gateway.vbs"` | `pwsh.exe -NoProfile -Command "hermes gateway start"` |
+| Déclencheur | `LogonTrigger` + `Delay PT30S` | `LogonTrigger` (`UserId OMATHS\searc`) |
+| LogonType | `InteractiveToken` | `InteractiveToken` |
+| Resiliency | `RestartOnFailure` 999 × 1 min, `StartWhenAvailable` | absente |
+| Hidden | non | **oui** |
+| Dernier run | 16/09 19:18:35 (result 0) | 13/09 16:23:32 (result 0), soit 3 s après le logon de 16:23:29 |
+| Reconnue par Hermes | **oui** — `hermes gateway status` affiche `✓ Scheduled Task registered: Hermes_Gateway` | non |
+
+**Verdict : `Hermes_Gateway` est la tâche canonique, `HermesGateway` est un vestige artisanal.**
+Preuves : la description officielle, le lanceur VBS généré dans `gateway-service/`, la
+reconnaissance par `hermes gateway status`, et l'absence totale des réglages de résilience côté
+vestige. Risque concret si on la laisse : **au logon, les deux tâches tirent** et lancent chacune un
+démarrage du gateway default — double instance ou conflit de polling Telegram (le vestige masqué
+échoue silencieusement, sans trace visible).
+
+### Le gateway watch couvre-t-il le default ?
+
+**Non.** Preuves : le process 22876/24596 tourne `--profile watch gateway run` avec
+`HERMES_HOME=C:\…\profiles\watch` (VBS du watch), son log dit `Active profile: watch` et
+`Session storage: …\profiles\watch\sessions`, il sert 2 plateformes (telegram + email), et à
+19:19:31 il note `kanban dispatcher: another gateway already holds the dispatcher lock` — preuve que
+les deux gateways sont des instances distinctes qui se coordonnent par verrou. Aucun recouvrement :
+le bot Telegram du profil `default` (`channel_directory.json` → dm `8956868107`, Thomas Leroyer)
+n'est servi par personne.
+
+### 2c — Hermes-PurgeReports : DEUX défauts, aucun log d'échec
+
+Tâche : `powershell.exe -NoProfile -WindowStyle Hidden -File "C:\ProgramData\Hermes\purge_reports.ps1"`,
+quotidienne à 02:00, **exécutée sous `S-1-5-18` (SYSTEM)**, `RunLevel HighestAvailable`.
+
+**Aucun log d'échec n'existe** — `C:\ProgramData\Hermes\logs\` était **vide**. Ce n'est pas une
+absence de preuve, c'est le premier symptôme : le script écrit sa première ligne de log dès la
+3ᵉ instruction (`Write-Log "=== Hermes Purge Reports ==="`). Pas de log ⇒ le script **n'a jamais
+été chargé**.
+
+**Défaut 1 — politique d'exécution.** La tâche invoque `-File` **sans `-ExecutionPolicy Bypass`**.
+`ExecutionPolicy` est `Undefined` en MachinePolicy / UserPolicy / LocalMachine, et `RemoteSigned`
+seulement pour `CurrentUser` (= `searc`). Pour le compte SYSTEM, la politique retombe sur le défaut
+machine → chargement de fichier `.ps1` refusé → code retour `1`, aucun log. C'est cohérent avec
+`LastTaskResult = 1` et un dossier `logs` vide depuis la création de la tâche (19/07).
+
+**Défaut 2 — garde-fou en faux positif permanent.** Exécution directe du script (compte courant,
+`DryRun=True` par défaut, donc non destructif) :
+
+```
+2026-09-17 12:21:37 | === Hermes Purge Reports - DryRun=True ===
+2026-09-17 12:21:37 | BLOCKED: non-zero alerts for host OMATHS - refusing to purge
+2026-09-17 12:21:37 | PURGE ABORTED: critical actions or alerts pending
+exit=1
+```
+
+Le test est une comparaison exacte : `$row.alerts_wazuh_recentes -ne '0 alertes'`. Or la valeur du
+CSV est `0 alertes (index neuf)` — donc différente de `'0 alertes'` → blocage à vie. Le script ne
+purgera **jamais**, même une fois le défaut 1 corrigé.
+
+**Conséquence à valider avant tout correctif** : si on répare les deux défauts, le script passe à
+l'action réelle — les archives de plus de 30 jours partent en quarantaine puis sont **supprimées
+après 24 h**. Dans `archives/` se trouve `hermes_evidence_OMATHS_20260719-202157.tar.gz.gpg`
+(43 959 octets, créée le 19/07, donc au-delà des 30 jours) : elle serait purgée. C'est une
+suppression de preuve d'audit — à confirmer ou à exclure explicitement.
+
+**Divulgation** : mon exécution de diagnostic ci-dessus a créé
+`C:\ProgramData\Hermes\logs\purge_20260917-122137.log` (448 octets). Aucun autre effet.
+
 
 ## Phase 3 — Configuration du profil veille
 
