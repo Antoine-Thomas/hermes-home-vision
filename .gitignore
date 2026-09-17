@@ -133,3 +133,9 @@ spawn-ledger.json
 **/channel_directory.json
 *_cache.json
 skills_backup_*/
+
+# --- Modeles d'environnement : DESACTIVER les motifs .env.* ci-dessus pour eux ---
+# Sans ces deux lignes, `.env.*` avale `.env.example` et le modele de reference
+# ne peut pas etre versionne (il ne contient que des NOMS de variables).
+!.env.example
+!**/.env.example
