@@ -1000,6 +1000,27 @@ intermittent via OmniRoute** (les modèles de raisonnement le sont par nature). 
 OmniRoute (interface ou bundle), pas par le parc Hermes. Contournement immédiat : sur 3 tentatives,
 Hermes en réussit statistiquement une ; un modèle système resté sous 15 s serait plus sûr.
 
+**RECTIFICATIF — mesure complète, plus large que les 15,8-16,2 s ci-dessus.** Une série de mesures
+lancée en parallèle (et non dépouillée immédiatement) donne la dispersion réelle :
+
+| Voie | Mesures |
+|---|---|
+| Proxy direct, `nvidia/nemotron-3.5-lightning-30b-a3b`, `max_tokens: 12` | **9,55 s** · **67,19 s** · **> 120 s** (HTTP 000, `--max-time` atteint) |
+| Via OmniRoute + clé dédiée, `nvidia-stack` | 15,82 s (200) · 17,47 s (503) · 16,10 s (200) · 16,20 s (200) |
+
+La latence NVIDIA sur ces modèles NIM gratuits n'est **pas** de 16 s avec un peu de bruit : elle
+s'étale de **9 s à plus de 120 s**. Conséquences à retenir :
+
+- Le plafond de 15 s d'OmniRoute **n'est pas un cas limite, c'est un couperet** : la majorité des
+  appels sur ces modèles dépasse, d'où des 504 fréquents.
+- Relever ce plafond à 120 s ferait passer le cas à 67 s, mais **pas** la queue au-delà de 120 s.
+- Ces chiffres ont été pris avec des appels concurrents en vol (mes propres tests) : une part de la
+  dispersion peut venir de la contention locale et de la capacité NVIDIA, pas seulement du réseau.
+- Conclusion opérationnelle : **Nemotron reste utilisable mais non déterministe en latence.** Pour un
+  usage de veille en tâche de fond c'est acceptable (Hermes réessaie, le cron n'est pas interactif) ;
+  pour un usage interactif, ce n'est pas le bon modèle par défaut.
+
+
 **Permissions de la clé en pratique** : `GET /v1/models` avec la clé dédiée n'annonce que **2
 modèles** (les deux alias), donc la portée est bien visible côté client.
 
