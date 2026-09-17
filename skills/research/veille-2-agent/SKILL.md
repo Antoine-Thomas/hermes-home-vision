@@ -116,6 +116,24 @@ messagerie — jamais via un `deliver` qui bloque le tour du gateway.
 Cron côté bureau = livrer du signal, pas tout le corpus : une tâche qui parle à chaque tick finit
 ignorée.
 
+### Vérification du premier run automatique (lundi 08h00)
+
+Le job `dc15c35183aa` du profil `veille` doit partir **seul** le lundi 08h00. Un `[active]` dans
+`cron list` prouve l'armement, pas la livraison : après ce run, contrôler les trois preuves.
+Détail des pièges de run : copie de ce skill dans `profiles\veille\skills\` (§6, « Cadence en service »).
+
+1. **Document SiYuan créé** — document `YYYY-MM-DD-veille` dans le notebook `veille`
+   (`20260915170851-ricqsr6`), contrôle par `POST /api/filetree/searchDocs` (`{"k":"veille"}`,
+   `code=0`, `hPath` attendu). Un run peut rendre « ok » côté agent et échouer côté SiYuan.
+2. **Message Telegram livré** — `deliver: telegram:8956868107` via le bot veille : vérifier la
+   **réception réelle**, un « ok » ne prouve pas qu'un message est arrivé.
+3. **Durée du run** — `hermes -p veille cron runs dc15c35183aa` (identifiant d'exécution, statut,
+   horodatage), à comparer aux **2 min 49 s / 8 appels API** du run de test du 17/09 : une durée
+   qui explose signale le pool gratuit instable (`503` par vagues), pas un défaut du prompt.
+
+Consigner les trois valeurs (c'est ce qui distingue « planifié » de « livré ») ; si l'une est rouge,
+corriger avant le lundi suivant — une cadence hebdomadaire qui casse ne se voit qu'une semaine après.
+
 ## 7. Activation (non faite)
 
 Prérequis avant d'activer : profil `veille` avec son `.env` et son gateway joignable, jetons posés,

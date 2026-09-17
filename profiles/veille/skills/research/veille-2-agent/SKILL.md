@@ -167,6 +167,28 @@ Pièges constatés en run réel :
 - **Deux runs le même jour créent deux documents `YYYY-MM-DD-veille`** : SiYuan accepte les
   doublons de titre (ids différents). Nettoyer après un test manuel.
 
+### Vérification du premier run automatique (lundi 08h00)
+
+Le job `dc15c35183aa` doit partir **seul** le lundi 08h00. Un `[active]` dans `cron list` prouve
+l'armement, pas la livraison : après ce run, contrôler les trois preuves et les consigner.
+
+1. **Document SiYuan créé** — document `YYYY-MM-DD-veille` dans le notebook `veille`
+   (`20260915170851-ricqsr6`) :
+   ```bash
+   curl -s -X POST http://127.0.0.1:6806/api/filetree/searchDocs \
+     -H "Authorization: Token $SIYUAN_TOKEN" -H 'Content-Type: application/json' \
+     -d '{"k":"veille"}'      # code=0 et hPath « veille/AAAA-MM-JJ-veille »
+   ```
+   Un run peut rendre « ok » côté agent et échouer côté SiYuan (jeton absent, notebook fermé).
+2. **Message Telegram livré** — `deliver: telegram:8956868107` via le bot veille. Vérifier la
+   **réception réelle** : le run peut rendre « ok » avec une livraison refusée par Telegram.
+3. **Durée du run** — `hermes -p veille cron runs dc15c35183aa` (identifiant d'exécution, statut,
+   horodatage). Comparer aux **2 min 49 s / 8 appels API** du run de test : une durée qui explose
+   signale le pool gratuit instable (vagues de `503`), pas un défaut du prompt.
+
+Si les trois sont vertes : la cadence est en service. Sinon, corriger avant le lundi suivant —
+un job hebdomadaire qui échoue une fois ne se voit qu'une semaine plus tard.
+
 ## 7. Activation (non faite)
 
 Prérequis avant d'activer : profil `veille` avec son `.env` et son gateway joignable, jetons posés,
