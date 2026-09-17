@@ -28,6 +28,27 @@ des blocs de prompts, normalisation des `|`/`>`. Sémantiquement identique, diff
 impossible à relire. Sur un fichier live : édition textuelle ciblée uniquement (lecture du texte,
 remplacement du seul bloc visé, réécriture avec le même style de fin de ligne et sans BOM).
 
+**Le style de fin de ligne se perd en silence, et l'écart de taille n'est pas un écart de contenu.**
+`open(p, encoding='utf-8').read()` (mode texte, sauts de ligne universels) puis écriture en
+`newline=''` **convertit tout le fichier CRLF → LF** : chaque ligne perd un octet, donc sur un
+`config.yaml` de ~800 lignes une comparaison de taille (`wc -c`, `os.path.getsize`) face à la copie
+d'avant crie à la perte de données alors qu'un diff ligne à ligne ne montre que la modification
+voulue. Deux règles :
+
+- pour préserver les octets, lire/écrire en **binaire**, ou rejouer explicitement la fin de ligne
+  d'origine (`data.replace(b"\n", b"\r\n")` seulement si l'original était CRLF) ;
+- **l'arbitre est le diff aligné, pas la taille** :
+  `diff <(sed 's/\r$//' avant) <(sed 's/\r$//' apres)` puis comptage des lignes `<`/`>` ; ensuite
+  `git diff --stat -- <fichier>` (git stocke en LF, donc seuls les vrais changements apparaissent) ;
+  enfin `yaml.safe_load` + `hermes config check`. Un YAML qui parse ne prouve pas l'absence de
+  changement, une taille qui bouge ne prouve pas la perte.
+
+**Un autre écrivain peut modifier le même `config.yaml` entre ta copie d'avant et ton écriture.** Une
+`hermes config set` lancée par un autre chantier reformate la fin du fichier et peut emporter un bloc
+de commentaires ; l'écart de taille peut donc venir d'ailleurs. Dater les deux copies et diffuser le
+diff avant d'attribuer l'écart à sa propre écriture — « mon écriture a mangé du contenu » ne se conclut
+qu'après.
+
 ### Regex d'édition : une ancre consommée doit être restituée
 
 Un motif ancré sur l'en-tête de section (`(?m)^platform_toolsets:...`) **consomme cette ligne** :

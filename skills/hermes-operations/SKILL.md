@@ -623,7 +623,9 @@ procédure : une tentative de patch upstream échouée sur du code frais se rejo
   d'écriture d'un script destructeur, versionnement des scripts livrés.
 - `references/profile-provisioning.md` — provisionner un 2ᵉ profil isolé : section `providers:`
   obligatoire (sinon `Unknown provider`), clé dédiée posée par script, chaîne `fallback_model`,
-  `skills.disabled`, SOUL qui nomme les interdits, et la preuve d'inférence `hermes -p <profil> -z`.
+  **ordre réel du repli (fusion `fallback_providers` + `fallback_model`, gratuit avant payant) et sa
+  preuve par défaillance forcée**, `skills.disabled`, SOUL qui nomme les interdits, et la preuve
+  d'inférence `hermes -p <profil> -z`.
 - `references/local-service-triage.md` — un port local ne répond plus : trancher « encore utile ou
   vestige » en lisant la base du routeur (`~/.omniroute/storage.sqlite` : `provider_connections`,
   `combos`, `call_logs`/`proxy_logs`), dater la panne, et retirer des deux côtés ou pas du tout.

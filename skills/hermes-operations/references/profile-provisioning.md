@@ -69,6 +69,30 @@ clés coexistent, `fallback_providers` étant la moderne.
 Vérifier après écriture : `hermes -p <profil> config check` (« Config version: N ✓ ») **et** un
 `config get fallback_model` qui relit les entrées dans l'ordre.
 
+### Ordre réel du repli, et comment le prouver
+
+`get_fallback_chain` (`hermes_cli/fallback_config.py`) **fusionne deux sources** : `fallback_providers`
+d'abord, puis l'ancienne clé `fallback_model`, chaque entrée dédupliquée sur `(provider, model,
+base_url)`. Trois conséquences pratiques :
+
+- Écrire la chaîne dans **une seule** des deux clés. Avec les deux, l'ordre effectif n'est pas l'ordre
+du fichier mais « toutes les entrées de `fallback_providers`, puis celles de `fallback_model` ».
+- **Un repli gratuit avant le repli payant.** Un profil dont le seul repli est payant bascule sur la
+  facturation à la première défaillance du primaire — et rien ne le signale dans la réponse. Un
+target local/gratuit (`nvidia-stack` via le proxy NIM, par exemple) passe avant le payant.
+- **La preuve se fait par défaillance forcée, pas par lecture du YAML** : forcer un primaire inexistant
+  et regarder qui a réellement servi, options **avant** `-z`.
+
+```bash
+hermes -m <modele-inexistant> -z "Réponds exactement : OK FALLBACK"
+```
+
+Puis lire la session (read-only) : `SELECT id, model, billing_provider FROM sessions ORDER BY rowid
+DESC LIMIT 1` — `model` nomme l'entrée qui a servi, `billing_provider` sépare gratuit et payant.
+Piège d'argument : `hermes -z -m <modele> …` échoue (`-z/--oneshot: expected one argument`) parce que
+`-z` consomme le token suivant. Le repli déclenché est silencieux dans le chat : sans cette lecture,
+une bascule payante passe inaperçue.
+
 ## 4. Skills : la clé `disabled` est une LISTE
 
 `skills.disabled` se modifie par **insertion textuelle ciblée** dans `config.yaml` (backup d'abord),

@@ -1,3 +1,6 @@
 context_lengths:
   eco@http://127.0.0.1:20128/v1: 200000
   auto/best-chat@http://127.0.0.1:20128/v1: 1048576
+  nvidia-stack@http://127.0.0.1:20128/v1: 128000
+  auto/best-free@http://127.0.0.1:20128/v1: 1000000
+  openai/nvidia/nemotron-3-super-120b-a12b@http://127.0.0.1:20128/v1: 128000

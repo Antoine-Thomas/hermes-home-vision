@@ -35,6 +35,27 @@ volumineuses ou sensibles, donc c'est le `.gitignore` qui porte la politique.
 - **Verifier l'arbre 1 a 2 minutes apres le commit.** Les fichiers volatils (ticker cron, heartbeats)
   ne se revelent qu'a ce delai : `git status --short` doit etre vide a froid.
 
+### 2 bis. Auditer un depot de snapshot DEJA existant
+
+Un depot de sauvegarde vit a cote de la config (ici `Desktop\hermes_install`). Y committer du neuf
+n'autorise pas a le croire propre : **l'ensemble suivi est la seule verite**, pas son `.gitignore`.
+
+```bash
+git -C <chemin NATIF> ls-files | grep -iE '\.env|state\.db|secret|token'   # avant tout commit
+git -C <chemin NATIF> remote -v                                            # aucun remote = risque local
+```
+
+- Un `.gitignore` ecrit en liste **partielle** (`.env.pre_update` mais pas `snapshot/.env`) laisse
+  passer les copies brutes : un depot de snapshot finit par **suivre** des `.env` entiers et une copie
+  de `state.db` (des centaines de Mo, avec l'historique de conversation dedans).
+- Correctif : `git rm --cached <fichier>` + motifs larges (`.env*`, `*.env`, `state.db*`), puis purge
+  d'historique seulement si le depot a ete pousse ou copie ailleurs. Sans remote, le risque reste
+  **local** (un zip du dossier suffit) : ca change l'urgence, pas le correctif du suivi.
+- **`git -C` exige un chemin NATIF** (`C:/Users/...`) : un chemin MSYS `/c/Users/...` est refuse
+  (`fatal: cannot change to ... No such file or directory`), ce qui fait conclure a tort « ce n'est pas
+  un depot git » alors que `.git/` existe. Verifier avec `ls -la <dossier>/.git` avant de le declarer
+  absent.
+
 ### 3. Scan pre-commit par empreinte (obligatoire, avant le premier commit)
 
 Enumere les fichiers indexes (`git ls-files > liste`) puis passe chaque fichier sur les familles de

@@ -1,6 +1,6 @@
 model:
   base_url: http://127.0.0.1:20128/v1
-  default: eco
+  default: nvidia-stack
   provider: omniroute
 providers:
   ollama-launch:
@@ -18,12 +18,17 @@ providers:
   omniroute:
     api: http://127.0.0.1:20128/v1
     name: OmniRoute
-    default_model: eco
+    default_model: nvidia-stack
     key_env: OMNIROUTE_API_KEY
     extra_headers:
       X-OmniRoute-Compression: default
     request_timeout_seconds: 120
 fallback_providers:
+  # Repli 1 = modele gratuit CONCRET et autorise par la cle watch (auto/best-free est mort : 502).
+  - provider: omniroute
+    model: openai/nvidia/nemotron-3-super-120b-a12b
+  - provider: omniroute
+    model: auto/best-free
   - provider: deepseek
     model: deepseek-flash
 toolsets:
