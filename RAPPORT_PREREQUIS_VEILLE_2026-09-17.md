@@ -640,10 +640,209 @@ mesure d'avant le rattrapage), combo `nvidia-stack` toujours préfixé, connexio
 
 
 
-## Phase 3 — Configuration du profil veille
+## Phase 3 — Configuration du profil veille : PROPOSITIONS (aucune écriture)
 
-*(en attente)*
+### État mesuré du profil
 
-## Phase 4 — Décision A2A
+| Élément | Valeur |
+|---|---|
+| `profile.yaml` | description présente, `description_auto: false` |
+| `config.yaml` | `model.default: eco`, `provider: omniroute`, `base_url: http://127.0.0.1:20128/v1`, `plugins.enabled: []`, `agent: {}` |
+| `.env` | **168 octets, uniquement l'en-tête de commentaires — aucune clé** |
+| `SOUL.md` | 667 octets, texte par défaut générique (« You are Hermes Agent… ») |
+| `skills/` | **58 skills bundled** (inventaire `skills/<cat>/<nom>/SKILL.md`), 0 local, 0 hub, 0 désactivé |
+| Aucune section `skills:` | le profil n'a pas de clé `skills.disabled` |
 
-*(en attente)*
+Répartition des 58 : productivity 14, software-development 12, creative 10,
+autonomous-ai-agents 5, research 4, apple 4, media 3, email 2, puis devops, web,
+social-media, note-taking 1 chacun.
+
+### 3a — Modèles candidats
+
+Métadonnées lues dans le catalogue OmniRoute (`GET /v1/models`, 1 634 entrées).
+**1 607 des 1 634 modèles ne portent aucun prix** (gratuits ou sans tarification déclarée) ; les seuls
+modèles tarifés identifiés sont trois MiniMax.
+
+| Modèle | Provider | Reasoning | Tools | Contexte | Coût | Pourquoi ce candidat |
+|---|---|---|---|---|---|---|
+| `auto/best-reasoning` | omniroute (combo) | **oui** (`thinking: true`) | oui | 1 048 576 in / 512 000 out | gratuit | Alias explicitement orienté raisonnement, le plus large contexte du catalogue. Dépouiller 20 papiers arXiv dans un seul contexte est le cas d'usage central de la veille |
+| `nvidia-stack` | omniroute → proxy NIM 20200 → NVIDIA | oui | oui | 128 000 | gratuit | **Déterministe** : 3 modèles Nemotron nommés, stratégie `priority`, aucune rotation. Réparé et durci aujourd'hui (threading, log, idempotence) — l'agent veille ne dépend pas d'un proxy qui meurt en silence |
+| `eco` (actuel) | omniroute (combo) | oui | oui | 200 000 in / 131 072 out | gratuit | Statu quo, identique au bureau, éprouvé. Mais combo orienté coût : rotation sur 10 modèles gratuits → qualité et latence variables d'une exécution à l'autre |
+| `auto/best-free` | omniroute (combo) | oui (`thinking: true`) | oui | 1 000 000 in / 384 000 out | gratuit | Traduit littéralement la politique « gratuit d'abord ». Contexte 1 M |
+| `auto/zai` | omniroute (combo) | oui (`thinking: true`) | oui | 128 000 / **8 192 out** | gratuit | Z.AI/GLM, dans la chaîne de repli habituelle. **Sortie plafonnée à 8 192 tokens** : gênant pour une synthèse hebdo longue, acceptable pour un digest |
+| `minimax/MiniMax-M2.5` | omniroute (payant) | oui | oui | 200 000 | 0,27 $/M in · 0,95 $/M out (cache 0,135) | Secours **payant**, à mettre en `fallback_model` et pas en défaut. Respecte « payant en dernier » |
+| DeepSeek (`data/harness:3080`) | local | — | — | — | — | **Indisponible** : le port 3080 n'écoute pas (vérifié). À ne pas proposer comme candidat tant que le harnais n'est pas relancé |
+
+Recommandation : **`auto/best-reasoning` en défaut**, avec `fallback_model` sur **`nvidia-stack`**
+(gratuit, déterministe) — les deux sans dépense. Alternative si tu préfères la reproductibilité à la
+puissance : `nvidia-stack` en défaut.
+
+Mise en œuvre (scalaires uniquement, donc `hermes config set` sans risque) :
+
+```bash
+hermes -p veille config set model.default auto/best-reasoning
+hermes -p veille config set fallback_model.provider omniroute
+hermes -p veille config set fallback_model.model nvidia-stack
+```
+
+`hermes model` est **interactif** (« Select default model and provider ») : je ne l'exécute pas en
+tâche de fond, l'équivalent non interactif est `config set`.
+
+### 3b — SOUL.md proposé (texte soumis, NON écrit)
+
+```
+Tu es l'agent de veille technologique de Thomas Leroyer (Searching Murphy, Caen).
+Tu produis de la veille ; tu n'agis pas sur le système.
+
+Rôle
+- Surveiller arXiv, HuggingFace (modèles, datasets, papers), le catalogue et les prix OpenRouter,
+  et les flux RSS/Atom des éditeurs et labos suivis.
+- Produire une synthèse hebdomadaire datée : un paragraphe par sujet retenu, chaque affirmation
+  rattachée à sa source (URL + date). Aucun sujet sans source.
+- Émettre une alerte à signal fort dès détection, hors cadence : tout changement qui invalide une
+  décision en cours (mise à jour majeure d'un outil du parc, rupture d'API, changement de licence,
+  vulnérabilité dans une dépendance).
+
+Règles de travail
+- Filtre : ne remonter que ce qui est actionnable pour le parc de l'opérateur (Windows, RTX 3070 Ti
+  8 Go, Hermes, SiYuan, WordPress, pipelines vidéo). Une nouveauté qui ne touche ni ses outils ni ses
+  projets est du bruit, pas de la veille.
+- Distinguer systématiquement le fait (mesuré, sourcé) de l'inférence. Aucun chiffre inventé, aucun
+  modèle cité de mémoire : vérifier le catalogue.
+- Dater chaque élément. Ne pas présenter comme nouveau un contenu de plus de 8 jours sans le
+  signaler.
+- Contradiction plutôt que remplacement : si une trouvaille contredit une note existante, signaler
+  la contradiction, ne pas écraser.
+- Français, concis, sans emphase. Un digest long se termine par la liste des sources.
+
+Périmètre interdit
+- Aucune action sur le système du bureau : produire du texte, l'opérateur décide.
+- Ne jamais divulguer ni recopier de secrets, ne jamais écrire dans le .env du bureau.
+```
+
+### 3c — Skills : proposition de tri (validation ligne par ligne requise)
+
+**À GARDER (6)**
+
+| Skill | Pourquoi |
+|---|---|
+| `research/arxiv` | source principale, API REST sans clé |
+| `web/blocked-page-recovery` | un fetch 403/429/paywall ne doit pas arrêter une veille |
+| `research/llm-wiki` | construire/interroger une base markdown interliée — support naturel d'une veille cumulée |
+| `autonomous-ai-agents/hermes-agent` | connaître sa propre configuration avant de la modifier |
+| `software-development/github` | suivre les releases et les dépôts qui comptent pour le parc |
+| `creative/humanizer` | la synthèse hebdo est un livrable rédigé ; ce skill sert la qualité du texte |
+
+**À DÉSACTIVER (45)** — hors rôle : rien de tout cela ne sert la recherche ou la synthèse, et chaque
+skill actif est du bruit dans le contexte de sélection.
+
+- `apple/` (4) : `apple-notes`, `apple-reminders`, `findmy`, `imessage`
+- `creative/` (9) : `architecture-diagram`, `ascii-video`, `baoyu-infographic`, `claude-design`,
+  `design-md`, `manim-video`, `p5js`, `popular-web-designs`, `songwriting-and-ai-music`
+- `autonomous-ai-agents/` (4) : `claude-code`, `codex`, `computer-use`, `opencode`
+- `software-development/` (11) : `codebase-inspection`, `dogfood`, `hermes-agent-skill-authoring`,
+  `inspecting-hermes-desktop-dom`, `node-inspect-debugger`, `python-debugpy`,
+  `requesting-code-review`, `simplify-code`, `spike`, `systematic-debugging`,
+  `test-driven-development`
+- `productivity/` (14) : `airtable`, `box`, `document-to-action-items`, `docx`, `google-workspace`,
+  `maps`, `meeting-action-items`, `notion`, `pdf`, `powerpoint`, `product-price-monitor`,
+  `teams-meeting-pipeline`, `weekly-review-planning`, `xlsx`
+- `email/` (2) : `email-inbox-triage`, `himalaya`
+- `media/` (2) : `gif-search`, `songsee`
+- `note-taking/obsidian`, `social-media/xurl`, `devops/sdlc-review`
+
+**À EXAMINER (7)** — je ne tranche pas seul :
+
+| Skill | Question |
+|---|---|
+| `research/competitor-news-monitor` | **désactivé côté bureau** — le rôle veille le réclame explicitement (`veille-2-agent`). Pourquoi est-il désactivé ? Tant que je ne sais pas, je ne l'active pas ici |
+| `research/grounded-citations` | également **désactivé côté bureau**, alors qu'il sert exactement l'exigence « chaque affirmation rattachée à sa source » |
+| `media/youtube-content` | transcripts YouTube : utile pour les conférences, hors périmètre arXiv/HF |
+| `productivity/document-to-action-items` | extraire des actions datées d'un document — utile si la veille doit produire des actions |
+| `productivity/weekly-review-planning` | cadre la cadence hebdo, mais c'est un skill de revue personnelle |
+| `software-development/spike` | une veille peut ouvrir un spike d'évaluation — mais ce n'est plus de la veille |
+| `autonomous-ai-agents/computer-use` | à désactiver par principe : le profil veille ne doit pas piloter le bureau |
+
+**Manques à combler (ajout, pas élagage)** — vérifié : ces skills existent côté bureau mais **pas**
+dans le profil veille.
+
+| Skill absent | Pourquoi il manque au rôle |
+|---|---|
+| `research/rss-feeds` | le protocole `veille-2-agent` cite les flux RSS/Atom comme **source** ; aucun skill RSS n'est présent dans le profil |
+| `research/veille-2-agent` | le protocole de rôle lui-même : sans lui, l'agent veille ne connaît pas son périmètre ni le format de sortie attendu |
+| `research/research-content` | routeur blog/RSS/registres — doublon partiel de `rss-feeds`, à voir |
+
+**Avertissement de mécanisme — à ne pas rater.** Les skills se désactivent par une clé **liste**
+(`skills.disabled` dans `config.yaml`). Or :
+
+- `hermes config set` sur une clé **liste remplace la liste entière par un scalaire** (piège documenté
+  dans le skill `hermes-operations`, avec harness de vérification) → **`config set` est interdit ici**,
+  alors que ta consigne dit « `hermes config set` uniquement ». Les deux règles se contredisent : sur
+  ce point précis, la consigne détruirait la config.
+- `hermes skills disable` **n'existe pas** (sous-commandes réelles : `trust, untrust, browse, search,
+  install, inspect, list, check, update, audit, uninstall, reset, …, opt-out, opt-in`).
+- `hermes skills opt-out` est un interrupteur **global de profil** (marqueur `.no-bundled-skills`, et
+  `--remove` supprime les skills bundled non modifiés) : beaucoup trop large pour un tri de 45 skills.
+
+Le seul chemin sûr est donc une **insertion textuelle ciblée** de `skills.disabled` dans
+`profiles/veille/config.yaml` (jamais le config du bureau), sur le modèle de
+`hermes-operations/references/config-editing-safety.md` : backup préalable, édition, puis
+`hermes -p veille config check` et `hermes -p veille skills list` pour vérifier le résultat.
+
+### 3d — Clés strictement nécessaires
+
+| Clé | Nécessaire ? | Pourquoi |
+|---|---|---|
+| `OMNIROUTE_API_KEY` | **OUI, indispensable** | le profil pointe sur `http://127.0.0.1:20128/v1` et OmniRoute refuse sans clé (`AUTH_001 Authentication required`). Sans elle, **aucune inférence** — le profil est inerte |
+| `HF_TOKEN` | Recommandée, non bloquante | HuggingFace répond sans jeton, mais avec des limites de débit basses et sans accès aux dépôts restreints. Utile pour la veille modèles/datasets |
+| `OPENROUTER_API_KEY` | **Non** | le catalogue et les prix OpenRouter sont exposés publiquement (`/api/v1/models` sans clé). À n'ajouter que si tu veux des quotas plus élevés |
+| Clé de recherche web (exa/brave/…) | **Non** | vérifié : le profil veille a **déjà** `✓ web search (exa)` et `✓ web extract (exa)` actifs, via `auth.json` à la **racine** de `hermes` (partagé entre profils, pas dans le `.env` du profil) |
+| `TELEGRAM_BOT_TOKEN`, SMTP, WhatsApp, `DEEPSEEK_API_KEY` | **Non** | aucun besoin pour le rôle ; à ne surtout pas recopier |
+
+**Recommandation sur la clé OmniRoute** : ne pas recopier celle du bureau. OmniRoute sait émettre des
+clés dédiées (`GET /api/keys` → HTTP 200 ; table `api_keys` avec les colonnes `name`, `key`,
+`allowed_models`, `machine_id`, `no_log`, `expires_at` — 6 clés existent déjà, dont `Hermes_agent`).
+Une clé nommée `hermes_veille` avec `allowed_models` restreint aux modèles retenus donnerait
+l'isolation réelle que le reste du dispositif cherche à obtenir. La création est une écriture :
+je ne la fais pas sans ton accord.
+
+**Entorse à l'isolation, à connaître** : `auth.json` (2 428 octets) vit à la racine de `hermes` et
+n'est pas dupliqué dans le profil. Le profil veille en hérite — c'est ce qui lui donne la recherche
+web. L'isolation par `.env` est donc réelle mais **partielle** ; si tu veux du strict, il faudra
+traiter `auth.json` aussi.
+
+
+## Phase 4 — Checklist d'activation A2A (aucune action)
+
+Correction de cadrage d'abord : la question « 2ᵉ machine/VM joignable ? » est **sans objet par
+décision d'architecture**, pas par manque. `architecture_2_agents.md` ligne 178 :
+« **Ne pas créer le second agent sur une autre machine : profil local uniquement.** » Le pair est donc
+le profil `veille`, sur la **même** machine. Le prérequis réseau réel n'est pas « une machine
+distante », c'est « deux profils qui ne se marchent pas dessus sur le même port ».
+
+| # | Prérequis | État mesuré | Preuve | Ce qui manque |
+|---|---|---|---|---|
+| 1 | Pair Hermes joignable | **Local par décision** | `architecture_2_agents.md` l.178 | Rien côté réseau. En revanche la topologie locale impose **deux ports distincts** (voir #5) |
+| 2 | Profil `veille` opérationnel | Existe, isolé, `.env` vide | 58 skills, 0 clé, gateway arrêté | Le configurer : c'est la Phase 3 |
+| 3 | Gateway `veille` up | ✗ `not running` | `hermes gateway list` | Le démarrer côté `veille`. Non fait — A2A reste off |
+| 4 | Token A2A partagé | **0 clé** | `grep -c '^A2A_'` = 0 dans `hermes/.env` **et** `profiles/veille/.env` | Générer et poser dans **les deux** `.env`. Préférer `A2A_PEER_TOKENS="veille:tok1,bureau:tok2"` (identité = nom authentifié) au `A2A_BEARER_TOKEN` partagé (identité retombant sur l'IP) |
+| 5 | Port côté `veille` ouvert | **9900 muet** (`netstat`, aucun listener) | `curl 127.0.0.1:9900/.well-known/agent-card.json` → HTTP 000 | Deux profils sur une même machine ⇒ **il faut deux ports** : 9900 pour le bureau, un autre (ex. 9901 via `A2A_PORT`) pour la veille. Aujourd'hui **aucun** port n'est posé des deux côtés |
+| 6 | Agent Card accessible depuis le bureau | HTTP 000 | même curl | La card n'est servie que si `platforms.a2a.enabled: true`. Rien à tester avant l'activation : l'inaccessibilité actuelle est l'état attendu |
+| 7 | Plugin `a2a-platform` | `not enabled` | `hermes plugins list` ; `plugins.enabled: []` dans le profil veille | `hermes plugins enable a2a-platform` — au minimum côté appelant, en pratique **des deux côtés** |
+| 8 | `platforms.a2a.enabled` | **non posée** | `hermes -p veille config get platforms.a2a.enabled` → « Config key not set » | Poser la clé **racine** (c'est elle que lit le gate des outils), **pas** `gateway.platforms.a2a.enabled` |
+| 9 | `a2a_agents` déclaré des deux côtés | **rien** | config des deux profils | bureau → veille (`url`, `auth: {type: bearer, token}`, `capabilities: [research, veille]`) ; veille → bureau. Sans paire déclarée, les outils A2A ne se chargent pas |
+| 10 | **Script d'activation adapté à la topologie** | **incomplet** | `activer_a2a.ps1` : paramètres `-Force -SelfTest -SkipGateway -ConfigPath` seulement ; `$profile2 = "watch"` **codé en dur** ; vérifie 9900 uniquement | **C'est le vrai manque.** Le script ne connaît ni le profil `veille` ni un port paramétrable. Tel quel, il activerait le bureau sur 9900 et redémarrerait `watch` — pas `veille`. Il faut soit ajouter `-Port` / `-Profile`, soit écrire un script dédié côté veille |
+| 11 | Mode sans risque disponible | `-SelfTest` | rejoue insertion/retrait sur **copie** du config, vérifie l'idempotence et l'égalité md5, sans toucher au plugin ni aux gateways | Non rejoué dans cette session. Reste le seul mode exécutable sans conséquence |
+
+**Piège de lecture à ne pas rejouer** : `grep -n a2a config.yaml` remonte `- a2a` ligne 717 — c'est
+`known_plugin_toolsets.cli`, la liste des toolsets **connus**, pas la liste **active**. Le gate réel
+est `platform_toolsets.cli` + `platforms.a2a.enabled`.
+
+**Réponse courte à « qu'est-ce qui manque pour lancer `activer_a2a.ps1` »** : le pair n'est pas le
+problème (il est local par décision), et l'Agent Card inaccessible est l'état normal. Ce qui manque
+réellement, dans l'ordre : (1) configurer le profil veille (Phase 3) ; (2) générer un jeton par pair
+et le poser des deux côtés ; (3) choisir un second port pour la veille et l'assumer ; (4) activer le
+plugin des deux côtés puis poser `platforms.a2a.enabled` **à la racine** ; (5) déclarer `a2a_agents`
+des deux côtés ; (6) **adapter le script d'activation**, qui aujourd'hui ne sait faire que le profil
+`default` sur 9900.
+
