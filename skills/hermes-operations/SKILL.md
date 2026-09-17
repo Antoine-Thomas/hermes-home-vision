@@ -15,6 +15,25 @@ metadata:
 
 Control Hermes at runtime without restart: ESTOP (pause/resume), gateway status, Telegram dispatch, and runbook/memory bookkeeping.
 
+## Référence rapide (commandes)
+
+| Besoin | Commande |
+|---|---|
+| **Archiver un skill** (récupérable, jamais supprimé) | `hermes curator archive <skill>` |
+| Lister les skills archivés / en restaurer un | `hermes curator list-archived` · `hermes curator restore <skill>` |
+| État du curateur / déclencher une revue / geler un skill | `hermes curator status` · `hermes curator run` · `hermes curator pin <skill>` |
+| Historique des décisions du curateur | `hermes curator ledger` |
+| Budget mémoire (lecteur autoritaire) | `hermes memory status` + `scripts/check_memory.ps1` |
+| Inventaire réel des skills d'un profil (sans troncature) | `find <profil>/skills -mindepth 3 -maxdepth 3 -name SKILL.md` |
+| Lire / écrire une valeur de config | `hermes config get <clé>` · `hermes config set <clé> <val>` — **jamais `set` sur une clé LISTE** |
+| Agir sur un autre profil | `hermes -p <profil> <sous-commande>` |
+
+`hermes curator` est le cycle de vie des skills **créés par l'agent** : la revue est une tâche
+d'arrière-plan qui élague, consolide et archive. Les skills bundled et hub-installed ne sont jamais
+touchés, **les archives sont récupérables et la suppression automatique n'existe pas** — d'où
+`archive` plutôt qu'un `rm`. C'est aussi la commande à retrouver quand on cherche « où ai-je rangé ce
+skill » : `list-archived`, puis `restore`.
+
 ## ESTOP — what it does
 
 - Sentinel file: `%LOCALAPPDATA%/hermes/ESTOP` (written by `agent/estop.py`). Checked via `check_paused(component, logger)`.
@@ -50,6 +69,16 @@ sort 0. De même `hermes plugins status <nom>` n'existe pas : seulement `list`, 
 Si l'utilisateur demande une commande absente, dire laquelle est fausse et basculer sur
 l'équivalent — ne pas improviser un flag.
 
+**`hermes skills disable <nom>` n'existe pas non plus** (sous-commandes réelles : `trust, untrust,
+browse, search, install, inspect, list, check, update, audit, uninstall, reset, list-modified, diff,
+opt-out, opt-in, repair-official, publish, snapshot, tap, config`). Désactiver des skills pour un
+profil passe par la clé **liste** `skills.disabled` de son `config.yaml` — donc édition textuelle
+ciblée, jamais `config set` — et `hermes skills opt-out` est un interrupteur **global de profil**
+(marqueur `.no-bundled-skills`, `--remove` supprime les skills bundled non modifiés), trop large pour
+désactiver quelques skills. Les skills bundled d'un profil vivent sous
+`profiles/<nom>/skills/<categorie>/<skill>/SKILL.md` : compter par `find`, pas par la sortie de
+`skills list` qui tronque les noms.
+
 **Authenticité d'une fonctionnalité** : ne pas conclure d'un grep, lire le `plugin.yaml`. Et grepper
 scopé — un `grep -rn` lancé depuis `$LOCALAPPDATA/hermes` se noie dans `data/*/venv`,
 `site-packages`, `node_modules`, `.hermes-runtime` (une recherche a rendu 81 Ko de bruit
@@ -59,7 +88,11 @@ sont sous `hermes-agent/plugins/<kind>/<name>/` ; `plugin.yaml` fait foi pour `r
 
 **Lire les tâches planifiées depuis git-bash** : `schtasks /Query` sort en UTF-16, donc `grep`
 répond `Binary file (standard input) matches` sans rien afficher. Passer par `tr -d '\0'` et
-utiliser `grep -ia`. Garder `MSYS_NO_PATHCONV=1` pour les commutateurs `/TN`, `/FO`, `/NH`. Plus
+- Garder `MSYS_NO_PATHCONV=1` pour les commutateurs `/TN`, `/FO`, `/NH`. Deux pièges MSYS en pilotant
+des processus : `taskkill //PID <n> //F` échoue (`Argument ou option non valide`) — utiliser
+`Stop-Process -Id <n> -Force` en PowerShell ; et `cmd //c "…"` accompagné de `MSYS_NO_PATHCONV=1`
+ouvre un shell **interactif** au lieu d'exécuter la commande — exporter la variable d'abord
+(`export MSYS_NO_PATHCONV=1`), puis appeler `cmd /c "…"`.
 lisible et hors du problème d'encodage : `Get-ScheduledTask | Where-Object { $_.TaskName -like '*Hermes*' } | Select-Object TaskName, State | Format-Table -AutoSize`.
 
 ### Créer une tâche planifiée Hermes (Windows)
@@ -85,6 +118,38 @@ Register-ScheduledTask -TaskName '<nom>' -Action $action -Trigger $trigger -Sett
   victoire alors que le script n'a rien écrit.
 - Une tâche `Disabled` alors que `hermes doctor` voit le service tourner (cas du profil watch) ne
   remontera pas seule après un redémarrage : le signaler plutôt que le corriger sans demande.
+- **Une tâche planifiée ne ressuscite pas un process mort.** Un déclencheur `LogonTrigger` seul n'a
+  pas de prochaine exécution (`NextRunTime` vide) : le service lancé ne revient qu'au prochain logon,
+  sans aucun signal entre-temps. Pour tout service long-running (proxy, sidecar), ajouter
+  `-StartWhenAvailable` **et** une répétition, le launcher restant idempotent (« si le port écoute,
+  sortir ») :
+  ```powershell
+  $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 15)
+  ```
+  avec `-MultipleInstances IgnoreNew` pour ne pas empiler les instances.
+- **Greffer la répétition sur un déclencheur `LogonTrigger` existant la laisse INERTE jusqu'au prochain
+  logon.** `Set-ScheduledTask -Trigger` accepte la modification, le XML affiche bien
+  `<Repetition><Interval>PT15M</Interval>`, et pourtant `NextRunTime` reste vide : la fenêtre de
+  répétition ne s'arme qu'au déclenchement du logon. Deux conséquences : (a) vérifier l'effet sur
+  `Get-ScheduledTaskInfo … NextRunTime`, jamais sur le XML ; (b) pour une couverture armée tout de
+  suite, ajouter un **second** déclencheur `New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1)`
+  portant la même répétition, et garder le logon pour la reprise après redémarrage.
+- **Le durcissement est un script, pas une commande.** Livrer le `.ps1` rejouable qui prend le backup
+  XML (`Export-ScheduledTask | Out-File -Encoding UTF8`), modifie puis se vérifie lui-même, et
+  l'exécuter depuis là : c'est le seul moyen de revenir à l'état cible après incident, et ça rend la
+  définition auditable en clair (au lieu du `schtasks /Query` en UTF-16).
+- **Tâche dont `LastTaskResult ≠ 0`** : trois causes à séparer avant de proposer un correctif —
+  script jamais chargé (aucun log), abort volontaire (`exit 1` dans un garde-fou du script), crash
+  réel. La présence du log que le script écrit dès ses premières lignes tranche à elle seule.
+  Recette complète : `references/windows-task-failure-triage.md`.
+- **Rediriger la sortie d'un sidecar lancé masqué** (`wscript`/`pythonw`, `SW_HIDE`) vers un fichier
+  de log. stdout sur fenêtre cachée est perdu : une panne sans log est une panne invisible, et
+  `LastTaskResult = 0` ne dit rien de la santé du process lancé.
+- **Vérifier ce que la tâche a réellement fait**, pas seulement qu'elle a tourné : confronter
+  `LastRunTime` aux événements de session (`Get-WinEvent -FilterHashtable @{LogName='System';
+  Id=7001} -MaxEvents 8`). Un `LastRunTime` égal à l'heure du dernier logon signifie « déclencheur de
+  logon », pas « planification récurrente » — deux situations qui appellent des conclusions opposées
+  sur la cause de la panne.
 
 ### Snapshot git de la config (`Desktop/hermes_install`)
 
@@ -325,9 +390,41 @@ ls "$LOCALAPPDATA/hermes/ESTOP" # sentinel presence = paused
 - One Telegram channel (`channel_directory.json: platforms.telegram`) can back multiple bot usernames only if they share the same token. Two distinct bot tokens require two entries via `hermes gateway setup`; otherwise only one bot actually receives dispatch.
 - `patch` tool refuses to write `config.yaml` (security guard) — edit Hermes config via `terminal` (Python read/write or `hermes config set`), never `patch` or `sed` range substitution which silently truncates on fragile boundaries.
 - GPU-bound inference (LivePortrait/SadTalker at 100% GPU / ~95% VRAM) starves the gateway event loop and triggers `CRITICAL gateway.shutdown_watchdog: missed 3 liveness probes -> exit 75` — this is an intentional self-kill for the Task Scheduler to restart, not a code bug; recover with `hermes gateway restart` + verify `telegram connected` in `gateway.log`, never treat as auth/network failure.
-- A gateway that died on its own with `gateway.log` ending in "Received UNKNOWN as a planned gateway stop — exiting cleanly" and "Shutdown context: signal=UNKNOWN parent_pid=... parent_cmdline='(unknown)'" orphaned because its parent (Task Scheduler spawn) died — not a code bug. Confirm with `gateway_state.json` showing `"gateway_state":"draining"` and `hermes gateway list` showing `✗ not running`, then restart with `hermes -p <profile> gateway start` (profile flag, not `gateway restart`). Distinct from the `exit 75` watchdog self-kill above.
+- A gateway that died on its own with `gateway.log` ending in "Received UNKNOWN as a planned gateway stop — exiting cleanly" and "Shutdown context: signal=UNKNOWN parent_pid=... parent_cmdline='(unknown)'" orphaned because its parent (Task Scheduler spawn) died — not a code bug. Confirm with `gateway_state.json` showing `"gateway_state":"draining"` and `hermes gateway list` showing `✗ not running`, then restart with `hermes -p <profile> gateway start` (profile flag, not `gateway restart`). Distinct from the `exit 75` watchdog self-kill above. **`hermes doctor` ne signale pas ce cas** : sa section Profiles ne liste que les profils *autres* que le courant, donc un gateway `default` mort passe inaperçu — il faut le contrôler explicitement avec `hermes gateway status` (le profil courant affiche `✗ No gateway process detected` en tête, les autres sur la ligne `Other profiles: ✓ <nom> — PID …`).
+- **Le tell de la mort avec le parent est dans `logs/gateway-exit-diag.log`, pas dans `gateway.log`.**
+  Comparer le dernier enregistrement `gateway.start` aux démarrages sains : `"console_window_attached"`
+  doit être `false` et `"breakaway"` `true`. Une instance née avec `"console_window_attached":true` et
+  `"breakaway":null` a hérité de la console / du Job Object du shell qui l'a lancée (typiquement
+  `hermes update`) : quand ce parent disparaît, elle reçoit `signal=UNKNOWN`, le traite comme un arrêt
+  planifié, draine le tour en cours et sort — sans entrée `gateway.exit_clean`. C'est l'explication que
+  le log principal ne donne jamais.
+- **Le `gateway_state.json` en `"draining"` est inerte : ne pas le supprimer à la main.**
+  `gateway/status.py` : `_RUNTIME_STATUS_STALE_TTL_S = 120`, donc un enregistrement vieux de plus de
+  2 min n'est plus cru pour la vivacité ; et `derive_gateway_drainable` exige en plus un PID **vivant**
+  et un état `running`. Un redémarrage réécrit le fichier (`starting` → `running`). Le supprimer
+  n'apporte rien et détruit l'indice (PID, `start_time`, `exit_reason`).
+- **Voie de redémarrage selon le profil** : `schtasks /Run /TN Hermes_Gateway` pour le profil `default`
+  (démarrage hors Job Object) ; `hermes -p <profil> gateway start` pour un autre profil. Éviter
+  `hermes gateway start` lancé depuis un shell pour le défaut : on recrée le piège du Job Object.
+- **Deux tâches qui démarrent le même gateway au logon.** La canonique est reconnaissable :
+  `Description` renseignée, action `wscript.exe //B //Nologo "…\gateway-service\<Profil>.vbs"`,
+  `RestartOnFailure`, et elle apparaît dans `hermes gateway status` (`✓ Scheduled Task registered: …`).
+  Un jumeau sans description, `Hidden`, dont l'action est `pwsh -NoProfile -Command "hermes gateway
+  start"`, est un vestige artisanal : le désactiver explicitement (`Disable-ScheduledTask`), jamais le
+  supprimer.
 - `cron.scheduler: Job '...' failed: lost its durable fire claim ownership / _abort_if_fire_claim_lost` after a gateway restart is a benign abort of the in-flight fire, not a gateway crash — clean the orphaned job with `hermes cron remove <id>` and do not alert on it.
 - `deliver=telegram` on heavy/background cron jobs blocks the gateway loop and amplifies spam via `security-monitoring/monitors/log_monitor.py` (each ERROR forwarded as lvl8 `Erreur API` per bot) — use `deliver=local` for GPU/monitoring jobs; extend `EXCLUDE` in `log_monitor.py` with `lost its durable fire claim|fire claim ownership lost|cron\.scheduler.*failed|_abort_if_fire_claim_lost` to suppress internal scheduler noise.
+- **Redémarrer un gateway resté longtemps arrêté déclenche une rafale de rattrapage cron — ce n'est pas
+  neutre.** Le scheduler reprend au premier tick tous les jobs en retard (`catch_up_occurrences` sous
+  `cron/`), et parmi eux un job de maintenance mémoire qui **réécrit `MEMORY.md`** dès que le store
+  dépasse ~90 %. Deux conséquences : (a) après tout redémarrage d'un gateway longtemps mort, relire
+  `cron/executions.db` (`job_id`, `status`, `started_at`) et `cron/jobs.json` pour lister ce qui a
+  réellement tourné **avant** d'affirmer une non-régression — et vérifier les effets de bord des jobs
+  du parc (combos du routeur, fichiers d'état) ; (b) une consigne « mémoire inchangée » peut être
+  violée par le parc lui-même sans qu'aucune action de l'agent n'y soit pour quelque chose : le dire
+  avec la cause, la preuve (reconstruction de la version d'avant, structure et séparateurs `§`
+  intacts) et la copie conservée, plutôt que de restaurer en boucle — restaurer remet l'usage
+  au-dessus du seuil et le job re-consolide au tick suivant.
 
 ## Verification
 
@@ -342,7 +439,7 @@ cat "$LOCALAPPDATA/hermes/channel_directory.json"  # which telegram chats are au
 de <commandes> », livrer les sorties brutes dans l'ordre demandé — pas de résumé, pas d'artefact de
 contrôle, pas de commit pour cette partie. Commenter uniquement les écarts par rapport à l'attendu,
 et requalifier ce qui est **préexistant** (vulnérabilités npm du doctor, tâche planifiée désactivée)
-au lieu de le présenter comme une régression de la session.
+au lieu de le présenter comme une régression de la session. Quand la passe découvre un **service mort** (port muet, tâche sans prochaine exécution), ne pas se contenter de le signaler : trancher « encore utile ou vestige » en interrogeant le **consommateur** — jamais un grep de config — puis livrer des options numérotées avec une recommandation, et attendre la décision avant toute action. Recette : `references/local-service-triage.md`.
 
 **Chantier explicitement reporté à une session dédiée** : ne pas le relancer depuis une session
 multi-chantiers, ne pas en rejouer les tests. Relever seulement son état — `git status` sur
@@ -354,6 +451,7 @@ procédure : une tentative de patch upstream échouée sur du code frais se rejo
 
 - `memories/MEMORY.md` has a hard ~2200 char budget (injected every turn). When near limit, compress existing entries in place before appending — shorten verbose lines, merge related bullets, keep `§` separators. Target ≤2170 to leave headroom.
 - **Verify memory usage in CHARACTERS, never with `wc -c`.** `wc -c` counts bytes and accented characters cost 2 bytes in UTF-8, so it overstates usage (2071 "chars" measured for 2036 real). The budget is characters. Authoritative reader: `scripts/check_memory.ps1`, which uses `(Get-Content -Raw).Length`; Python equivalent `len(open(f, encoding='utf-8').read())`.
+- **Les deux lecteurs ci-dessus divergent sur un fichier en CRLF** : `Get-Content -Raw` conserve les fins de ligne et compte chaque `\r\n` pour 2 caractères, une lecture Python en mode texte universel les ramène à 1. L'écart est exactement le nombre de fins de ligne (22 chars sur un fichier de 22 lignes) et **n'est pas un écart de contenu** : citer la valeur du script, nommer le lecteur, et ne pas partir chasser un drift de contenu inexistant. `MEMORY.md` est en LF (les deux lecteurs concordent), `USER.md` peut être en CRLF — vérifier avant de comparer.
 - `check_memory.ps1` alert thresholds (MEMORY 2100 / USER 1300) differ from the `config.yaml` limits (2200 / 1375). Name the reader you are quoting — otherwise "under the threshold" and "above the target" coexist and nobody can tell which applies.
 - `check_memory.ps1` is **read-only**: it writes no file and creates no `.bak`. Do not attribute sanitising backups to it.
 - `memories/USER.md` (~1000 chars) holds stable preferences; `MEMORY.md` holds environment facts and standing ops rules.
@@ -366,3 +464,9 @@ procédure : une tentative de patch upstream échouée sur du code frais se rejo
 - `references/config-editing-safety.md` — modifier `config.yaml` sans le casser : clés liste vs scalaires,
   harness de vérification sur copie (`-SelfTest`, md5), test d'isolation `HERMES_HOME`, test du chemin
   d'écriture d'un script destructeur, versionnement des scripts livrés.
+- `references/local-service-triage.md` — un port local ne répond plus : trancher « encore utile ou
+  vestige » en lisant la base du routeur (`~/.omniroute/storage.sqlite` : `provider_connections`,
+  `combos`, `call_logs`/`proxy_logs`), dater la panne, et retirer des deux côtés ou pas du tout.
+- `references/windows-task-failure-triage.md` — tâche planifiée Windows en échec : séparer « jamais
+  chargé » (politique d'exécution d'un compte système), « abort volontaire » et « crash », puis
+  chiffrer la conséquence destructrice d'un correctif avant de l'appliquer.
