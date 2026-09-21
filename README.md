@@ -1,13 +1,41 @@
 # Hermes Home Vision
 
+> **Version actuelle : `1.2`** — version améliorée, recommandée → branche `v1.2-ameliorations`, tag `v1.2`
+> **Version originale : `1.1`** — [consulter / télécharger](https://github.com/Antoine-Thomas/hermes-home-vision/tree/v1.1-original) → branche `main`, tag `v1.1-original`
+
 > Installation personnelle de Hermes Agent — 3 profils isolés, supervision continue, veille automatique.
 
-Dépôt privé : `https://github.com/Antoine-Thomas/hermes-home-vision` — il contient **tout** : le
+Dépôt **public** : `https://github.com/Antoine-Thomas/hermes-home-vision` — il contient **tout** : le
 runtime Hermes (configuration, profils, skills, scripts) **et** sa documentation rangée sous `docs/`.
 Un seul `git clone` restaure l'ensemble.
+Contenu contrôlé le 21/09/2026 sur **tout l'historique** (`docs/scripts/scan_secrets_history.py`) :
+aucune valeur de secret réelle. Détail en §8.
 
 Version de référence : **Hermes Agent v0.21.3 (2026.9.14)**, upstream `97962358`.
 Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Windows natif, pas WSL).
+
+---
+
+## Choisir sa version
+
+| Version | Statut | Branche / Tag | Documentation |
+|---|---|---|---|
+| **1.1** | Originale, figée, téléchargeable | `main` / `v1.1-original` | [Release 1.1](../../releases/tag/v1.1-original) · [Wiki](../../wiki/Version-1.1) |
+| **1.2** | Améliorée, **recommandée** | `v1.2-ameliorations` / `v1.2` | [Fiche détaillée](docs/IMPROVEMENTS.md) · [Changelog](docs/CHANGELOG-v1.2.md) · [Wiki](../../wiki/Version-1.2) |
+
+Les deux versions sont **téléchargeables indépendamment**. La 1.1 n'est ni supprimée ni réécrite :
+`main` reste au commit `1f1f089`. Ce que la 1.2 change exactement — et ce qu'elle ne change pas — est
+détaillé dans [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md).
+
+### Installation rapide (1.2)
+
+```bash
+git clone https://github.com/Antoine-Thomas/hermes-home-vision.git
+cd hermes-home-vision
+git checkout v1.2
+```
+
+Prérequis, étapes complètes et vérifications : [Wiki — Installation 1.2](../../wiki/Installation-1.2).
 
 ---
 
@@ -263,8 +291,14 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
   reste actif en local — seul le blob a quitté l'historique.
 - Conséquence assumée : les SHA des commits de l'ancien dépôt de documentation ont changé. Les
   identifiants cités dans les rapports restent lisibles comme références historiques.
+- **Contrôle rejoué le 21/09/2026** pour la version 1.2, sur l'historique complet : `objets=2494`,
+  `blobs=1564`, `volume=11.2 Mo` — `telegram_bot_token: 0`, `google_api_key: 0`, `github_token: 0`,
+  `huggingface_token: 0`, `pem_private_key: 0`, et **1 seul blob `sk_*` classé placeholder**
+  (16 caractères, exemple pédagogique dans une référence de skill). Conclusion du script :
+  `aucune valeur de secret reelle dans l'historique`.
 - Ne jamais rendre ce dépôt public sans re-scan : un dépôt privé n'est pas un coffre, tout ce qui y
-  entre reste dans l'historique.
+  entre reste dans l'historique. Ce contrôle a été fait **avant** la publication de la 1.2 et doit
+  être rejoué avant toute publication ultérieure.
 
 ---
 
@@ -282,12 +316,24 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
 | `docs\scripts\bootstrap.ps1` | remise en route sur une machine vierge — DryRun par défaut, `-Apply` pour exécuter |
 | `docs\scripts\restore-from-github.md` | restauration pas-à-pas : bots Telegram, clés OmniRoute, jeton SiYuan, `data/`, tâches hors dépôt |
 | `docs\scripts\baseline_t0.py` | mesure la baseline T0 (notebooks SiYuan, fragments RAG, cron) — à régénérer sur une nouvelle machine |
+| `docs\IMPROVEMENTS.md` | fiche détaillée des améliorations 1.1 → 1.2 : état réel de chaque version, bénéfices, fichiers concernés |
+| `docs\CHANGELOG-v1.2.md` | changelog de la version 1.2 (Keep a Changelog, convention SemVer) |
+
+### Voir aussi
+
+- [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md) — fiche détaillée des améliorations v1.1 → v1.2
+- [`docs/CHANGELOG-v1.2.md`](docs/CHANGELOG-v1.2.md) — changelog de la 1.2
+- [Wiki du dépôt](../../wiki) — accueil, installation 1.2, améliorations détaillées, migration
+  depuis la 1.1, archives 1.1, FAQ
 
 ---
 
 ## Licence et contact
 
-Usage personnel — pas de licence publique. Les composants tiers (Hermes Agent, OmniRoute, SiYuan,
-NVIDIA NIM) restent sous leurs licences respectives.
+**Aucune licence déclarée.** Le dépôt ne contient aucun fichier `LICENSE`, ni en 1.1 ni en 1.2 : son
+contenu est donc sous le régime par défaut du droit d'auteur (« tous droits réservés »), sans droit
+d'usage, de modification ou de redistribution accordé au-delà de ce que permettent les conditions de
+GitHub. Usage personnel. Les composants tiers (Hermes Agent, OmniRoute, SiYuan, NVIDIA NIM) restent
+sous leurs licences respectives.
 
 Contact : Antoine-Thomas — <https://github.com/Antoine-Thomas>
