@@ -5,11 +5,12 @@
 
 > Installation personnelle de Hermes Agent — 3 profils isolés, supervision continue, veille automatique.
 
-Dépôt **public** : `https://github.com/Antoine-Thomas/hermes-home-vision` — il contient **tout** : le
-runtime Hermes (configuration, profils, skills, scripts) **et** sa documentation rangée sous `docs/`.
-Un seul `git clone` restaure l'ensemble.
-Contenu contrôlé le 21/09/2026 sur **tout l'historique** (`docs/scripts/scan_secrets_history.py`) :
-aucune valeur de secret réelle. Détail en §8.
+Dépôt **privé** (accès au propriétaire) : `https://github.com/Antoine-Thomas/hermes-home-vision` — il
+contient **tout** : le runtime Hermes (configuration, profils, skills, scripts) **et** sa documentation
+rangée sous `docs/`. Un seul `git clone` restaure l'ensemble.
+Visibilité : le dépôt a été trouvé **public** le 21/09/2026 alors que sa description annonçait
+« Privé » ; il a été **repassé en privé** le même jour, après un contrôle de **tout l'historique**
+(`docs/scripts/scan_secrets_history.py` — aucune valeur de secret réelle). Détail en §8.
 
 Version de référence : **Hermes Agent v0.21.3 (2026.9.14)**, upstream `97962358`.
 Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Windows natif, pas WSL).
@@ -26,6 +27,9 @@ Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Win
 Les deux versions sont **téléchargeables indépendamment**. La 1.1 n'est ni supprimée ni réécrite :
 `main` reste au commit `1f1f089`. Ce que la 1.2 change exactement — et ce qu'elle ne change pas — est
 détaillé dans [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md).
+
+**Branche par défaut du dépôt : `v1.2-ameliorations`** — la page d'accueil affiche donc ce README-ci.
+`main` reste la 1.1, intacte et téléchargeable.
 
 ### Installation rapide (1.2)
 
@@ -296,9 +300,12 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
   `huggingface_token: 0`, `pem_private_key: 0`, et **1 seul blob `sk_*` classé placeholder**
   (16 caractères, exemple pédagogique dans une référence de skill). Conclusion du script :
   `aucune valeur de secret reelle dans l'historique`.
+- **Visibilité remise en cohérence le 21/09/2026** : le dépôt a été trouvé **public** alors que sa
+  description annonçait « Privé » et que la règle ci-dessous proscrit une publication sans re-scan.
+  Il a été **repassé en privé** après l'audit ci-dessus, et sa description mise à jour.
 - Ne jamais rendre ce dépôt public sans re-scan : un dépôt privé n'est pas un coffre, tout ce qui y
-  entre reste dans l'historique. Ce contrôle a été fait **avant** la publication de la 1.2 et doit
-  être rejoué avant toute publication ultérieure.
+  entre reste dans l'historique. Ce contrôle a été rejoué le 21/09/2026 pour la 1.2 et doit être
+  rejoué avant toute publication ultérieure.
 
 ---
 

@@ -75,11 +75,11 @@ Le détail exact et vérifiable du diff est en §6, commande 2.
   `auth.json`, `*.pem`, `*.key`, `state.db*` sont ignorés par `.gitignore`, `.env.example` est le
   seul modèle versionné (noms de variables uniquement), le README §8 documente la purge
   d'historique par `git filter-repo`, et `docs/scripts/scan_secrets_history.py` sait scanner
-  **tout l'historique**. Ce qui manquait : ce contrôle n'avait pas été **rejoué** depuis le passage
-  du dépôt en public.
+  **tout l'historique**. Ce qui manquait : ce contrôle n'avait pas été **rejoué** alors que le dépôt
+  était **public** (écart détecté le 21/09/2026, corrigé le même jour).
 - **Après (1.2)** : audit rejoué sur l'intégralité de l'historique le **21/09/2026**, résultat
-  consigné dans `docs/CHANGELOG-v1.2.md` et ci-dessous ; plus aucune ambiguïté sur le fait que le
-  dépôt est public et que son contenu a été contrôlé.
+  consigné dans `docs/CHANGELOG-v1.2.md` et ci-dessous ; visibilité remise en cohérence (**privé**) et
+  description du dépôt mise à jour.
 - **Bénéfice** : évite la fuite d'une clé API ou d'un jeton Telegram dans un dépôt public — le
   risque exact que le README §8 signale.
 

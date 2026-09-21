@@ -31,15 +31,20 @@ Version documentaire : **aucune modification de comportement du runtime**. `conf
 - `README.md` — bandeau de version, section « Choisir sa version », section « Voir aussi » ;
   §8 « Sécurité » complété du résultat de l'audit du 21/09/2026 ; §9 « Documentation » complété des
   deux nouveaux documents. **Le contenu technique existant n'est pas réécrit.**
-- `README.md` (mention de visibilité) — le texte annonçait « Dépôt privé » alors que le dépôt est
-  **public** (vérifié : `gh repo view --json visibility` → `PUBLIC`). Formulation corrigée.
+- `README.md` (mention de visibilité) — complété : le dépôt a été trouvé **public** alors que sa
+  description annonçait « Privé » (vérifié : `gh api repos/... --jq .visibility` → `PUBLIC`).
+- **Visibilité du dépôt** — repassé en **privé** (`gh repo edit --visibility private`) et description
+  mise à jour (« Version courante : 1.2 »).
+- **Branche par défaut** — passée de `main` à `v1.2-ameliorations`, pour que la page d'accueil du
+  dépôt affiche le README de la 1.2. `main` n'est pas modifiée et reste la 1.1.
 
 ### Corrigé
 
 - Ambiguïté sur la « version » du dépôt : le README citait la version d'Hermes Agent (`v0.21.3`)
   sans qu'aucune version du dépôt n'existe. Le dépôt a désormais ses propres `1.1` et `1.2`.
-- Contrôle de sécurité jamais rejoué depuis le passage du dépôt en public : l'audit
-  `docs/scripts/scan_secrets_history.py` a été exécuté sur **tout l'historique** le 21/09/2026.
+- Contrôle de sécurité jamais rejoué alors que le dépôt était **public** : l'audit
+  `docs/scripts/scan_secrets_history.py` a été exécuté sur **tout l'historique** le 21/09/2026, puis
+  le dépôt a été repassé en privé — écart détecté et corrigé dans la même session.
   Résultat : `telegram_bot_token: 0`, `google_api_key: 0`, `github_token: 0`,
   `huggingface_token: 0`, `pem_private_key: 0`, et **1 blob `sk_*` classé placeholder**
   (16 caractères, exemple pédagogique dans une référence de skill). Aucun `.env`, `state.db` ou
