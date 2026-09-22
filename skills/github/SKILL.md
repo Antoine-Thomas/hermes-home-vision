@@ -135,3 +135,10 @@ Ready-to-use templates for common GitHub artifacts:
 - **Secrets encryption** via curl requires PyNaCl — `gh secret set` is dramatically simpler
 - **Branch protection APIs** require admin access on the repo
 - **Workflow dispatch** requires the workflow to have `workflow_dispatch:` trigger defined
+- **Never fork your own repo** — `gh repo fork` fails with *"A single user account cannot own both a parent and fork"* when the source repo is already on the authenticated account. Publish from a separate branch of that repo instead, keeping the original branch untouched.
+- **Deleting a tag attached to a published release silently turns that release into a Draft** — it vanishes from the public list. After re-creating the tag, republish explicitly: `gh release edit <tag> --draft=false`, then `gh release edit <tag> --latest`.
+- **`gh release edit <tag> --latest` fails with HTTP 422 *"Latest release cannot be draft or prerelease"*** — run `gh release list` first and publish any `Draft` entry before marking Latest.
+- **`has_wiki` from the REST API is unreliable** — it can report `false` while the wiki is live. Read the truth from GraphQL: `hasWikiEnabled`.
+- **`gh repo edit` resets `has_wiki` to `false`** — re-enable it with `gh api -X PATCH repos/<o>/<r> -f has_wiki=true` after any `gh repo edit` on a repo whose wiki matters.
+- **A repo's `.wiki.git` only exists after the first wiki page is created in the web UI** — there is no REST endpoint for wikis, so `gh repo clone <o>/<r>.wiki` returns *"Repository not found"* until then. Get that one click from the user, then push every page in one commit.
+- **`gh repo clone <url> C:\path\...` breaks under Git Bash** — backslashes are stripped and the clone lands in a directory literally named `C:Users<user>...`. Pass a forward-slash native path (`C:/Users/...`).

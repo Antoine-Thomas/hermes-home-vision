@@ -88,7 +88,9 @@ Livrable: `_analyse_redondance.md` avec tableau Avant/Après: umbrella (nom, por
 ### 4. Nettoyage
 - Supprimer `*.bak, *.old`, doublons avérés
 - Archiver (pas supprimer) via `hermes curator archive <name>` — déplace vers `.archive/` (dot, exclu du prompt) ET inscrit dans `.curator_suppressed` (anti re-seed des bundled). Ne JAMAIS utiliser `_archive/` (underscore) : non exclu du prompt, et `skills_sync` re-sème les bundled byte-identiques à chaque restart gateway.
-- Après archivage/consolidation majeure : forcer la régénération du prompt (snapshot stale). Supprimer `.skills_prompt_snapshot.json` et relancer les gateways : `rm -f "$LOCALAPPDATA/hermes/.skills_prompt_snapshot.json" && hermes gateway restart`.
+- **Snapshot de prompt : auto-invalidé par le manifest — ne le supprime pas par réflexe.** `.skills_prompt_snapshot.json` n'est réutilisé que si `version` **et** `manifest` (signature fichier de chaque `SKILL.md`/`DESCRIPTION.md` sous `skills/`) correspondent encore au disque (`agent/prompt_builder.py:_load_skills_snapshot`). Ajouter, retirer ou éditer un skill change le manifest ⇒ reconstruction au prochain prompt, sans redémarrage de gateway. Sonde lecture seule : `scripts/check_skills_snapshot.py [nom]`.
+- La suppression manuelle + `hermes gateway restart` ne se justifie donc que quand l'arbre `skills/` n'a **pas** bougé alors que le prompt doit changer — typiquement `skills.disabled` en config.yaml (aucun fichier touché) ou `.curator_suppressed`. Sonder d'abord, agir ensuite.
+- Après tout ajout/archivage : vérifier la détection par `hermes skills list | grep <name>` (colonne Status) **et** `skill_view(<name>)` (description lue, `linked_files` peuplé) — un skill copié mais jamais vu par `skill_view` est un skill mal placé.
 - Ne jamais archiver/supprimer une skill touchée dans les 7 derniers jours sans OK explicite
 
 ### 5. Consolidation (par umbrella validé)
@@ -180,7 +182,18 @@ committer en citant les fichiers touches.
 - Un umbrella = une classe de tâche, pas un sac de sessions — un `references/` par session est un échec de forme, pas un objectif.
 - Génère les SKILL.md router par liste de lignes + `'\n'.join()`, jamais par f-string triple-quotes — un f-string qui contient backticks et triple-quotes casse à la compilation ('unmatched delimiter'), et l'échec étant atomique, un rename/move écrit plus tôt dans le même script ne s'exécute pas non plus.
 
+## Adopter un skill tiers (vendor / GitHub)
+
+Un skill officiel de vendor arrive distribué pour Claude Code (`claude plugin marketplace add`, `npx skills add`) : ici c'est Hermes CLI, on l'installe à la main. Procédure, commandes et pièges : `references/third-party-skill-install.md`.
+
+- Vérifier l'amont (`git ls-remote <url>`) **avant** d'exécuter un plan d'installation dicté : un plan qui cite un dépôt inexistant invalide tout le reste.
+- `SKILL.md` amont **verbatim** ; surcouche locale appendue en fin de fichier, datée de la version + du commit amont ⇒ la mise à jour reste une recopie.
+- Fichiers d'adaptation en `references/` et `scripts/`, jamais à la racine du skill — la racine n'est pas exposée dans `linked_files`, un helper racine devient invisible pour les sessions suivantes.
+- Rejouer les chiffres du vendor (endpoint, latence, coût, ID de modèle) au lieu de les recopier : les docs/blog tiers se contredisent entre eux, la doc officielle du vendor tranche. Documenter la mesure, pas l'annonce.
+
 ## References
 
+- `references/third-party-skill-install.md` — adopter/adapter/mettre à jour un skill de vendor dans Hermes : vérif d'amont, clone en scratch, surcouche locale, emplacement des fichiers, détection, mesures à rejouer
+- `scripts/check_skills_snapshot.py` — sonde lecture seule : snapshot de prompt à jour ou non, et si un skill donné est bien vu sur disque
 - `references/consolidation-techniques.md` — techniques code-level : split verbatim par `##`, check de refs cassées sans faux positifs, génération de router SKILL.md, détection de doublons
 - `scripts/scan_references.py` — balayage lecture seule des citations `references|scripts|templates/*.md` des SKILL.md actifs : tableau skill/citation/statut/correction + liste des entrees d'inventaire perimees

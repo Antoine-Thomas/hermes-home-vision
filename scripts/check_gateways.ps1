@@ -21,6 +21,13 @@
 #   - veille  : seulement si sa tache existe, est ACTIVE, et que son .env porte
 #               TELEGRAM_BOT_TOKEN (sinon on relancerait un gateway sans plateforme pour rien)
 #
+# Processus hors gateway surveille par le meme healthcheck :
+#   - bot SurveillanceBot (tache \SurveillanceBot, PT5M). On CONSTATE et on alerte sur
+#     transition seulement : le relevage reste au tick PT5M de la tache. Le test porte sur
+#     le pwsh "-File ...\surveillance.ps1" (le wrapper wscript de l'action est ephemere).
+#     Le binaire de l'action est wscript.exe -> hidden_SurveillanceBot.vbs (voir skill
+#     windows-ops, section "Fenetre console qui flashe").
+#
 # Alertes : bot VEILLE en priorite, bot DEFAULT en second. Le bot default est actuellement
 # refuse par Telegram (403 "bot was blocked by the user"), d'ou cet ordre.
 #
@@ -48,8 +55,13 @@ $TaskName = 'Hermes_Gateway_HealthCheck'
 
 $Profils = @(
     [pscustomobject]@{ Nom = 'default'; StateFile = (Join-Path $HermesHome 'gateway_state.json');                         Tache = 'Hermes_Gateway';       Toujours = $true },
-    [pscustomobject]@{ Nom = 'watch';   StateFile = (Join-Path $HermesHome 'profiles\watch\gateway_state.json');        Tache = 'Hermes_Gateway_watch'; Toujours = $true },
+    [pscustomobject]@{ Nom = 'watch';   StateFile = (Join-Path $HermesHome 'profiles\watch\gateway_state.json');        Tache = 'Hermes_Gateway_watch'; Toujours = $false },
     [pscustomobject]@{ Nom = 'veille';  StateFile = (Join-Path $HermesHome 'profiles\veille\gateway_state.json');       Tache = 'Hermes_Gateway_veille'; Toujours = $false }
+)
+
+# Processus hors gateway : constat + alerte sur transition (pas de relevage ici)
+$Processus = @(
+    [pscustomobject]@{ Cle = 'surveillance_bot'; Libelle = 'bot SurveillanceBot'; Motif = 'surveillance\.ps1'; Tache = 'SurveillanceBot' }
 )
 
 function Write-Log([string]$message) {
@@ -100,10 +112,11 @@ function Send-Alerte([string]$texte) {
     ) | Where-Object { $_ }
     foreach ($token in $candidats) {
         try {
-            Invoke-RestMethod -Uri ("https://api.telegram.org/bot{0}/sendMessage" -f $token) -Method Post `
+            $rep = Invoke-RestMethod -Uri ("https://api.telegram.org/bot{0}/sendMessage" -f $token) -Method Post `
                 -Body @{ chat_id = $AlertChat; text = $texte; disable_web_page_preview = 'true' } `
-                -TimeoutSec 20 | Out-Null
-            return $true
+                -TimeoutSec 20
+            # message_id : seule preuve locale que Telegram a bien accepte l'alerte
+            return ("ok message_id={0} chat={1}" -f $rep.result.message_id, $AlertChat)
         } catch {
             continue
         }
@@ -225,6 +238,18 @@ foreach ($p in $Profils) {
         $alertes += "[$($p.Nom)] gateway mort, AUCUNE tache '$($p.Tache)' pour le relever"
         continue
     }
+    if ($tacheObj.State -eq 'Disabled') {
+        Write-Log ("[{0}] tache '{1}' DESACTIVEE : releve ignore (gateway volontairement arrete)" -f $p.Nom, $p.Tache)
+        $nouvelEtat[$p.Nom] = 'disabled'
+        continue
+    }
+    # Single-instance : tuer tout residuel du profil avant de relever (evite le conflit Telegram multi-poller)
+    if ($p.Nom -ne 'default') {
+        Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match "--profile $($p.Nom)" -and $_.CommandLine -match 'gateway\s+run' } | ForEach-Object {
+            Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue
+        }
+        Start-Sleep -Seconds 2
+    }
     try {
         Start-ScheduledTask -TaskName $p.Tache
         Write-Log ("[{0}] relevage lance : Start-ScheduledTask '{1}'" -f $p.Nom, $p.Tache)
@@ -243,6 +268,35 @@ foreach ($p in $Profils) {
     } else {
         Write-Log ("[{0}] ECHEC : toujours mort a T+{1}s (pid state={2})" -f $p.Nom, $ConfirmDelaySeconds, $pid2)
         $alertes += "[$($p.Nom)] gateway TOUJOURS MORT apres relevage (T+$ConfirmDelaySeconds s) - intervention requise"
+    }
+}
+
+# ---------------------------------------------------------------- processus hors gateway
+# Constat + alerte sur transition : le relevage est assure par le tick PT5M de la tache.
+foreach ($q in $Processus) {
+    $cle = $q.Cle
+    $tacheObj = Get-ScheduledTask -TaskName $q.Tache -ErrorAction SilentlyContinue
+    if (-not $tacheObj -or $tacheObj.State -eq 'Disabled') {
+        $raison = if (-not $tacheObj) { 'pas de tache planifiee' } else { 'tache desactivee' }
+        Write-Log ("[{0}] non surveille ({1})" -f $q.Libelle, $raison)
+        $nouvelEtat[$cle] = 'untracked'
+        continue
+    }
+
+    $procs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+        Where-Object { $_.CommandLine -and $_.CommandLine -match $q.Motif })
+    $vivant = $procs.Count -gt 0
+    $pids = (($procs | ForEach-Object { $_.ProcessId }) -join ',')
+    $nouvelEtat[$cle] = if ($vivant) { 'up' } else { 'down' }
+
+    if ($vivant) {
+        Write-Log ("[{0}] OK pid={1} vivant" -f $q.Libelle, $pids)
+        if ($deja.$cle -eq 'down') { $alertes += "[$($q.Libelle)] de nouveau VIVANT (pid $pids)" }
+    } else {
+        Write-Log ("[{0}] ABSENT : aucun process ne correspond a '{1}'" -f $q.Libelle, $q.Motif)
+        if ($deja.$cle -ne 'down') {
+            $alertes += "[$($q.Libelle)] MORT - la tache '$($q.Tache)' doit le relancer sous 5 min"
+        }
     }
 }
 
@@ -271,8 +325,9 @@ try { $nouvelEtat | ConvertTo-Json | Set-Content -Path $StatePath -Encoding UTF8
 
 if ($alertes.Count -gt 0 -and -not $DryRun) {
     $texte = "🔔 Gates: healthcheck Hermes $(Get-Date -Format 'dd/MM HH:mm')`n" + ($alertes -join "`n")
-    $ok = Send-Alerte $texte
-    Write-Log ("[alerte] {0} alerte(s) envoyee(s)={1}" -f $alertes.Count, $ok)
+    $res = Send-Alerte $texte
+    Write-Log ("[alerte] {0} alerte(s) -> {1}" -f $alertes.Count, $(if ($res) { $res } else { "AUCUN bot n'a accepte l'alerte" }))
+    Write-Log ("[alerte] texte envoye : " + ($alertes -join ' | '))
 } else {
     Write-Log ("[alerte] aucune transition d'etat, pas d'alerte")
 }

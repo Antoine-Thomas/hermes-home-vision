@@ -1,7 +1,7 @@
 ---
 name: talking-head-video-8gb
 description: "Vidéo talking-head sur GPU 8 Go : deux branches à ne jamais confondre — source vidéo (LatentSync + transfert passe-haut 4K) ou source photo (LivePortrait/SadTalker/Wav2Lip). À charger pour toute génération talking-head sur cette machine."
-version: "1.8.0"
+version: "1.9.0"
 author: Searching Murphy
 license: MIT
 tags:
@@ -72,6 +72,32 @@ levres (force du contour < 0,95x la source). Code de sortie : 0 OK, 1 ATTENTION,
 La video n'est **jamais** supprimee, meme en ALERTE : c'est volontaire, pour pouvoir la regarder.
 Un ALERTE sur les sauts a intervalles reguliers (ex. toutes les 51 s) designe les frontieres de
 segments LatentSync, pas un defaut de rendu. `V4_SANS_QUALITE=1` desactive le controle.
+
+## PORTE D'ENTREE UNIQUE — pipeline_talkinghead.py (consolide le 20/09/2026)
+
+Un volet complet se fabrique desormais avec UN script, qui enchaine les neuf etapes validees
+sur les volets 3, 4 et 5 (audit, fenetre, extraction, stabilisation, boucle, LatentSync, greffe
+HF, mesures, rapport + Telegram) :
+
+```
+C:\Users\searc\AppData\Local\hermes\data\video_youtube\pipeline_talkinghead.py
+```
+
+Lancer avec le python du venv LatentSync (`<racine>/venv/Scripts/python.exe`) ; le script se
+relance tout seul avec ce venv si `cv2` manque. `--plan` liste sans rien executer, `--depuis
+ETAPE` reprend apres une coupure, `--seulement ETAPE` ne fait qu'une etape, `--detache` lance
+LatentSync en tache de fond (obligatoire pour un run de plusieurs heures).
+
+Documentation complete (prerequis, commandes, pieges, fichiers de reference) :
+`data\video_youtube\PIPELINE_TALKINGHEAD_README.md` — c'est la porte d'entree a lire AVANT de
+lancer un volet. Ce skill reste la reference des regles ; le README est la reference des
+commandes.
+
+Verifie le 20/09/2026 en rejouant le rush du volet 5 (`talkinghead.mp4`, 227 frames 4K) :
+l'etape b designe bien la **frame 60** (composite 0,727 contre 0,700 pour la frame 0 que le
+critere naif choisissait), l'etape c coupe en `-c copy` (keyframe toutes les 30 frames), et
+l'etape d reproduit la mesure du volet 5 : **28,89 -> 11,56 px d'ecart-type vertical (−60,0 %)**
+avec Savitzky-Golay (7,2) et k=0,65, contre 28,86 -> 11,19 px (−61,2 %) a la main.
 
 ## TROIS BRANCHES A NE JAMAIS CONFONDRE
 
@@ -153,6 +179,48 @@ par image et 16,6 a 25,6 s par etape. Autrement dit 127 a 197 fois le temps reel
 3,5 minutes de GPU par seconde de video generee. La sortie contient une piste AUDIO (modele
 audio-video). Contenu verifie par mesure (ecart-type spatial 54 a 75, mouvement present) et non
 seulement par l'absence d'erreur.
+
+CORRECTION DU 22/09/2026 — LE COUT EST UN FORFAIT PAR CLIP, PAS PAR SECONDE. Trois rendus
+mesures le meme jour, memes reglages (640x384, 8 etapes, distilled, offload), duree de video
+triplee entre le premier et le troisieme :
+
+| frames | duree video | total | dont echantillonneur |
+|---|---|---|---|
+| 25 | 1,0 s | 170,6 s | 93 s |
+| 49 | 2,0 s | 150,8 s | 89 s |
+| 97 | 4,0 s | 161,1 s | 98 s |
+
+Le total ne bouge pas de plus de 10 % quand la video quadruple, et l'echantillonneur reste entre
+89 et 98 s (~11 a 12 s par pas, 8 pas) : le cout est domine par le rechargement du transformer de
+13 Go et son transfert dans 8 Go de VRAM, pas par le nombre d'images. Donc : annoncer un forfait
+d'environ 2,5 a 3 min par clip a cette resolution, et rappeler que la premiere execution apres le
+demarrage du serveur coute ~20 s de plus (lecture disque des 13 Go de GGUF et des 8,7 Go de
+Gemma). La projection « 2 a 3,5 minutes par seconde de video » ne vaut que pour les 25 premieres
+images ; ne pas la reprendre pour un clip plus long.
+
+WORKFLOW POUR L'INTERFACE (ajoute le 22/09/2026) : le graphe valide s'exporte au format API et
+s'importe dans l'interface ComfyUI (`isApiJson` -> `loadApiJson` du frontend), donc `ltx_test.py`
+n'est PAS le seul moyen de lancer une generation. `exporter_workflow_api.py` (dossier
+`ComfyUI-LTX`) tronque la source de `ltx_test.py` juste avant l'envoi HTTP et execute le reste :
+l'export est forcement identique a ce que le script envoie. Il ecrit
+`ComfyUI\user\default\workflows\LTX-2.3 GGUF 8 Go (valide).json`, visible dans la barre laterale.
+Verification sans navigateur : les 11 types de noeuds du fichier doivent tous figurer dans
+`GET /object_info` du serveur en cours, et le fichier doit etre servi par
+`GET /api/userdata/workflows%2F<fichier encode>` (un `/` NON encode ne matche pas la route
+aiohttp `/userdata/{file}` : le 404 ne veut pas dire que le fichier est absent ; la liste
+`GET /api/userdata?dir=workflows&recurse=true` est le controle le plus simple).
+PIEGE : le workflow deja present dans cette installation, `LTX-2.3 (workflow node pack).json`,
+n'est PAS la chaine GGUF — il reclame `ltx-2.3-22b-dev.safetensors` + `comfy_gemma_3_12B_it.safetensors`
+(une chaine 22B non quantifiee) et une quarantaine de Go absents. Le verifier en listant les
+noms de fichiers de modeles presents dans le JSON et en les cherchant sur disque avant de le
+proposer a l'utilisateur.
+
+`mesure_sortie.py` (dossier `ComfyUI-LTX`) mesure une sortie sans la regarder : ecart-type
+spatial par frame (image unie = generation ratee) et ecart moyen entre frames voisines (mouvement).
+Lui passer un chemin NATIF `C:/...` : un chemin MSYS `/c/...` fait echouer ffmpeg en silence et le
+script leve alors `cannot reshape array of size 0`, ce qui ressemble a un bug de mesure.
+`ltx_test.py` accepte un 6e argument (la graine), ce qui permet de rejouer un graphe sans
+retomber sur le meme prompt (cache de ComfyUI).
 
 ComfyUI v0.35+ integre LTX-2 dans son coeur (pas besoin de noeud pour le modele lui-meme),
 mais le README officiel de ComfyUI-LTXVideo annonce 32 Go de VRAM : sur 8 Go il FAUT passer
@@ -303,10 +371,18 @@ Un carré de 384px est INACCEPTABLE.
 
 ## Règle n°13  Voix off : qualité de diction
 
-XTTS-v2 avec temperature=0.75 donne une diction monotone et buggée.
-Utiliser temperature=0.85 minimum, et découper le texte en phrases courtes
-(< 150 caractères par segment). Pour les noms propres, ajouter une pause
-avec des virgules ou des points.
+La diction vient du TEXTE, pas de la temperature : **0,75 avec speed 1,0 est le reglage de
+livraison**, valide sur les volets 4 et 5, et on n'y touche pas. 0,85 et au-dela font trainer
+les mots et produisent des passages incomprehensibles — ce n'est PAS le remede a une diction
+monotone.
+Ce qui corrige reellement une phrase fautive : phrases courtes (< 150 caracteres par
+segment), noms propres isoles avec une pause (virgule ou point), et graphie phonetique
+tranchee par le labo de diction (regle 54).
+Mesure (volet 5) : `audio_youtube_v5.wav`, 873 mots, 343,8 s, 13 tranches, genere a 0,75 ->
+**12 tranches sur 13** a score Whisper >= 0,90 (la 13e a 0,88 : un simple « nvidia » mal
+orthographie). Le meme reglage sert en livraison et au labo, sinon le labo ne prouve rien.
+Source de verite : skill `tts-voice-cloning`, section XTTS-v2 — c'est lui qui porte les
+mesures de diction ; cette regle ne fait que le rappeler pour les montages video.
 
 ## Règle n°14  Dents non serrées
 
@@ -345,6 +421,10 @@ models/sd-vae/config.json et models/whisper/config.json.
 
 Le repo main est taillé pour 1.6 (aucun tag 1.5, setup_env.sh pointe sur -1.6).
 Poids 1.5 : ByteDance/LatentSync-1.5 (latentsync_unet.pt 5,07 Go + whisper/tiny.pt).
+VERIFIE LE 19/09/2026 : sur cette machine le checkpoint a en realite ete telecharge depuis
+`ByteDance/LatentSync` (depot principal, cache `models--ByteDance--LatentSync`, revision
+405eda8e..., 13/09 18:52) et non depuis `-1.5`. Ne jamais deduire la version du nom du dossier
+local : la lire dans le cache HuggingFace (regle 60).
 Sur 8 Go, utiliser obligatoirement configs/unet/stage2.yaml (resolution 256).
 configs/unet/stage2_512.yaml est la config 1.6 (512)  dépassement VRAM.
 Vérifié sur RTX 3070 Ti : sortie 1080x1920 + audio, aucun OOM.
@@ -415,7 +495,7 @@ Découper le script complet en morceaux de 100-150 caractères (29 morceaux pour
 ~3300 caractères donnent 305 s de voix). Chaque morceau XTTS se termine déjà par
 0,5-1,0 s de silence naturel (médiane 0,60 s) : ne PAS rajouter de padding, la
 concaténation `-c copy` est sans perte.
-temperature=0.85 (règle 13). Viser une DURÉE cible, pas un nombre de morceaux :
+temperature=0.75, speed=1.0 (règle 13). Viser une DURÉE cible, pas un nombre de morceaux :
 le nombre dépend du texte (une estimation à 70 morceaux pour 5 min est fausse).
 
 ## Règle n°28  MuseTalk : la perte de netteté est localisée au BAS du visage
@@ -699,7 +779,8 @@ mesurer le Laplacien d'une zone plate (mur, fond) et le comparer à la source.
 ## Règle n°54  Diction XTTS : valider chaque terme technique par aller-retour Whisper
 
 XTTS-v2 français déforme les termes techniques et le choix de graphie change tout. Méthode
-qui marche : générer une phrase courte par variante de graphie (temperature 0,87, speed 0,95),
+qui marche : générer une phrase courte par variante de graphie (temperature 0,75 et speed 1,0 —
+le reglage de livraison, jamais un autre),
 transcrire avec faster-whisper (small suffit), garder la graphie qui ressort correctement.
 Mesures volet 4 (P1002837) :
 
@@ -796,6 +877,491 @@ tête (seuil 3 % du RMS du segment) fait passer 287,9 s à 271,2 s et supprime l
 parasites (silences > 400 ms : 86 -> 49, total 50,8 -> 29,7 s).
 Vérifier au passage qu'il n'y a pas de clics : analyse échantillon à échantillon, max de
 |diff| comparé au p99 (0 clic ici) — le défaut n'était pas un clic mais des pauses.
+
+## Règle n°60  LatentSync : la version se lit dans le cache HuggingFace, pas dans le code
+
+`docs/changelog_v1.6.md` (ligne 5) : « *we did not make any changes to the model structure or
+training strategy […] the current code is compatible with both LatentSync 1.5 and 1.6. To switch
+between versions, you only need to load the corresponding checkpoint and modify the `resolution`
+parameter* ». La version vit donc dans le couple (checkpoint, resolution) : **1.5 -> 256,
+1.6 -> 512**. Le README (l. 108-111) annonce **8 Go** pour la 1.5 et **18 Go** pour la 1.6.
+PIEGE : `inference.sh` livre par defaut `--unet_config_path configs/unet/stage2_512.yaml`, ce qui
+fait croire a une 1.6 meme avec un checkpoint 1.5. Methode qui tranche : lire le nom du depot en
+cache, `ls ~/.cache/huggingface/hub/ | grep -i latentsync` (`models--ByteDance--LatentSync` =
+depot principal/1.5 ; `models--ByteDance--LatentSync-1.6` = 1.6). Le checkpoint ne porte AUCUN
+marqueur de version : 1 267 944 644 parametres, 4,723 Go fp32, 1246 tenseurs,
+`motion_modules...pos_encoder.pe` en (1, 24, 320) — identique dans les deux configs. Ne pas perdre
+de temps a l'inspecter pour trancher. Une demande « 1.5 @ 512 px » est contradictoire : le dire.
+
+## Règle n°61  LatentSync sort a la resolution de la SOURCE, pas en 256/512
+
+`restore_video()` (lipsync_pipeline.py l. 266-279) redimensionne le carre genere en BICUBIQUE a la
+taille du visage detecte, puis le recolle dans les images d'origine ; `write_video` ecrit ces
+images. Sur une source 4K la sortie est donc **3840x2160**. Consequence : demander « upscaler la
+sortie 256/512 a 4K » n'a pas de sens, c'est deja fait — et Real-ESRGAN ne peut pas restituer
+l'information detruite a 256 px. Ne pas fabriquer ce livrable : l'expliquer et fournir la mesure.
+
+Deux mecanismes a connaitre avant de preparer les entrees :
+  - l'audio est reechantillonne a 16 kHz tout seul (`read_audio` -> `AudioReader(sample_rate=16000,
+    mono=True)`) : un WAV 24 kHz mono passe sans conversion ;
+  - la video est TRONQUEE a la duree de l'audio (l. 307, `video_frames[:len(whisper_chunks)]`) :
+    5,43 s d'audio sur une source de 8 s donnent 137 frames a 25 fps, pas 200.
+
+## Règle n°62  LatentSync regenere TOUT le carre du visage, pas seulement la bouche
+
+Variance du Laplacien en 4K, source vs sortie, meme zone et meme instant :
+
+| instant | haut du visage | bas / bouche |
+|---|---|---|
+| 1,0 s | 46,9 -> 19,6 (x0,42) | 29,8 -> 4,9 (x0,16) |
+| 2,5 s | 64,4 -> 24,8 (x0,39) | 40,8 -> 5,0 (x0,12) |
+| 4,0 s | 60,9 -> 35,0 (x0,58) | 32,6 -> 4,7 (x0,14) |
+
+Le haut du visage n'est PAS epargne (x0,4 a x0,6) : le modele regenere le visage entier en 256 px
+et ce carre est ensuite etire a ~1072x1512 (~4-6x en bicubique). La perte la plus forte est en bas,
+mais conclure « seule la bouche est floue » est faux.
+Real-ESRGAN x4 sur le bas du visage fait passer la metrique de 5,0 a 10,6 : c'est un artefact de
+re-echantillonnage (la variance du Laplacien n'est pas comparable entre deux echelles), pas un
+detail retrouve.
+
+## Règle n°63  LatentSync 1.5 @ 256 px sur 8 Go : references mesurees (19/09/2026)
+
+Run complet, source 4K 25 fps, audio 5,43 s, `--inference_steps 20 --guidance_scale 1.5
+--enable_deepcache`, `stage2.yaml` :
+  - temps total **259 s** pour **5,48 s** de sortie, soit **47,3x le temps reel** ;
+  - 9 blocs de 16 frames a **13,93 s/bloc** (2 min 05 de denoising) ;
+  - **VRAM pic 7 800 / 8 192 Mio (95,2 %)** avec 3,6 Go deja pris par le bureau : marge ~390 Mio,
+    aucun OOM, aucun spill. Liberer le bureau avant un run long est donc conseille ;
+  - temperature GPU 70 degC max ; **aucun `nvlddmkm` ID 153, aucun `Kernel-Power` 41** ;
+  - sortie 3840x2160, h264 CRF 18 + AAC 16 kHz mono (l'audio est celui de l'entree).
+A annoncer : **~47 min par minute de video finale**, **~2 h 22 pour une video de 3 min**.
+Pour un run long, appliquer les regles 41 et 58 (segmentation, multiple du cycle ping-pong).
+
+## Règle n°64  MuseTalk : le chemin 4K est casse par le detecteur s3fd
+
+Mesure sur une frame 4K (RTX 3070 Ti) :
+  mmpose (DWPose) frame entiere .... 0,92 s
+  s3fd 1280x720 ................... 1,13 s
+  s3fd 1920x1080 .................. 1,92 s
+  s3fd 3840x2160 .................. 6,57 s
+`face_detection.FaceAlignment` (preprocessing.py l. 23) lance `net(imgs)` sur la frame
+ENTIERE puis boucle en Python pur sur tous les anchors (detect.py, `for Iindex, hindex,
+windex in poss`). En 4K : ~7,5 s/frame -> 25 min pour 200 frames, ET la boite est fausse :
+(1654,1147,2252,1721) au lieu de (1372,512,2444,2024) validee par insightface (a 1280 px on
+retrouve (1446,546,2385,1833)). Le vrai blocage est la VRAM : avec l'UNet 3,24 Go + VAE +
+whisper deja charges (7,5 Go/8 Go), le forward s3fd en 4K reclame des activations de
+plusieurs Go -> spill permanent et la 1re frame ne se termine jamais (2 nvlddmkm ID 153
+enregistres pendant ces tentatives).
+FIX minimal, 2 points d'appel (`get_bbox_range` l. 63 et `get_landmark_and_bbox` l. 104) :
+detecter sur une copie <= 1280 px puis remettre la boite a l'echelle. Landmarks de 200
+frames : ~65 s au lieu de >40 min. Reversible : `git checkout musetalk/utils/preprocessing.py`.
+
+## Règle n°65  Ne pas conclure « bloque » sur un log fige : mesurer le cout par frame
+
+tqdm vide bien son buffer en redirection (verifie : 447 -> 718 octets en 6 s). Un log fige ne
+prouve donc pas un blocage — mais l'inverse non plus. Un run a ete tue a tort a 38 min sur
+une intuition, alors qu'un bench d'une frame (0,92 s mmpose + 6,57 s s3fd) donnait 7,5 s/frame,
+soit 25 min pour 200 frames : le run etait a ~85 %. Toujours chronometrer UNE frame avec le
+meme code avant de conclure, et lancer MuseTalk avec `python -u` pour garder la visibilite.
+
+## Règle n°66  MuseTalk sur 8 Go : batch_size 4, sortie a la resolution de la source
+
+  - `--batch_size 4` : la regle 24 (7,7 Go a batch 8) ne laisse aucune place avec 2,5 Go de
+    bureau. Mesure a batch 4 : pic 7 854 / 8 192 Mio (95,9 %), 66 degC, run de 300 s pour
+    5,43 s de sortie (landmarks ~65 s, UNet 34 lots de 4, blending 135 frames).
+  - la sortie est a la resolution de la SOURCE (3840x2160 ici), pas en 256.
+  - l'audio de sortie garde le sample rate d'entree (24 kHz) ; LatentSync reechantillonne en 16 kHz.
+  - le nombre de frames suit les chunks whisper (135 frames pour 5,43 s a 25 fps), donc
+    legerement different de LatentSync (137) : ne pas s'etonner d'un decalage de 1 a 2 frames.
+
+## Règle n°67  A 4K, LatentSync 1.5 et MuseTalk v1.5 sont a egalite (contredit la regle 40)
+
+Meme source 4K, meme audio, meme cadrage, variance du Laplacien :
+  haut du visage : LatentSync 29,6 / 37,8 / 50,4  vs  MuseTalk 32,3 / 36,7 / 48,4  -> egalite
+  bas / bouche   : LatentSync  4,9 /  5,0 /  4,7  vs  MuseTalk  4,6 /  4,4 /  4,2  -> +5 a +12 % LatentSync
+  source 4K      : haut 53,9 / 74,6 / 70,6, bas 29,8 / 40,8 / 32,6
+La regle 40 (« LatentSync 3,8x plus net que MuseTalk sur la bouche ») avait ete mesuree a
+**720p natif** : le carre 256 n'y est etire que ~2,8x, contre ~6x en 4K. La resolution de la
+source change le classement — c'est un parametre, pas un detail.
+RESERVE a enoncer systematiquement : les debits ne sont pas comparables (source 123 Mbps,
+LatentSync 29,4 Mbps, MuseTalk 8,9 Mbps). Une part de l'ecart mesure est de la compression,
+pas du modele. Pour trancher, la planche visuelle, pas la metrique seule.
+
+## Règle n°68  Greffe hautes frequences sur une sortie 4K : masque `face`, alpha 0,7
+
+`sortie = clip(genere + alpha * (source - flou(source)) * masque, 0, 255)`. La regle 53
+decrit un transfert PLEIN CADRE : c'etait juste pour le volet 4, dont TOUTE l'image venait
+d'un upscale 720p. Sur une sortie talkie, le FOND est de la vraie 4K — y ajouter du
+passe-haut ne restaure rien, ca sur-accentue. **Masquer sur le visage (mask `face`) est le
+choix par defaut ici**, et c'est verifiable : le bloc 128x128 le plus texture du fond
+(sigma 54,6) reste a 0,72 / 0,60 / 0,67 **a tous les alpha** (contre 0,71 / 0,63 / 0,69 pour
+la sortie brute), et le bloc le plus plat reste a 0,00 = aucun bruit ajoute.
+
+Balayage alpha mesure sur LatentSync (blur 5), amplitude du passe-haut du haut du visage
+(sigma(rendu)/sigma(source), 1,00 = la source) :
+
+| instant | brut | a0,3 | a0,5 | **a0,7** | a1,0 |
+|---|---|---|---|---|---|
+| 1,0 s | 0,78 | 0,84 | 0,89 | 0,95 | 1,06 |
+| 2,5 s | 0,76 | 0,81 | 0,87 | 0,92 | 1,04 |
+| 4,0 s | 0,88 | 0,95 | 1,00 | 1,07 | 1,19 |
+| moyenne | 0,81 | 0,87 | 0,92 | **0,98** | 1,10 |
+
+**alpha = 0,7** est le bon compromis : c'est le seul qui ramene l'amplitude sur celle de la
+source sans la depasser (0,98 de moyenne). A 1,0 on est au-dessus (1,10-1,19) et la
+correlation des levres double (0,19 -> 0,34), donc plus de texture posee au mauvais endroit.
+Gain reel a 0,7 : haut du visage x1,2 en amplitude, bouche x2,1 en variance (4,8 -> 9,6 pour
+une source a 29,8-40,8), correlation du haut du visage 0,61 -> 0,66 : du detail REEL, pas du
+bruit fabrique. `blur 5` (noyau 5x5) est le bon reglage ; sigma derive du ksize.
+CE QUE CA NE FAIT PAS : la correlation ne monte que de 0,60 a 0,64-0,74, donc on ajoute du
+detail correle a la source mais on n'invente pas ce que le 256 px a perdu — la geometrie du
+visage reste celle du modele.
+
+## Règle n°69  MuseTalk : greffer le BAS du visage seulement, et proteger les levres
+
+MuseTalk ne regenere que le bas du visage ; sa moitie haute est la vraie 4K, qui n'a perdu
+que ce que l'encodeur a mange (amp 0,76-0,86, et son fond tombe meme a 0,46-0,50 vu son debit
+de 8,9 Mbps). Y greffer du passe-haut remonte l'amplitude a 1,04 mais **sur-accentue une zone
+qui n'a pas ete regeneree**. Options du script : `--haut-exclu 0.5` (avec rampe verticale
+douce, pas de coupe franche) et `--lips-guard 1.6`.
+
+| variante | amp. haut | amp. bouche | corr. levres |
+|---|---|---|---|
+| MuseTalk + HF, mask=face | 1,01 | 0,49 | 0,08 / 0,13 / 0,28 |
+| MuseTalk + HF, bas + garde levres | 0,83 | 0,46 | **-0,00 / -0,01 / -0,00** |
+
+La garde des levres ramene la correlation dans les levres a ZERO (les levres generees ne sont
+plus touchees) et la bouche ne perd presque rien (0,46 contre 0,49) : c'est la variante a
+preferer pour ne pas risquer la synchronisation labiale. Utiliser `mask=face` quand on veut
+une comparaison a armes egales avec LatentSync, `bas + garde levres` quand on livre.
+Localisation des levres : points **52-71** du modele 106 points d'insightface (verifie :
+0-24 = contour du visage, 72-86 = nez, 87-105 = yeux). Ne pas deviner ces indices.
+
+## Règle n°70  Verifier l'alignement source/sortie AVANT de greffer quoi que ce soit
+
+Risque n°1 (regle 57) : si la sortie ne correspond pas a la source au meme index, la greffe
+injecte la texture du mauvais instant et cree des halos. Controle a faire en premier :
+chercher dans +/-3 px le decalage du FOND qui minimise l'ecart moyen avec la source, sur une
+bande hors visage, pour 5 frames reparties. Mesure du 19/09 : meilleur decalage **(+0,+0)**
+partout, ecart 1,35-1,52 (LatentSync) et 1,40-1,48 (MuseTalk) en niveaux de gris, soit le
+codec seul. Si le meilleur decalage n'est pas (0,0), s'arreter : le probleme est en amont
+(duree d'audio, boucle ping-pong de la source, frames de depart), pas dans la greffe.
+
+## Règle n°71  Post-traitement video ffmpeg : trois pieges qui coutent un run entier
+
+  - **`-shortest` coupe la video sur l'audio.** La sortie de LatentSync est en 137 frames
+    (5,48 s) mais son audio dure 5,43 s : avec `-shortest` la video ressort en **133 frames**
+    et on perd les dernieres. Utiliser `-frames:v N` (N = nombre de frames du modele) et
+    copier l'audio sans `-shortest`. Toujours re-verifier `nb_frames` de la sortie.
+  - **Ne pas melanger `os.chdir()` et des chemins relatifs.** Le script fait `os.chdir()`
+    pour importer latentsync : tout chemin relatif fourni en argument devient invalide en
+    cours de route (symptome : ffprobe passe puis `Error opening input file`). Convertir tous
+    les arguments en absolu des le debut avec `os.path.abspath`.
+  - **Ne jamais ecrire un cache de detections vide**, sinon le run suivant le recharge et
+    croit avoir 0 visage (le log disait `detections : 0/0`). Leve une erreur si
+    `ok.sum() == 0` au lieu de sauvegarder.
+Pour le reste : pipe `rawvideo` + `bgr24` (jamais cv2.VideoCapture en 4K), et les
+`Broken pipe` des decodeurs a la fermeture sont normaux (regle 51).
+
+## Règle n°72  Source « vivante mais molle » : scanner le visage frame par frame AVANT de lancer
+
+Une source avec du mouvement (tête qui bouge, regard qui descend) est le cas normal des
+rushes réels, et c'est exactement ce qui casse le pipeline. **LatentSync exige un visage sur
+CHAQUE frame** : une seule frame sans visage → `RuntimeError: Face not detected` après une
+minute de chargement. MuseTalk tolère un trou, LatentSync non.
+
+Procédure : détecter le visage sur TOUTE la vidéo (insightface buffalo_l, `det_size=512`,
+frame pleine résolution = exactement ce que fait LatentSync), écrire un JSON par frame
+(ok, det_score, centre, taille), puis ne garder que les fenêtres de N frames **sans aucun
+trou** et les classer par score de détection, distance du centre du visage au centre image, et
+stabilité (écart-type du centre). Mesuré sur un rush de 511 frames : 13 frames sans visage
+(2,5 %), toutes concentrées dans la zone « tête baissée » — et la fenêtre suggérée à l'œil
+tombait pile dedans. La meilleure fenêtre (celle qui a 2,3x moins de mouvement et un visage
+plus gros) n'était PAS celle qu'on aurait choisie à vue de nez.
+
+Coût du scan : ~22 s pour 511 frames 4K. À faire systématiquement : c'est moins cher que
+n'importe quel run raté.
+
+## Règle n°73  Préparer un segment : vérifier les KEYFRAMES avant de choisir la coupe
+
+`ffmpeg -ss <t> -c copy` découpe sur la keyframe précédente, pas sur l'image demandée : le
+résultat dépend donc entièrement de la structure GOP du rush. Contrôle préalable obligatoire :
+
+```
+ffprobe -v error -select_streams v:0 -show_frames -show_entries frame=pts_time,key_frame -of csv=p=0 FICHIER
+```
+
+**Cas 1 — GOP régulier (mesuré : 30 frames, une keyframe toutes les 1,2 s).** Les frames
+0/30/60/90/… sont copiables telles quelles. Il faut donc **choisir une fenêtre qui démarre sur
+une keyframe** : la coupe est alors sans **aucun** réencodage, ce qui est gratuit en qualité.
+Le vérifier par md5 plutôt que le supposer — extraire la frame 0 du segment et la frame N de la
+source, et comparer les deux images :
+
+```
+ffmpeg -y -v error -i source_v3.mp4 -vf "select=eq(n\,0)" -vsync 0 -frames:v 1 a.png
+ffmpeg -y -v error -i rush.mp4     -vf "select=eq(n\,60)" -vsync 0 -frames:v 1 b.png
+md5sum a.png b.png     # identiques = coupe a l'image pres, zero perte
+```
+
+Choisir un début « propre » qui n'est pas une keyframe coûte forcément un réencodage : sur un
+rush de 4K à 84-88 Mb/s, `crf 14` coûte 0,5-0,75 niveau de gris d'écart moyen (mesuré). C'est
+acceptable mais évitable, donc chercher la keyframe d'abord et ne réencoder qu'en dernier
+recours.
+
+**Cas 2 — keyframe unique (à t=0)**, rencontré sur deux autres rushes : `-c copy` démarre alors
+bien avant l'instant demandé et le fichier sort avec le mauvais nombre de frames (156 au lieu de
+136 dans le cas mesuré). Réencoder en `-ss` **avant** `-i`, avec `-frames:v N` :
+
+```
+ffmpeg -ss 8.0 -i source.mp4 -frames:v 136 -t 5.44 -c:v libx264 -crf 14 -preset slow -pix_fmt yuv420p source_v2.mp4
+```
+
+**Dans les deux cas**, vérifier ensuite que la coupe est exacte : détecter le visage sur le
+segment et comparer centre/hauteur moyens à ceux de la source complète sur la même plage. Ne
+jamais supposer la précision d'un `-ss`.
+
+**PIEGE ffprobe, mesure le 20/09/2026 : `-show_entries frame=pts_time,key_frame` renvoie en
+realite `key_frame,pts_time`** (`1,0.000000` puis `0,0.040000`). Un comptage fait sur la
+derniere colonne annonce donc **0 keyframe** sur un GOP regulier — de quoi reencoder pour rien
+ou croire a une keyframe unique. Parser les deux champs par leur FORME (l'entier 0/1 d'un cote,
+le flottant de l'autre), jamais par leur position ; c'est ce que fait `keyframes()` du pipeline.
+Controle de coherence qui tranche en une seconde : sur `talkinghead.mp4` (4K, 25 fps, 227
+frames) le GOP est de **30 frames** (keyframes 0, 30, 60, ... 210), donc les fenetres 0 et 60
+sont copiables telles quelles et la 58 ne l'est pas.
+
+## Règle n°74  Greffe HF : alpha dépend de la NETTETÉ DE LA SOURCE (0,7 nette / 1,0 molle)
+
+L'alpha optimal n'est pas une constante : c'est celui qui ramène l'amplitude du passe-haut
+sur celle de la source sans la dépasser. Il dépend donc de la quantité de hautes fréquences
+que la source contient réellement.
+
+| | source nette (audit 191) | source molle (audit 79) |
+|---|---|---|
+| variance du Laplacien, haut du visage | 54,0 | **11,4** |
+| passe-haut moyen de la source | — | **0,74 niveau** |
+| bruit de réencodage des sorties | — | **1,4 niveau** |
+| amplitude max atteignable | 1,00 dès alpha 0,7 | **0,92 à alpha 1,0** |
+| alpha retenu | **0,7** | **1,0** |
+| corrélation du haut du visage après greffe | 0,64-0,74 | 0,28-0,43 |
+| netteté récupérée | — | 89 % (LatentSync), 83 % (MuseTalk) |
+
+**Sur une source molle, le passe-haut transférable est du même ordre que le bruit des
+encodeurs** : la corrélation reste basse (0,28-0,43 au lieu de 0,64-0,74), et aucun alpha
+n'atteint l'amplitude de la source. Le critère « netteté / pas d'halo » se tranche alors sur
+la netteté seule : l'écrêtage mesuré est nul à tous les alpha (0,0000 à 0,0012 % des pixels)
+et l'amplitude ne dépasse jamais la source, donc rien ne justifie de doser moins. La
+greffe rattrape la netteté perdue par le modèle, elle ne rattrape pas la mollesse du tournage.
+Contrepartie à annoncer : la corrélation dans la bouche monte (0,05 → 0,24), du fait de la
+règle 57. Toujours livrer 2-3 doses et laisser l'œil trancher.
+
+## Règle n°75  Mesurer une modification sous le bruit du codec : le décalage DC du réencodage
+
+Comparer deux vidéos réencodées en soustrayant les frames extraites **ne mesure pas** la
+modification : x264 introduit un **décalage DC systématique** entre deux encodages du même
+contenu (mesuré : **-1,55 niveau** de moyenne signée, écart-type 1,09, constant sur toute
+l'image, hors zone modifiée). Un décalage constant ne crée pas de hautes fréquences, mais il
+écrase complètement la mesure : la dose réelle de la greffe était de 0,23-0,76 niveau, contre
+1,55 de décalage. Symptôme typique : des chiffres **identiques à tous les alpha** alors que la
+dose varie de 3x. Si ça arrive, la mesure ne mesure pas ce qu'on croit.
+
+La méthode juste : calculer la dose **analytiquement**, sans passer par les vidéos
+(`out = clip(brut + alpha*HF)`), et mesurer ainsi le vrai effet et le vrai écrêtage. Mesuré
+sur la zone visage : 0,227 / 0,379 / 0,531 / 0,758 niveau de dose moyenne pour alpha
+0,3/0,5/0,7/1,0, correspondant à une variance du Laplacien de 7,27 / 9,01 / 11,59 / 17,00
+contre 6,20 sans greffe. Autrement dit : **0,23 niveau de modification suffit à faire monter
+la variance du Laplacien de 17 %**. La variance du Laplacien est très sensible aux ajouts de
+hautes fréquences ; les deux mesures sont vraies et ne répondent pas à la même question —
+livrer les deux.
+
+## Règle n°76  La greffe HF ne vaut que ce que la source vaut : prévoir la corrélation avant de lancer
+
+La corrélation mesurée après greffe (fidélité du détail transféré, règle 57) **suit la netteté de
+la source**. Trois sources mesurées avec le même pipeline et le même script :
+
+| source | netteté source (var. Laplacien, haut) | corrélation haut après greffe | corrélation bouche | amplitude atteinte |
+|---|---|---|---|---|
+| propre, studio | 54,0 | 0,64-0,74 | 0,22 | 1,00 dès alpha 0,7 |
+| correcte, 4K téléphone | 21,2 | **0,53-0,61** | **0,45-0,52** | 1,08-1,17 à alpha 1,0 |
+| molle, floue | 11,4 | 0,28-0,43 | 0,16-0,26 | 0,92 au mieux à alpha 1,0 |
+
+Règle pratique : **au-dessus de ~20 de variance, la greffe restitue du vrai détail (corrélation
+~0,6) ; sous ~12, elle ajoute surtout un passe-haut faiblement corrélé (~0,3)**, c'est-à-dire un
+accentuation qui peut ressembler à du bruit. Avant de lancer, mesurer la netteté de la source
+(variance du Laplacien sur le haut du visage, zone de hf_rapport.py) et annoncer la corrélation
+attendue : c'est le meilleur prédicteur de la qualité finale, et il ne coûte qu'un ffprobe.
+
+Corollaire : quand une source est molle, **le premier levier n'est pas de régler la greffe, c'est
+de tourner plus net**. Ne pas promettre une restauration que la greffe ne peut pas produire.
+
+Deux limites qui persistent même avec une bonne source : la bouche régénérée reste à ~55 % de la
+netteté de la source (le modèle la lisse, la greffe ne peut pas inventer ce qu'il n'a pas
+produit), et l'amplitude peut légèrement dépasser 1,0 à alpha=1,0 (mesuré 1,08-1,17) —
+alpha≈0,85 la ramène pile à 1,0 si l'on veut une dose strictement neutre.
+Confirmation du 20/09/2026 (source 1080p 25 fps, volet 5) : variance du haut du visage 17-18,
+corrélation après greffe 0,59-0,61 (haut) et 0,41-0,51 (bouche), amplitude 1,11-1,18 à alpha 1,0 —
+même classe que la ligne « correcte » du tableau, fond inchangé (plat 0,55-0,61 → 0,55-0,59).
+
+## Règle n°77  Choisir la fenêtre par SCORE COMPOSITE NORMALISÉ, jamais par un critère dominant
+
+Sur un rush réel, les critères de sélection n'ont pas la même dynamique. Mesuré sur un clip de
+227 frames : la stabilité du visage ne variait que de 45 à 58 px et le centrage de 107 à 143 px,
+alors que la netteté variait **du simple au double** (9,2 à 21,4) selon la seconde.
+
+Conséquence : classer les fenêtres par « centrage + 2×stabilité » (critère suffisant sur une
+autre source) plaçait en tête les frames 0-9, c'est-à-dire **la partie la plus molle du clip**.
+La fenêtre retenue in fine (frame 60) était à 0,727 de composite contre 0,700 pour celle que ce
+critère désignait — et elle était **la plus nette du clip**.
+
+Méthode : normaliser chaque critère en 0-1 sur l'ensemble des candidats, puis combiner
+netteté 0,40 / stabilité 0,25 / centrage 0,20 / mouvement inter-frame 0,15, avec un bonus de
+0,10 pour une fenêtre qui démarre sur une keyframe (règle 73). Afficher le classement complet,
+ne retenir que ce qui est sans trou de visage, et **relire les 8 fenêtres les plus nettes** avant
+de trancher : si elles sont groupées dans une même seconde, c'est là qu'est la bonne matière.
+
+## Règle n°78  Stabiliser le mouvement vertical : SUIVRE le visage, pas retirer les basses fréquences
+
+Modèle qui marche (mesuré, écart-type vertical du centre du visage 28,86 → 11,19 px, soit −61,2 %) :
+
+```
+s(t) = k * lissage(y(t) - moyenne)      y_sortie(t) = y(t) - s(t)
+```
+
+Erreur à ne pas refaire : `s = k * (y - lissage(y))` (retirer les basses fréquences au lieu de
+suivre le visage). Deux symptômes mesurés, tous les deux rédhibitoires : le cadrage suit le bruit
+du détecteur à **15-38 px/frame** (le fond flotte) et le décalage saute de **42 à 90 px** à chaque
+jonction de boucle — 55 faux raccords sur 5 minutes.
+
+Points de méthode, tous vérifiés par balayage :
+
+- **Signal pilote : la moyenne des 4 repères yeux+bouche**, pas la bbox. La bbox est plus bruitée
+  (elle bouge avec la pose) et son bruit se retrouve injecté dans le cadrage.
+- **Filtre : Savitzky-Golay (7, 2) plutôt qu'un gaussien.** Un gaussien écrase les vrais
+  mouvements rapides, donc le décalage sous-estime le mouvement et la réduction plafonne (55,8 % à
+  sigma 2 contre 65,0 % sans filtre). Mesurer la vitesse du cadrage plutôt que la supposer.
+- **k = 0,65** avec un recadrage 3456x1944 → 3840x2160 : le zoom de recadrage (1,111) amplifie le
+  mouvement résiduel d'autant, donc viser la cible APRÈS zoom ((1-k) × zoom = 0,39 → −61 %).
+- **Coût du recadrage** : 11 % de champ et un agrandissement Lanczos de 11 % → netteté inchangée
+  sur le haut du visage (×1,002) mais −9 % sur la zone bouche. À annoncer, pas à cacher.
+- **Vitesse du cadrage** : viser ~2 px/frame en médiane. Un pic à 20 px/frame est acceptable s'il
+  tombe pendant un vrai déplacement de la tête (mesuré : jusqu'à 38 px/frame, frames 39-51) : le
+  cadrage est alors synchrone avec le sujet, comme un cadreur qui suit.
+
+**Les repères pris séparément baissent moins que le centre (44 % contre 61 %) — c'est normal, pas
+un échec.** Un recadrage retire exactement le mouvement COMMUN (la translation). Ce qui reste sur
+les yeux et la bouche est l'animation du visage, qu'il faut conserver. Preuve à produire : la
+corrélation yeux/bouche tombe de **+0,78 à −0,15**, la composante rigide a disparu.
+
+**Ne jamais comparer un écart-type mesuré à deux résolutions.** La même vidéo donne 11,19 px en 4K
+et 5,62 px en 1080p : le détecteur est plus bruité en 4K. Toute comparaison avant/après ou
+boucle/source doit se faire à résolution égale, sinon on croit à une amélioration qui n'existe pas.
+
+## Règle n°79  Boucler 5 s sur 5 min : seul le CHOIX DES POINTS DE COUPE fonctionne
+
+Métrique de référence à calculer d'abord : l'écart moyen (niveaux de gris, absolu) entre deux
+frames **consécutives** de la source. Mesurée ici à **2,90**. Une jonction du même ordre est
+invisible, 3× se voit, 5× se voit clairement. C'est ce chiffre qui rend les stratégies comparables
+autrement qu'à l'œil.
+
+Résultats mesurés (source stabilisée de 136 frames, cycle visé 300 s) :
+
+| stratégie | pire jonction | × référence | verdict |
+|---|---|---|---|
+| segments réordonnés, ordre optimisé | 3,80 moyen / 9,89 pire | 1,3× / 3,4× | retenu |
+| ping-pong | 2,97 | 0,93× | raccord parfait mais mouvement inversé |
+| ralentissement 0,85 | 15,35 | 5,28× | inutile |
+| boucle simple | 15,35 | 5,28× | témoin |
+
+- **Réordonner des segments uniformes dégrade tout** : l'ordre qui minimise les écarts est l'ordre
+  naturel (les jonctions internes redeviennent de vraies transitions). Ne pas croire que
+  « mélanger les segments » masque la répétition — ça ajoute des coupes.
+- **Ce qui paie : choisir les points de coupe là où les frames se ressemblent** (recherche locale
+  sur les positions de début, avec un espacement minimal imposé pour interdire les segments quasi
+  identiques : sinon l'optimiseur propose un bégaiement). Gain mesuré : 9,89 au lieu de 15,35.
+- **Le prix à annoncer** : un cycle plus court répète plus souvent (3,68 s au lieu de 5,44 s).
+- **Ping-pong : écarté pour un talking head.** Le raccord est pixel-parfait mais la bouche repart en
+  arrière deux fois par cycle — un visage qui parle à l'envers se repère immédiatement.
+- **Ralentir n'apporte rien** : la dernière frame et la première n'ont pas changé, donc la jonction
+  de fin de cycle reste identique ; et la synchro labiale dérive de 15 % sans jamais se rattraper.
+- **Vérifier sur le fichier RENDU, pas sur le plan** : 9,89 prévu → 9,82 mesuré, mais l'écart peut
+  être plus grand selon le réencodage. Comparer la jonction à la frame qui la suit dans le fichier.
+- **Cout de la recherche : precalculer la MATRICE des ecarts une fois.** Une descente locale qui
+  recompare deux images entieres a chaque candidat fait ~160 000 comparaisons (mesure : plus de
+  7 minutes pour 136 frames). En calculant une fois `M[i][j] = |frame_i - frame_j|` sur les
+  vignettes 480x270 (n boucles vectorisees sur n frames, quelques secondes), la descente ne fait
+  plus que lire la matrice. Lisser la mesure finale, elle, sur les frames pleine resolution :
+  c'est ce chiffre-la qui est annonce a l'utilisateur.
+
+## Règle n°80  LatentSync sur une longue durée : le mur est la RAM système, pas la VRAM
+
+Mesure du 20/09/2026 sur 343,88 s de sortie 1080p (8 600 frames, source 1080p, 8 Go de VRAM) :
+**14 h 17** au lieu des 4 h 30 annoncés par la règle 63, soit **149,6x le temps réel** contre 47,3x,
+et **3,2x la projection**. LatentSync décode TOUTE la vidéo en mémoire : 8 600 frames de
+1920x1080x3 ≈ 53 Go théoriques, **49,0 Go observés** sur le processus. Sur 64 Go de RAM il ne
+restait que **2,6 Go libres** et le fichier d'échange était à **39 Go sur 82** : la machine a
+paginé pendant quatorze heures, et la cadence est passée du nominal à **116-127 s/it**.
+
+Preuve du lien de cause à effet : libérer 2 Go de RAM et 550 Mio de VRAM (fermeture d'un éditeur
+vidéo pendant le run) suffit à faire passer la cadence de **127,4 à 116,0 s/it** (−8,9 %), sans
+rien changer au modèle. La cadence suit l'état de la mémoire, pas la charge du modèle.
+
+**Conséquence : la projection 47,3x mesurée sur un clip de 5,48 s NE s'extrapole PAS.** Au-delà
+d'une minute de sortie, segmenter (règles 41 et 58) : c'est le seul levier qui ramène la RAM par
+run à quelques gigaoctets. Avant de lancer, vérifier l'espace du fichier d'échange et fermer les
+applications lourdes — la différence se compte en heures.
+
+## Règle n°81  Notifier un run long : texte sans chevron, et lire la BONNE barre de progression
+
+Deux bugs indépendants ont rendu un moniteur muet pendant 14 h, au point que le run a été déclaré
+arrêté à tort :
+
+  - **`parse_mode=HTML` sur un texte qui contient l'ETA de tqdm** (`01:55<00:00 restant`) : le `<`
+    brut ouvre une balise et Telegram rejette TOUT le message en `HTTP Error 400: Bad Request`.
+    Seul un message sans chevron passe. Envoyer sans `parse_mode` (ou échapper), et **tester le
+    premier envoi** : un canal cassé ressemble exactement à un run mort.
+  - **Un motif de lecture qui prend la DERNIÈRE barre tqdm vue** attrape la barre intérieure
+    (« Sample frames: 16 », ~21 fois par itération) au lieu de la barre extérieure
+    (« Doing inference... », une fois). Le pourcentage affiché oscille alors (55 %, 100 %) sans
+    rapport avec la progression réelle. Ancrer le motif sur le **libellé de la boucle extérieure**.
+  - **En run segmenté, la barre repart de 0 à chaque tranche** : lire en plus les lignes
+    `=== segment i/N ===` du script de tranches, sinon le pourcentage affiché recule de 100 à 0
+    huit fois de suite (le moniteur affiche « tranche : 3/8 » et un avancement global).
+  - **Tuer l'ARBRE de processus à l'arrêt d'urgence.** En run segmenté, l'enfant du moniteur est
+    le script de tranches et le processus d'inférence est son petit-fils : un `proc.kill()` laisse
+    le GPU occupé alors que le rapport annonce l'arrêt. `taskkill /PID <pid> /T /F`.
+
+Et un défaut de conception : un watchdog qui surveille la vivacité du moniteur reste muet si tous
+les envois échouent. Le watchdog doit vérifier le **canal** (dernier envoi réussi), pas seulement
+le processus. Parade retenue : un alerteur séparé qui lit le **log** (source fiable), écrit du
+texte sans chevron, et ne parle qu'à +3 % de progression ou après 45 min.
+
+**Correctif applique le 20/09/2026** (un seul moniteur, generique, dans
+`LatentSync\tests\surveiller_latentsync.py` ; `v4_talking_head_v5\surveiller_latentsync_v5.py`
+n'est plus qu'un lanceur qui conserve l'invocation historique) :
+
+  - envoi **sans `parse_mode`**, apres retrait de nos propres balises — le chevron de l'ETA
+    traverse intact, ce qui est desormais le controle que le canal fonctionne :
+    `venv\Scripts\python.exe tests\tester_moniteur.py --envoi-reel` doit journaliser `OK HTTP 200` ;
+  - lecture ancree sur `^\s*(?P<libelle>[^:]+):\s*(?P<pct>\d+)%\|...` avec le libelle exige
+    `Doing inference` : la barre `Sample frames: 16:` ne peut pas matcher (un libelle ne contient
+    pas de `:`), donc plus d'oscillation 0-100 % ;
+  - **chaque** envoi est journalise (`envois_<volet>.log`, une ligne par envoi) et un envoi
+    reussi ecrit `dernier_envoi_<volet>.json` — c'est le battement de coeur qu'un watchdog
+    externe doit lire, au lieu de surveiller la vivacite du processus.
+
+  - `--commande-json FICHIER` fait surveiller un run SEGMENTE (`run_latentsync_segments.py`) au
+    lieu de l'inference simple : meme surveillance GPU, meme statut, progression par tranche ;
+  - l'arret d'urgence tue l'arbre de processus (voir ci-dessus) : sans ca, un arret en run
+    segmente laisse l'inference tourner.
+
+Tests sur cas fictifs, sans GPU et sans relancer LatentSync, a relancer apres toute modification
+du moniteur :
+  - `tests\tester_moniteur.py` rejoue les **23 085 fragments du log reel du volet 5** : 540 barres
+    externes retenues sur 540, pourcentage monotone, derniere barre 538/538 a 100 %, quand
+    l'ancien motif produisait **1 072 reculs** ; il verifie aussi la lecture des lignes de tranche
+    et l'affichage de l'avancement global ;
+  - `tests\tester_segments.py` verifie la taille des tranches (multiple du cycle, 60 % de la RAM
+    libre en mode auto), le cablage de l'etape f (la commande du moniteur porte
+    `--commande-json`, aucune inference n'est lancee) et le plan reel sur la boucle du volet 5.
 
 ## Checklist avant lancement GPU
 

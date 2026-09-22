@@ -1,0 +1,24 @@
+{
+  "ecrit_le": "2026-09-20 11:43:46",
+  "latentsync_pid": 17476,
+  "latentsync_vivant": true,
+  "commande": "\"C:\\Users\\searc\\AppData\\Local\\Programs\\Python\\Python310\\python.exe\" -u -m scripts.inference --unet_config_path configs/unet/stage2.yaml --inference_ckpt_path checkpoints/latentsync_unet.pt --inference_steps 20 --guidance_scale 1.5 --enable_deepcache --video_path tests/v4_talking_head_v3/source_v5_loop_344.mp4 --audio_path C:/Users/searc/AppData/Local/hermes/data/xtts/audio_youtube_v5.wav --video_out_path tests/v4_talking_head_v5/sortie_latentsync_v5.mp4 --temp_dir temp_v5",
+  "entrees": {
+    "source": "C:\\Users\\searc\\AppData\\Local\\hermes\\data\\video_youtube\\LatentSync\\tests\\v4_talking_head_v3\\source_v5_loop_344.mp4",
+    "audio": "C:\\Users\\searc\\AppData\\Local\\hermes\\data\\xtts\\audio_youtube_v5.wav"
+  },
+  "sortie_attendue": "C:\\Users\\searc\\AppData\\Local\\hermes\\data\\video_youtube\\LatentSync\\tests\\v4_talking_head_v5\\sortie_latentsync_v5.mp4",
+  "sortie_existe": false,
+  "sortie_octets": 0,
+  "derniere_barre_log": "Doing inference...:  89%|████████▉ | 480/538 [12:02:43<1:52:07, 116.00s/it]",
+  "log_octets": 1025001,
+  "log_mtime": "2026-09-20 11:43:46",
+  "moniteur": {
+    "phase": "inference",
+    "pourcent": 89.0,
+    "vram_pic": 7877,
+    "temp_max": 64,
+    "maj": "2026-09-20 11:43:30"
+  },
+  "note": "LatentSync ne fait pas de checkpoint : un arret impose de repartir du debut. Ce point de reprise sert au diagnostic et au redemarrage, pas a la reprise au milieu du calcul."
+}

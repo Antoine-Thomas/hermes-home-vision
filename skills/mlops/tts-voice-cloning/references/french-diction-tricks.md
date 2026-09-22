@@ -22,7 +22,19 @@ the method below is what transfers, not the exact strings.
 | rsync | `Ar-sink` | « Arsync » | `Ère-sinque` -> « R5 » |
 | Docker | `Dockeur` | « Docker » | — |
 | Hermes | `Hermesse` | « Hermès » | — |
+| hermes-home-vision | `Hermesse, home vision` | « Hermès Home Vision » | coller `hermesse-home-vision` en un mot |
+| GitHub | `GitHub` tel quel | « Github » | `Guite-Hub` -> « Git Hub », puis un mot parasite en fin de phrase |
+| RAG | `RAG` tel quel | « rag » | — |
 | WooCommerce | `WooCommerce` | « ou-commerce » | `Wou-Commerce` -> « ou commerce » |
+
+Les quatre dernières lignes sont mesurées à `temperature=0.75, speed=1.0` (les mêmes réglages de
+livraison), sur la même voix de référence : la leçon « inventer une graphie française pour un nom
+anglais » ne se généralise pas — `GitHub` brut passe mieux que `Guite-Hub`, alors que `Docker` a
+besoin de `Dockeur`. Tester les deux et garder ce que Whisper réécrit correctement.
+
+Piège associé : une phrase qui se termine par un nom composé (`… sous le nom Antoine-Thomas.`)
+a fait apparaître un mot parasite après la dernière syllabe (« Antoine Thomas Spencer »).
+Vérifier la fin des phrases longues dans la transcription complète, pas seulement le terme visé.
 
 General shape: spell an acronym as French syllable names separated by spaces, and spell a
 brand as the French pronunciation in one word. A hyphen inside an acronym makes XTTS read it

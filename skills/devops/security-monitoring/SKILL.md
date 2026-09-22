@@ -43,7 +43,9 @@ expired`, `API call failed`, `media file not found`, `Error analyzing image` / `
 `Analyzing image` (chemin vision), `conversation turn`, `inbound message` (échos
 du message utilisateur), `NotADirectoryError` (write_file transitoire),
 `Non-retryable client error` (stall fournisseur), `Unrepairable tool_call`,
-`Retrying API call` (diagnostic OmniRoute).
+`Retrying API call` (diagnostic OmniRoute), `httpx2: HTTP Request` (le client HTTP
+journalise chaque requête/réponse, donc un `401 Unauthorized` pendant le
+rafraîchissement OAuth d'un serveur MCP déclenche la règle auth — faux positif).
 
 ## Spam d'alertes « 🔴 Ports en écoute » (port_monitor.py)
 

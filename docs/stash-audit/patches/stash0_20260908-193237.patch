@@ -1,0 +1,13 @@
+diff --git a/hermes_cli/commands.py b/hermes_cli/commands.py
+index 838aa5a109..304de18881 100644
+--- a/hermes_cli/commands.py
++++ b/hermes_cli/commands.py
+@@ -266,7 +266,7 @@ COMMAND_REGISTRY: list[CommandDef] = [
+ 
+     # Info
+     CommandDef("commands", "Browse all commands and skills (paginated)", "Info",
+-               gateway_only=True, args_hint="[page]", busy_policy="dispatch",
++               aliases=("com",), gateway_only=True, args_hint="[page]", busy_policy="dispatch",
+                execute="gateway_commands"),
+     CommandDef("help", "Show available commands (/help skills lists skill commands, /help <text> filters)", "Info", busy_policy="dispatch",
+                execute="gateway_help", args_hint="[skills|<filter>]"),

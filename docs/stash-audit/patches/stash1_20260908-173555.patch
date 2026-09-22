@@ -1,0 +1,13 @@
+diff --git a/apps/desktop/package.json b/apps/desktop/package.json
+index 03d9a9f785..e613df4839 100644
+--- a/apps/desktop/package.json
++++ b/apps/desktop/package.json
+@@ -173,7 +173,7 @@
+     "bippy": "0.5.43",
+     "concurrently": "10.0.4",
+     "cross-env": "10.1.0",
+-    "electron": "40.10.2",
++    "electron": "^40.10.6",
+     "electron-builder": "26.15.3",
+     "esbuild": "0.28.1",
+     "jsdom": "29.1.1",

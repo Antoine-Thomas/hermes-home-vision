@@ -162,3 +162,12 @@ omniroute-launch.vbs.bak_*
 node/
 lsp/
 docs/snapshot/bootstrap_*.log
+# Fichiers d'état et snapshots locaux (ne pas publier)
+pending/
+state-snapshots/
+profiles/*/state-snapshots/
+pre_update_revision_*.txt
+*.bak-*
+*.reference_avant_*
+profiles/*/.restart_pending.json
+profiles/*/.clean_shutdown

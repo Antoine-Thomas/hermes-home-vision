@@ -48,23 +48,21 @@ CANDIDATES = [
     "gemini/gemini-2.5-flash-lite",
     "openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
     "openai/nvidia/nemotron-3.5-lightning-30b-a3b",
-    # Pool OpenCode: 403 "free tier can only be used from within OpenCode" (acces
-    # restreint au client OpenCode) — conserve pour detecter un retablissement.
-    "auto/best-free",
-    "oc/nemotron-3-ultra-free",
-    "oc/nemotron-3.5-lightning-free",
-    "oc/mimo-v2.5-free",
-    "oc/big-pickle",
-    "oc/muse-spark-1.2-contributor-free",
-    "auto/gemini",
-    "auto/zai",
-    "opencode/nemotron-3-ultra-free",
-    "opencode/nemotron-3.5-lightning-free",
-    "oc/kimi-k3",
+    # Pool OpenCode (oc/*, opencode/*) et cloudflare-ai RETIRES de cette liste le 2026-09-22 :
+    # oc/* -> 403 "free tier can only be used from within OpenCode", opencode/* -> 402 credits
+    # epuises, cloudflare-ai -> 502 "requires an Account ID" dont le rejet non gere
+    # (unhandledRejection) TUE le daemon OmniRoute, donc eco et nvidia-stack avec lui
+    # (app.log 2026-09-22T13:34:36.768Z). Les connexions correspondantes sont desactivees
+    # cote OmniRoute ; garder ces cibles ne servait qu'a echouer bruyamment (~11-14 echecs
+    # par passe horaire) et a risquer le daemon.
+    # (auto/best-free retire de la liste en meme temps que auto/gemini et auto/zai — voir plus bas)
+    # Les alias auto/* sont RETIRES de cette liste (2026-09-17 19:03) : ils repondent 200 en
+    # appel direct mais sont ecartes dans un combo (log "AUTH No credentials for auto", filtrage
+    # pre-dispatch : 3 lignes par appel eco). Tant qu'ils figuraient ici, la phase additive les
+    # re-ajoutait a chaque passage et annulait tout retrait dans eco au tick suivant.
     "zc/glm-5.3",
     "pollinations/llama-scout",
     "pollinations/llama-maverick",
-    "cloudflare-ai/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
 ]
 
 

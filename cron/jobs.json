@@ -155,15 +155,15 @@
       "schedule_display": "0 8 * * 1",
       "repeat": {
         "times": null,
-        "completed": 3
+        "completed": 4
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-08-25T21:06:07.093151+02:00",
-      "next_run_at": "2026-09-21T08:00:00+02:00",
-      "last_run_at": "2026-09-14T08:01:22.663506+02:00",
+      "next_run_at": "2026-09-28T08:00:00+02:00",
+      "last_run_at": "2026-09-21T13:23:33.969976+02:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -177,10 +177,10 @@
       "workdir": null,
       "fire_claim": null,
       "last_dispatch": {
-        "scheduled_at": "2026-09-14T08:00:00+02:00",
-        "dispatched_at": "2026-09-14T08:00:27.020562+02:00",
-        "lateness_seconds": 27.0,
-        "kind": "on_time"
+        "scheduled_at": "2026-09-21T08:00:00+02:00",
+        "dispatched_at": "2026-09-21T13:22:26.491334+02:00",
+        "lateness_seconds": 19346.5,
+        "kind": "catch_up"
       }
     },
     {
@@ -208,15 +208,15 @@
       "schedule_display": "every 720m",
       "repeat": {
         "times": null,
-        "completed": 29
+        "completed": 38
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-09-01T22:16:25.696473+02:00",
-      "next_run_at": "2026-09-18T00:36:39.663646+02:00",
-      "last_run_at": "2026-09-17T12:36:39.663646+02:00",
+      "next_run_at": "2026-09-23T01:25:26.096069+02:00",
+      "last_run_at": "2026-09-22T13:25:26.096069+02:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -236,10 +236,10 @@
       "workdir": null,
       "fire_claim": null,
       "last_dispatch": {
-        "scheduled_at": "2026-09-17T00:46:00.967514+02:00",
-        "dispatched_at": "2026-09-17T12:36:01.507035+02:00",
-        "lateness_seconds": 42600.5,
-        "kind": "catch_up"
+        "scheduled_at": "2026-09-22T13:24:34.719824+02:00",
+        "dispatched_at": "2026-09-22T13:25:22.002932+02:00",
+        "lateness_seconds": 47.3,
+        "kind": "on_time"
       }
     },
     {
@@ -267,15 +267,15 @@
       "schedule_display": "every day at 9am",
       "repeat": {
         "times": null,
-        "completed": 24
+        "completed": 29
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-09-02T20:22:08.573914+02:00",
-      "next_run_at": "2026-09-18T09:00:00+02:00",
-      "last_run_at": "2026-09-17T12:36:02.040365+02:00",
+      "next_run_at": "2026-09-23T09:00:00+02:00",
+      "last_run_at": "2026-09-22T09:00:22.271768+02:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -285,10 +285,10 @@
       "enabled_toolsets": null,
       "workdir": null,
       "last_dispatch": {
-        "scheduled_at": "2026-09-17T09:00:00+02:00",
-        "dispatched_at": "2026-09-17T12:36:01.507035+02:00",
-        "lateness_seconds": 12961.5,
-        "kind": "catch_up"
+        "scheduled_at": "2026-09-22T09:00:00+02:00",
+        "dispatched_at": "2026-09-22T09:00:22.021042+02:00",
+        "lateness_seconds": 22.0,
+        "kind": "on_time"
       },
       "fire_claim": null
     },
@@ -317,15 +317,15 @@
       "schedule_display": "every 60m",
       "repeat": {
         "times": null,
-        "completed": 174
+        "completed": 280
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-09-08T19:15:38.730681+02:00",
-      "next_run_at": "2026-09-17T18:41:40.936482+02:00",
-      "last_run_at": "2026-09-17T17:41:40.936482+02:00",
+      "next_run_at": "2026-09-22T22:12:09.793278+02:00",
+      "last_run_at": "2026-09-22T21:12:09.793278+02:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -336,9 +336,9 @@
       "enabled_toolsets": null,
       "workdir": null,
       "last_dispatch": {
-        "scheduled_at": "2026-09-17T17:41:11.502382+02:00",
-        "dispatched_at": "2026-09-17T17:41:20.832717+02:00",
-        "lateness_seconds": 9.3,
+        "scheduled_at": "2026-09-22T21:11:12.258310+02:00",
+        "dispatched_at": "2026-09-22T21:11:47.834502+02:00",
+        "lateness_seconds": 35.6,
         "kind": "on_time"
       },
       "fire_claim": null
@@ -412,15 +412,15 @@
       "schedule_display": "0 * * * *",
       "repeat": {
         "times": null,
-        "completed": 119
+        "completed": 226
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-09-11T19:50:30.184712+02:00",
-      "next_run_at": "2026-09-17T19:00:00+02:00",
-      "last_run_at": "2026-09-17T18:05:23.871356+02:00",
+      "next_run_at": "2026-09-22T22:00:00+02:00",
+      "last_run_at": "2026-09-22T21:03:04.651314+02:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -432,12 +432,203 @@
       "workdir": null,
       "fire_claim": null,
       "last_dispatch": {
-        "scheduled_at": "2026-09-17T18:00:00+02:00",
-        "dispatched_at": "2026-09-17T18:00:21.572702+02:00",
-        "lateness_seconds": 21.6,
+        "scheduled_at": "2026-09-22T21:00:00+02:00",
+        "dispatched_at": "2026-09-22T21:00:54.946729+02:00",
+        "lateness_seconds": 54.9,
         "kind": "on_time"
       }
+    },
+    {
+      "id": "56b9bb67ab2e",
+      "name": "B1 v2 - veille chaine video",
+      "prompt": "Veille de la chaine B1 v2 (script seul, sans agent) : rapporte la progression du pipeline video toutes les 20 minutes et s'arrete de parler quand la video finale existe.",
+      "skills": [],
+      "skill": null,
+      "model": null,
+      "provider": null,
+      "base_url": null,
+      "script": "veille_b1v2.py",
+      "no_agent": true,
+      "monitor_script": null,
+      "monitor_url": null,
+      "monitor_state": null,
+      "context_from": null,
+      "schedule": {
+        "kind": "interval",
+        "minutes": 20,
+        "display": "every 20m"
+      },
+      "schedule_display": "every 20m",
+      "repeat": {
+        "times": 6,
+        "completed": 6
+      },
+      "enabled": false,
+      "state": "completed",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-09-22T09:12:28.053581+02:00",
+      "next_run_at": null,
+      "last_run_at": "2026-09-22T11:18:22.230302+02:00",
+      "last_status": "ok",
+      "last_error": null,
+      "last_delivery_error": null,
+      "last_delivery_unverified": null,
+      "failure_streak": 0,
+      "deliver": "telegram:8956868107",
+      "origin": null,
+      "enabled_toolsets": null,
+      "workdir": null,
+      "last_dispatch": {
+        "scheduled_at": "2026-09-22T11:17:22.202144+02:00",
+        "dispatched_at": "2026-09-22T11:18:22.015576+02:00",
+        "lateness_seconds": 59.8,
+        "kind": "on_time"
+      },
+      "fire_claim": null
+    },
+    {
+      "id": "12600252c719",
+      "name": "LLM Wiki compile",
+      "prompt": "Compilation non-agentique du wiki L1 en un seul appel LLM (script wiki_compile.py).",
+      "skills": [
+        "llm-wiki"
+      ],
+      "skill": "llm-wiki",
+      "model": "eco",
+      "provider": "omniroute",
+      "base_url": null,
+      "script": "wiki_compile.py",
+      "no_agent": true,
+      "monitor_script": null,
+      "monitor_url": null,
+      "monitor_state": null,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 */6 * * *",
+        "display": "0 */6 * * *"
+      },
+      "schedule_display": "0 */6 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 1
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-09-22T17:51:18.557409+02:00",
+      "next_run_at": "2026-09-23T00:00:00+02:00",
+      "last_run_at": "2026-09-22T18:03:13.621843+02:00",
+      "last_status": "error",
+      "last_error": "RuntimeError: openai/nvidia/nemotron-3.5-lightning-30b-a3b: provider — data: {\"error\":{\"message\":\"[504]: Request exceeded OmniRoute's local rate-limit execution expiration (legacy resilienceSettings.requestQueue.maxWaitMs=15000ms) for openai/nvidia/nemotron-3.5-lightning-30b-a3b. Bottleneck applies this deadline ",
+      "last_delivery_error": null,
+      "last_delivery_unverified": null,
+      "failure_streak": 1,
+      "deliver": "local",
+      "origin": null,
+      "enabled_toolsets": null,
+      "workdir": null,
+      "failure_deliver": "telegram",
+      "last_dispatch": {
+        "scheduled_at": "2026-09-22T18:00:00+02:00",
+        "dispatched_at": "2026-09-22T18:00:54.947931+02:00",
+        "lateness_seconds": 54.9,
+        "kind": "on_time"
+      },
+      "fire_claim": null
+    },
+    {
+      "id": "0cb678ea91ed",
+      "name": "LLM Wiki contradictions",
+      "prompt": "Lis le fichier C:\\Users\\searc\\AppData\\Local\\hermes\\wiki\\scripts\\prompts\\contradictions.md et execute exactement ces instructions. Wiki : C:\\Users\\searc\\AppData\\Local\\hermes\\wiki",
+      "skills": [
+        "llm-wiki"
+      ],
+      "skill": "llm-wiki",
+      "model": "eco",
+      "provider": "omniroute",
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "monitor_script": null,
+      "monitor_url": null,
+      "monitor_state": null,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 3 * * *",
+        "display": "0 3 * * *"
+      },
+      "schedule_display": "0 3 * * *",
+      "repeat": {
+        "times": null,
+        "completed": 0
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-09-22T17:51:22.279408+02:00",
+      "next_run_at": "2026-09-23T03:00:00+02:00",
+      "last_run_at": null,
+      "last_status": null,
+      "last_error": null,
+      "last_delivery_error": null,
+      "last_delivery_unverified": null,
+      "failure_streak": 0,
+      "deliver": "local",
+      "origin": null,
+      "enabled_toolsets": null,
+      "workdir": null,
+      "failure_deliver": "telegram"
+    },
+    {
+      "id": "c5d40045052c",
+      "name": "LLM Wiki archive",
+      "prompt": "Lis le fichier C:\\Users\\searc\\AppData\\Local\\hermes\\wiki\\scripts\\prompts\\archive.md et execute exactement ces instructions. Wiki : C:\\Users\\searc\\AppData\\Local\\hermes\\wiki",
+      "skills": [
+        "llm-wiki"
+      ],
+      "skill": "llm-wiki",
+      "model": "eco",
+      "provider": "omniroute",
+      "base_url": null,
+      "script": null,
+      "no_agent": false,
+      "monitor_script": null,
+      "monitor_url": null,
+      "monitor_state": null,
+      "context_from": null,
+      "schedule": {
+        "kind": "cron",
+        "expr": "0 4 * * 0",
+        "display": "0 4 * * 0"
+      },
+      "schedule_display": "0 4 * * 0",
+      "repeat": {
+        "times": null,
+        "completed": 0
+      },
+      "enabled": true,
+      "state": "scheduled",
+      "paused_at": null,
+      "paused_reason": null,
+      "created_at": "2026-09-22T17:51:23.306525+02:00",
+      "next_run_at": "2026-09-27T04:00:00+02:00",
+      "last_run_at": null,
+      "last_status": null,
+      "last_error": null,
+      "last_delivery_error": null,
+      "last_delivery_unverified": null,
+      "failure_streak": 0,
+      "deliver": "local",
+      "origin": null,
+      "enabled_toolsets": null,
+      "workdir": null,
+      "failure_deliver": "telegram"
     }
   ],
-  "updated_at": "2026-09-17T18:05:23.873379+02:00"
+  "updated_at": "2026-09-22T21:12:09.795388+02:00"
 }

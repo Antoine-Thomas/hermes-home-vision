@@ -1,0 +1,58 @@
+diff --git a/agent/lsp/client.py b/agent/lsp/client.py
+index 36c2721027..37b1d57f28 100644
+--- a/agent/lsp/client.py
++++ b/agent/lsp/client.py
+@@ -302,6 +302,13 @@ class LSPClient:
+         exe = cmd[0]
+         if exe.lower().endswith((".cmd", ".bat")):
+             return ["cmd.exe", "/c", *cmd]
++        # An extension-less executable on Windows is an npm ``.bin`` POSIX
++        # shell script that CreateProcess cannot run (WinError 193). Resolve
++        # it to the ``.cmd`` sibling npm also emits and run that through cmd.
++        if sys.platform == "win32" and os.path.splitext(exe)[1] == "":
++            sibling = os.path.realpath(exe) + ".cmd"
++            if os.path.exists(sibling):
++                return ["cmd.exe", "/c", sibling, *cmd[1:]]
+         return cmd
+ 
+     async def _spawn(self) -> None:
+diff --git a/gateway/shutdown_watchdog.py b/gateway/shutdown_watchdog.py
+index 6c4069552c..726f210622 100644
+--- a/gateway/shutdown_watchdog.py
++++ b/gateway/shutdown_watchdog.py
+@@ -569,9 +569,10 @@ async def loop_heartbeat_forever(
+                 logger.debug(
+                     "stale loop-tick socket sweep failed", exc_info=True
+                 )
+-        tick_server = await asyncio.start_unix_server(
+-            _tick_socket_handler, path=str(tick_socket_path)
+-        )
++        if os.name == "posix":
++            tick_server = await asyncio.start_unix_server(
++                _tick_socket_handler, path=str(tick_socket_path)
++            )
+     except Exception:
+         tick_server = None
+         logger.warning(
+diff --git a/plugins/platforms/email/adapter.py b/plugins/platforms/email/adapter.py
+index 89ead8a82a..3db4a91267 100644
+--- a/plugins/platforms/email/adapter.py
++++ b/plugins/platforms/email/adapter.py
+@@ -711,7 +711,7 @@ class EmailAdapter(BasePlatformAdapter):
+             # (#79889).
+             imap = None
+             try:
+-                imap = imaplib.IMAP4_SSL(self._imap_host, self._imap_port, timeout=30)
++                imap = imaplib.IMAP4_SSL(self._imap_host, self._imap_port, timeout=90)
+                 imap.login(self._address, self._password)
+                 _send_imap_id(imap)
+                 imap.select("INBOX")
+@@ -855,7 +855,7 @@ class EmailAdapter(BasePlatformAdapter):
+         results = []
+         imap: Optional[imaplib.IMAP4] = None
+         try:
+-            imap = imaplib.IMAP4_SSL(self._imap_host, self._imap_port, timeout=30)
++            imap = imaplib.IMAP4_SSL(self._imap_host, self._imap_port, timeout=90)
+             try:
+                 imap.login(self._address, self._password)
+                 _send_imap_id(imap)

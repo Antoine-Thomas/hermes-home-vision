@@ -605,6 +605,7 @@ model_catalog:
 network:
   force_ipv4: false
 gateway:
+  multiplex_profiles: false
   scale_to_zero:
     idle_timeout_minutes: 5
   message_timestamps:

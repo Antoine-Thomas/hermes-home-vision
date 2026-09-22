@@ -30,18 +30,33 @@ toolchain setup, and the benchmark that decides whether a long run is worth star
   frame shot from 5 m gives a ~400x400 px face and is unusable; a 1958x1958 frame with a
   1000x1000 px face is perfect. Use a face detector (InsightFace) to get the box.
 - Reject: no face, more than one face, small side < 512 px, long side < 700 px.
-- Sharpness: variance of the Laplacian **inside the face box only**, never the whole image.
-  Calibrate the threshold on the corpus median — and say plainly that a median threshold
-  removes half the corpus by construction. Offer to lower it rather than silently discarding
-  photos that are probably fine.
+- Sharpness: variance of the Laplacian **inside the face box only**, never the whole image —
+  and **resize that box to a fixed square (e.g. 256x256, INTER_AREA) before comparing anything**.
+  The variance scales with resolution: at equal optical sharpness a 1000 px face measures ~8x
+  lower than a 350 px face, so raw values silently favour the lowest-resolution source. Raw
+  face-box numbers once made a 720p clip look 13x sharper than two UHD clips; normalised, the
+  real gap was 1.25x. Calibrate the threshold on the corpus median — and say plainly that a
+  median threshold removes half the corpus by construction. Offer to lower it rather than
+  silently discarding photos that are probably fine.
+- Laplacian variance is a focus/texture proxy, not an absolute quality score. It does not see
+  compression noise (a 3.7 Mb/s source loses to a 97 Mb/s one at equal resolution) or bit depth
+  (10-bit `yuv420p10le` beats 8-bit for crop latitude). Say so when it is the only number you have.
 - Exposure: reject if any region of the face sits at 0 or 255 over more than ~2 % of its area.
 - **Enforce an angle/expression mix or you will not get one.** Count the angles after triage.
   A corpus that is ~77 % frontal trains a model that only renders frontal faces: state the
   distribution and its consequence instead of declaring the dataset "fine".
+- **Measure angles, do not classify them.** InsightFace buffalo_l returns a real
+  `(pitch, yaw, roll)` in degrees per face — a number you can report and threshold. Reserve
+  vision classification for expression and framing, where no geometric measure exists. Quote the
+  |yaw| spread when claiming angle variety: material that all sits within a few degrees of
+  frontal has none, whatever the resolution or the frame count.
 - Aim for 25-35 images; keep 2-3 per burst, never 10 from the same series.
 - Vision classification of angle/expression can contradict itself between passes. Keep the modal
   value, flag the photo, and list the doubtful ones for the user to arbitrate — do not hide the
   uncertainty, and do not treat a doubtful label as fact when building the captions.
+- **Video sources**: sample frames evenly, measure the face box and pose on those frames, then
+  apply every rule above unchanged. Specs to read, the ffmpeg extraction pattern, the pose call
+  and the preview-delivery recipe are in `references/video-source-audit.md`.
 
 ## Captions
 
@@ -91,8 +106,16 @@ toolchain setup, and the benchmark that decides whether a long run is worth star
   retry then races the first attempt and wastes work. Confirm completion before changing strategy.
 - Report measurements as delivered, including correcting your own earlier figure. Say which
   number is verified and which is an estimate; never fill a gap with a plausible value.
+- **Drive measurements from a re-runnable script file, not inline code.** Write the `.py` with
+  the file tool and run it with the target venv's python: quoting/heredoc errors bite on Windows,
+  and a file survives to be re-read and corrected. Give it a flag that re-measures
+  already-produced intermediates (extracted frames, saved crops) so iterating on a metric never
+  repeats the expensive upstream step.
 
 ## References
 
 - `references/kohya-sd-scripts.md` — the WSL2 stack (Ubuntu import, venv, torch, sd-scripts),
   the kohya dataset layout, the 3-step benchmark command, and the trainer failure table.
+- `references/video-source-audit.md` — auditing a clip as a face-dataset source: ffprobe spec
+  reading, VFR check, even frame sampling, InsightFace pose, sharpness renormalisation, the
+  face-px usability call, and Telegram preview delivery.

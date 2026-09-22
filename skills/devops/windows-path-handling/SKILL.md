@@ -57,6 +57,11 @@ L'ecriture reussie garantit que le fichier a ete ecrit au chemin **resolu** ; el
   `powershell -NoProfile -ExecutionPolicy Bypass -File <script>` : le fichier traverse l'echappement
   intact. Garder ces `.ps1` (et les `.vbs`) en **ASCII pur** : PowerShell 5.1 lit l'UTF-8 sans BOM
   comme de l'ANSI, donc accents, tirets longs et puces s'affichent de travers.
+- **Ne jamais faire passer un pipeline cmd.exe par le terminal bash** : les builtins DOS n'existent
+  pas ici et leurs homonymes sont ceux de MSYS. `dir "...\*.png" /b | find /c /v ""` ne compte rien :
+  `find` est le GNU find, il part arpenter le systeme de fichiers et ne rend jamais la main (mesure :
+  tue au bout de 180 s alors que les 290 PNG etaient bien sur le disque). Compter en POSIX :
+  `ls <dossier> | grep -c '\.png$'`, et `ls -la <dossier>` pour un effet `dir`.
 - Apres un `mkdir -p ~/...`, faire `ls` sur l'arborescence creee AVANT d'y ecrire : le shell et les outils d'ecriture ne developpent pas `~` de la meme facon, et un `mkdir` reussi ne dit rien sur l'endroit ou les outils ecriront.
 
 ## Regle 4 — espaces dans les chemins
@@ -78,6 +83,13 @@ genere, bloc Python passe en heredoc), deux pieges font echouer la compilation, 
   `\b…\b`), ne pas le passer en ligne : `write_file` le script dans `$LOCALAPPDATA/Temp`, puis
   `python <chemin NATIF>`. Pour rendre l'intention non ambigue, batir le separateur explicitement
   (`chr(92)`) au lieu de compter les antislashs.
+- **Le piege frappe aussi le heredoc qui ECRIT ou EDITE du code, pas seulement celui qui s'execute.**
+  Un `python - <<'PY'` dont le `replace()` insere une ligne portant une classe de caracteres
+  (`[\[\]…]`), un quantificateur (`{20,}`) ou un `\d` depose dans le fichier une version amputee d'un
+  antislash — silencieusement : le script s'ecrit tres bien et n'echoue qu'a l'execution
+  (`re.error: unterminated character set`). Pour EDITER du code qui porte des antislashs, passer par
+  l'outil `patch` (ou `write_file`), jamais par un heredoc ; et apres toute ecriture inline, valider
+  avant de lancer : `python -c "import ast,sys; ast.parse(open(sys.argv[1],encoding='utf-8').read())" <fichier>`.
 - **`re.sub` avec une chaine de remplacement** : les `\` du texte insere sont interpretes comme des
   references de groupe — le chemin arrive avec des antislashs Simples, donc invalide. Toujours passer
   une **fonction** : `motif.sub(lambda m: "%s = %s" % (nom, json.dumps(valeur)), source, count=1)`.
@@ -101,6 +113,10 @@ Parades, dans l'ordre :
   `subprocess.run([...], capture_output=True, text=True, encoding="utf-16", errors="replace")` ;
 - preferer les applets PowerShell equivalentes (`Get-ScheduledTask`, `Get-CimInstance Win32_Process`) —
   leur sortie passe le shell correctement, et sur une commande simple elles suppriment le probleme.
+  **Mais un cmdlet PowerShell n'est PAS une commande du shell de l'agent** : tape `Get-CimInstance`
+  directement dans le terminal et il repond `command not found` — le terminal est bash MSYS, les
+  cmdlets n'existent que dans un hote PowerShell. Les appeler via
+  `powershell -NoProfile -Command "..."` (ou un `.ps1` en `-File`, cf. Regle 3).
 
 Corollaire : un `grep` qui repond « Binary file matches » n'est PAS un motif introuvable. Ne pas en
 conclure que la tache planifiee ou le processus n'existe pas — decoder d'abord, conclure ensuite.
@@ -122,6 +138,105 @@ a change sur 3 lignes.
 - Un chemin Windows insere dans du texte genere doit etre relu en octets : un heredoc bash a deja
   transforme `scripts\verif_24h.ps1` en `scripts<VT>erif_24h.ps1` (le `\v` est devenu un onglet
   vertical, invisible a l'oeil dans l'editeur). Controler `b.count(b"\x0b") == 0` apres insertion.
+- **`sed` produit exactement le meme degat, sans heredoc en cause.** Dans le champ de remplacement,
+  `\\` suivi de `v` redevient l'echappement `\v` : `sed -i 's|agent\\.venv|agent\\venv|g'` ecrit un
+  onglet vertical a la place du nom (`agent<VT>env`), sans erreur, et le fichier reste executable —
+  l'erreur ne sort qu'a l'execution suivante, sur un chemin introuvable. Un chemin Windows passant par
+  le champ de remplacement de `sed` doit etre considere comme dangereux : garder une copie `.bak`,
+  restaurer, puis substituer en OCTETS (`data.replace(b'agent\\.venv', b'agent\\venv')`) et relire les
+  lignes touchees pour les afficher. Idem `re.sub` avec une chaine de remplacement (Regle 5).
+
+## Regle 8 — comparer un chemin imbrique : un hash vide signifie « absent », pas « different »
+
+Le repertoire courant **persiste entre les appels** d'une meme session de terminal. Sur un dossier
+imbrique (un doublon cree dans `<base>/models/`), enchainer des chemins relatifs ecrits a la main
+(`models/<f>`, puis `models/models/<f>`) depuis une base deja relative produit plusieurs lectures
+fausses d'affilee — et chaque lecture fausse a l'air d'un resultat :
+
+```
+DIFFERENT  det_10g.onnx  ( vs 4c10eef5c9e168357a16fdd580fa8371)
+```
+
+Ici la colonne de gauche est **vide** : le fichier n'a jamais ete lu. Une comparaison qui annonce
+« different » avec une valeur vide, ou un `md5sum` qui n'affiche rien, signifie **fichier absent** —
+jamais contenu different. Deux parades, dans cet ordre :
+
+- **Lister d'abord, comparer ensuite.** `ls -la <dossier>` sur le dossier ou l'on croit etre, et
+  seulement apres construire les chemins a comparer. Un chemin dont on n'a pas vu le listing n'est
+  pas un chemin verifie. Sous Windows, `Get-ChildItem -Force | Select Name,Mode,Length,LinkType`
+  tranche en plus la nature reelle d'une entree (dossier, fichier, jonction, lien).
+- **Ancrer chaque chemin sur une racine absolue** (`C:/Users/...`), meme quand le `cd` precedent
+  semblait le faire. Le controle qui coute une ligne : `pwd` puis `ls` de la cible avant de conclure.
+
+Corollaire pour une suppression : une comparaison suspecte (hash vide, moitie des fichiers
+« differents ») interdit de supprimer. Refaire la comparaison au bon chemin d'abord.
+
+Corollaire pour les artefacts de travail : une **sortie en chemin relatif atterrit dans le dernier
+`cd` de la session**, pas dans le dossier de l'outil qu'on croit. Un `curl -o resultat.json` et le
+`__pycache__` d'un script lance depuis son propre dossier se sont ainsi retrouves dans le dossier
+d'un skill, parce qu'un appel precedent y avait fait `cd` — deux fichiers parasites a nettoyer apres
+coup, dans un dossier qui doit rester propre (un skill, un depot). Ecrire les sorties de test par un
+chemin ABSOLU vers `$LOCALAPPDATA/hermes/cache/scratch` (ou `$TMPDIR`), et faire `pwd` avant toute
+commande qui produit un fichier sans chemin complet.
+
+## Regle 9 — un outil qui fabrique son arborescence sous un `root` qu'on lui passe
+
+Beaucoup de bibliotheques prennent un `root` / `base_dir` / `cache_dir` et creent **elles-memes**
+`root/models/<nom>/`, en telechargeant au passage. Passer un cran trop bas dans l'arborescence ne
+leve aucune erreur : ca ajoute un niveau et refait le telechargement.
+
+Cas mesure — insightface, `FaceAnalysis(name='buffalo_l', root=R)` telecharge `R/models/buffalo_l.zip`
+(276 Mo) puis l'extrait dans `R/models/buffalo_l/`. Avec un `R` situé un cran trop bas (le dossier des
+modeles au lieu de son parent), on obtient `<...>/models/models/` et 601 Mo dupliques, sans un mot,
+sans avertissement, exit code 0.
+
+- Le `root` a passer est celui du **parent** du dossier attendu, pas le dossier des modeles lui-meme.
+- **Un exit code 0 ne prouve pas qu'on n'a rien telecharge.** Le controle est une mesure de taille du
+  dossier apres le script : ici 326 Mo de `.onnx` + 276 Mo d'archive = ~601 Mo, et au-dela il y a un
+  doublon. La contrainte « ne rien telecharger » ne se verifie pas au code de retour.
+- Avant de supprimer le doublon : comparer par empreinte (`md5sum` des fichiers **et** de l'archive)
+  ET par arithmetique de tailles (la somme doit retomber sur le total). Un seul fichier different =
+  ne pas supprimer, signaler.
+
+## Regle 10 — un extrait PowerShell fourni par l'utilisateur ne s'execute pas tel quel
+
+Les taches arrivent souvent formulees en PowerShell Windows ; le terminal de l'agent est bash MSYS,
+ou les cmdlets n'existent pas. Les recopier telles quelles donne `command not found` sur chacun
+d'eux (`Get-CimInstance`, `Select-Object`, `Start-Process`, `Invoke-RestMethod`, `Get-ChildItem`),
+et un `Start-Process` enfoui dans une chaine `&&` echoue sans un mot (log vide, aucune erreur).
+
+Traductions qui marchent :
+
+- `Get-CimInstance Win32_Process -Filter "ProcessId = N" | Select-Object ...` -> `tasklist /FI "PID eq N"`
+  (sortie lisible ; ajouter `2>&1 | tr -d '\0'` si elle ressort en UTF-16, cf. Regle 6).
+  `wmic process where processid=N get name,commandline` quand il faut la ligne de commande.
+- `ps -p N -o pid,cmd` et `/proc/N/cmdline` -> ne voient PAS les processus Windows natifs
+  (`ps: unknown option -- o`, `/proc/N/cmdline` vide). Tout ce qui est `.exe` natif (python.exe,
+  hermes.exe) passe par `tasklist` ; ne pas en conclure que le processus n'existe pas.
+- `Start-Process -FilePath x -ArgumentList y -NoNewWindow` -> `(x y >"$LOCALAPPDATA/hermes/y.log" 2>&1 &)`
+  dans un appel `terminal` a part : enchainer `(cmd &) echo ...` derriere un `&&` est une erreur de
+  syntaxe bash, et le log reste vide sans aucun message.
+- `Invoke-RestMethod -Uri ... -Body ...` -> Python `urllib.request` (plus sur que `curl.exe` pour du
+  JSON imbrique), avec `User-Agent` explicite si l'endpoint est derriere Cloudflare.
+- `taskkill /F /PID N` -> marche tel quel (binaire natif) ; c'est l'outil qui libere un venv
+  verrouille par un processus tiers (cf. skill `hermes-install-troubleshooting`).
+
+## Regle 11 — un glob qui ne trouve rien ne prouve pas l'absence (fichiers caches)
+
+Un fichier dont le nom commence par un point est **invisible** aux motifs `*.ext`, dans les deux
+mondes : `ls <dossier>/*.partial*` comme `Get-ChildItem "<dossier>\*.partial*"` ne renvoient **rien**
+pour `.pre-update-<horodatage>.zip.<pid>-<tid>.partial`. Le resultat vide ressemble a un resultat
+(« aucun fichier de ce type ») et fait conclure a tort que le disque est propre : sur un dossier de
+sauvegardes, l'ecart mesure etait de 14,9 Go repartis sur 3 fichiers annonces absents.
+
+- Bash : `ls -a <dossier>` ou `find <dossier> -name "*.partial*" -type f` — `find` voit les caches.
+- PowerShell : `Get-ChildItem <dossier> -Force -Filter "*.partial*"` (`-Force` inclut les elements
+  caches ; `-Filter` filtre cote fournisseur et reste plus sur que `-Include`, qui exige `-Recurse`
+  ou un `-Path` se terminant par `\*`).
+- **Regle generale** : avant d'annoncer « absent », refaire le test avec un chemin d'acces DIFFERENT
+  (`find` plutot qu'un glob, `ls -a` plutot que `ls`, `-Force` plutot que rien). Une absence conclue
+  d'un seul glob n'est pas une absence mesuree — et l'annonce d'un fichier « deja supprime » sur ce
+  fond est un rapport faux.
 
 ## Pitfalls
 

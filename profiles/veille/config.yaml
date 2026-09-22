@@ -88,3 +88,6 @@ platform_toolsets:
     - memory
     - session_search
     - todo
+
+gateway:
+  multiplex_profiles: false

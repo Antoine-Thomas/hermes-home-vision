@@ -180,6 +180,26 @@ Sur **chaque** depot, dans cet ordre — un seul rouge arrete la publication :
   backups/…` a l'interieur du depot apparait en non-suivi, et un `git add -A` peut ensuite indexer
   des dizaines de Mo d'objets git qui contiennent les secrets qu'on venait de purger.
 
+### 3 quinquies. Apres le push : prouver la synchronisation, et dire ce qui reste en avance
+
+```bash
+git rev-parse HEAD            # == git ls-remote origin HEAD
+git branch -vv                # « main [origin/main] » : la branche suit bien son amont
+git rev-list --count origin/main..HEAD   # 0 = rien a pousser
+gh api repos/<owner>/<nom> --jq '{private,default_branch,pushed_at}'
+```
+
+- Le champ `size` de l'API reste a **0 / en retard** un moment apres un push (GitHub le calcule en KB,
+  de facon asynchrone) : ne pas le presenter comme une anomalie ni en conclure que le push a echoue.
+  La preuve du push est l'egalite des SHA, pas ce champ.
+- **Tout commit fait APRES la verification remet le local en avance.** Les snapshots de cloture en font
+  partie : le dire avec le compte exact (`N commit(s) a pousser`) et la commande `git push`, plutot que
+  de laisser croire que le depot est synchronise apres avoir affirme « local = distant ».
+- Un premier push sur un depot neuf **ecrase le commit initial auto-genere par GitHub**
+  (`Initial commit`, force update) : sans perte puisque le depot etait vide — le nommer dans le rapport
+  pour dissiper le doute sur un eventuel ecrasement de travail.
+- Le push est une action de l'operateur : verifier l'etat, jamais relancer un push de sa part.
+
 ### 4. Ordre de grandeur
 
 Apres exclusions, un home Hermes complet tient en quelques milliers de fichiers et quelques Mo de

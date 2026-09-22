@@ -1,5 +1,4 @@
 model:
-  base_url: http://127.0.0.1:20128/v1
   default: eco
   provider: omniroute
 providers:
@@ -23,10 +22,36 @@ providers:
     extra_headers:
       X-OmniRoute-Compression: default
     request_timeout_seconds: 120
+  groq:
+    name: Groq
+    base_url: https://api.groq.com/openai/v1
+    key_env: GROQ_API_KEY
+    transport: chat_completions
+    default_model: openai/gpt-oss-120b
+    models:
+      - openai/gpt-oss-120b
+      - openai/gpt-oss-20b
+      - qwen/qwen3.8-27b
+      - groq/compound-mini
+      - whisper-large-v3
+  google:
+    name: Google AI Studio
+    base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+    key_env: GOOGLE_API_KEY
+    transport: chat_completions
+    default_model: gemini-3.8-flash
+    models:
+      - gemini-3.8-flash
+      - gemini-3.6-flash
+      - gemini-3.5-flash
+      - gemini-3.5-flash-lite
+      - gemini-3.1-flash-lite
+      - gemini-3.1-pro-preview
 fallback_providers:
-  # Repli gratuit d'abord (proxy NIM local via OmniRoute), payant en dernier recours.
   - provider: omniroute
     model: nvidia-stack
+  - provider: omniroute
+    model: free-openrouter
   - provider: deepseek
     model: deepseek-flash
 toolsets:
@@ -118,8 +143,8 @@ terminal:
   lifetime_seconds: 300
 web:
   backend: ''
-  search_backend: ''
-  extract_backend: ''
+  search_backend: exa
+  extract_backend: firecrawl
 browser:
   inactivity_timeout: 120
   command_timeout: 30
@@ -692,6 +717,7 @@ platform_toolsets:
     - tts
     - video
     - vision
+    - web
   discord:
     - hermes-discord
   google_chat:
@@ -734,6 +760,7 @@ known_builtin_toolsets:
     - file
     - homeassistant
     - image_gen
+    - kanban
     - memory
     - session_search
     - skills
@@ -781,3 +808,5 @@ mcp_servers:
     url: https://api.scite.ai/mcp
     enabled: true
     auth: oauth
+fallback:
+  min_switch_reset_seconds: 30

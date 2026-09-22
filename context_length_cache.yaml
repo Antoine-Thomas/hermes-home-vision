@@ -15,8 +15,6 @@ context_lengths:
   eco@http://localhost:20128/v1: 200000
   free-stack@http://localhost:20128/v1: 128000
   free-stack@http://127.0.0.1:20128/v1: 128000
-  eco-fast@http://127.0.0.1:20128/v1: 128000
-  auto/best-reasoning@http://127.0.0.1:20128/v1: 1050000
   auto/best-vision@http://127.0.0.1:20128/v1: 1050000
   oc/nemotron-3.5-lightning-free@http://127.0.0.1:20128/v1: 200000
   auto/zai@http://127.0.0.1:20128/v1: 128000
@@ -25,3 +23,8 @@ context_lengths:
   auto/best-fast@http://127.0.0.1:20128/v1: 1048576
   eco@http://127.0.0.1:20128/v1: 128000
   nvidia-stack@http://127.0.0.1:20128/v1: 128000
+  eco-fast@http://127.0.0.1:20128/v1: 200000
+  auto/best-free@http://127.0.0.1:20128/v1: 1000000
+  free-openrouter@http://127.0.0.1:20128/v1: 256000
+  auto/best-reasoning@http://127.0.0.1:20128/v1: 2000000
+  openrouter/nvidia/nemotron-3-super-120b-a12b:free@http://127.0.0.1:20128/v1: 262144

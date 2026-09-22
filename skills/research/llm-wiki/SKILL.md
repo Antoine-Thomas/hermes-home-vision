@@ -24,6 +24,10 @@ Contradictions have already been flagged. Synthesis reflects everything ingested
 **Division of labor:** The human curates sources and directs analysis. The agent
 summarizes, cross-references, files, and maintains consistency.
 
+**Compilation : par script non-agentique, jamais par un tour d'agent.** Un run
+cron est coupe par un interrupt dur de 3 minutes et paie ~16 K tokens de prompt
+systeme par tour : voir `references/compilation-non-agentique.md`.
+
 ## References
 
 - [When This Skill Activates](references/when-this-skill-activates.md)
@@ -34,4 +38,5 @@ summarizes, cross-references, files, and maintains consistency.
 - [Core Operations](references/core-operations.md)
 - [Working with the Wiki](references/working-with-the-wiki.md)
 - [Pitfalls](references/pitfalls.md)
+- [Compilation non-agentique (tout le wiki en UN appel LLM)](references/compilation-non-agentique.md)
 - [Related Tools](references/related-tools.md)

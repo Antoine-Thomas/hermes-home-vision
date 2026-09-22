@@ -1,0 +1,35 @@
+﻿{
+    "date":  "2026-09-20T11:42:04",
+    "services":  [
+                     {
+                         "name":  "BITS",
+                         "status":  "Stopped",
+                         "start":  "Manual"
+                     },
+                     {
+                         "name":  "UsoSvc",
+                         "status":  "Running",
+                         "start":  "Automatic"
+                     },
+                     {
+                         "name":  "wuauserv",
+                         "status":  "Stopped",
+                         "start":  "Manual"
+                     }
+                 ],
+    "pause_updates_expiry":  "",
+    "active_hours_start":  14,
+    "active_hours_end":  7,
+    "smart_active_hours":  "",
+    "no_auto_reboot_loggedon":  1,
+    "taches":  {
+                   "Schedule Scan":  "Ready",
+                   "Schedule Work":  "Ready",
+                   "Schedule Scan Static Task":  "Ready",
+                   "Start Oobe Expedite Work":  "Ready",
+                   "Schedule Wake To Work":  "Ready",
+                   "UUS Failover Task":  "Ready",
+                   "UIEOrchestrator":  "Ready",
+                   "USO_UxBroker":  "Ready"
+               }
+}

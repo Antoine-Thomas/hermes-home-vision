@@ -1,0 +1,75 @@
+diff --git a/agent/lsp/client.py b/agent/lsp/client.py
+index 36c2721027..37b1d57f28 100644
+--- a/agent/lsp/client.py
++++ b/agent/lsp/client.py
+@@ -302,6 +302,13 @@ class LSPClient:
+         exe = cmd[0]
+         if exe.lower().endswith((".cmd", ".bat")):
+             return ["cmd.exe", "/c", *cmd]
++        # An extension-less executable on Windows is an npm ``.bin`` POSIX
++        # shell script that CreateProcess cannot run (WinError 193). Resolve
++        # it to the ``.cmd`` sibling npm also emits and run that through cmd.
++        if sys.platform == "win32" and os.path.splitext(exe)[1] == "":
++            sibling = os.path.realpath(exe) + ".cmd"
++            if os.path.exists(sibling):
++                return ["cmd.exe", "/c", sibling, *cmd[1:]]
+         return cmd
+ 
+     async def _spawn(self) -> None:
+diff --git a/gateway/shutdown_watchdog.py b/gateway/shutdown_watchdog.py
+index 3dbeff7cf0..aba5772796 100644
+--- a/gateway/shutdown_watchdog.py
++++ b/gateway/shutdown_watchdog.py
+@@ -573,9 +573,10 @@ async def loop_heartbeat_forever(
+                 logger.debug(
+                     "stale loop-tick socket sweep failed", exc_info=True
+                 )
+-            tick_server = await asyncio.start_unix_server(
+-                _tick_socket_handler, path=str(tick_socket_path)
+-            )
++            if os.name == "posix":
++                tick_server = await asyncio.start_unix_server(
++                    _tick_socket_handler, path=str(tick_socket_path)
++                )
+         else:
+             # Windows / non-POSIX: no AF_UNIX support, so use a TCP loopback
+             # server on 127.0.0.1 as the loop-scheduling witness instead.
+diff --git a/plugins/platforms/email/adapter.py b/plugins/platforms/email/adapter.py
+index 228cad281f..305d806c16 100644
+--- a/plugins/platforms/email/adapter.py
++++ b/plugins/platforms/email/adapter.py
+@@ -685,11 +685,11 @@ class EmailAdapter(BasePlatformAdapter):
+             return imaplib.IMAP4_SSL(
+                 self._imap_host,
+                 self._imap_port,
+-                timeout=30,
++                timeout=90,
+                 ssl_context=_tls_context(self._imap_tls_verify, self._imap_host),
+             )
+ 
+-        imap = imaplib.IMAP4(self._imap_host, self._imap_port, timeout=30)
++        imap = imaplib.IMAP4(self._imap_host, self._imap_port, timeout=90)
+         if self._imap_security == "starttls":
+             try:
+                 imap.starttls(ssl_context=_tls_context(self._imap_tls_verify, self._imap_host))
+diff --git a/plugins/platforms/telegram/adapter.py b/plugins/platforms/telegram/adapter.py
+index a2ba4e7b51..1e3e5db2d1 100644
+--- a/plugins/platforms/telegram/adapter.py
++++ b/plugins/platforms/telegram/adapter.py
+@@ -3158,6 +3158,16 @@ class TelegramAdapter(BasePlatformAdapter):
+                         app.updater.stop(), timeout=_UPDATER_STOP_TIMEOUT
+                     )
+                 except asyncio.TimeoutError:
++                    if getattr(self, "_polling_teardown_started", False):
++                        # Teardown is already in progress: the hung stop() is
++                        # expected (the transport is being torn down), so do not
++                        # escalate to a fatal error + rebuild during shutdown.
++                        logger.debug(
++                            "[%s] updater.stop() timed out during teardown; "
++                            "skipping fatal-error recovery",
++                            self.name,
++                        )
++                        return
+                     message = (
+                         "Telegram updater.stop() did not finish before the network-"
+                         "recovery deadline; rebuilding the adapter instead of reusing "

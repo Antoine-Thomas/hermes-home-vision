@@ -35,7 +35,10 @@ re-delivering the same update forever.
   in-flight `getUpdates` per bot. If a probe `getUpdates` returns HTTP 409, the bot
   is actively long-polling — i.e. it IS running. Two concurrent polls on the same bot
   also block each other (the second waits for the first's timeout), so you cannot
-  cleanly inspect pending updates while the bot is healthy.
+  cleanly inspect pending updates while the bot is healthy. A set webhook also blocks
+  `getUpdates` with a 409, but a different description (`can't use getUpdates method
+  while webhook is active` vs `terminated by other getUpdates request`) — rule it out
+  with `getWebhookInfo` (empty `url` = no webhook) before concluding a concurrent poller.
 - **`offset=-1&timeout=N` returns only the latest pending update** and confirms
   nothing — fine for a quick "what's pending" peek, never for the running loop.
 - **A second Hermes gateway profile hijacks a dedicated bot's token.** If a dedicated
@@ -61,6 +64,8 @@ re-delivering the same update forever.
   to a full-token hash reads as "does not match" when the two tokens are identical: fix the scheme
   before concluding anything.
 - `getUpdates?offset=-1&timeout=3` → shows the latest pending update + its `chat.id`.
+- To DETECT a concurrent poller, probe with a long `timeout` (25 s), not 3 s: a short probe
+  returns `ok` by finishing before the other poller's next long-poll and under-reports the conflict.
 - Read the token out of the bot's config via regex; never echo it back to the user.
 
 ## See also

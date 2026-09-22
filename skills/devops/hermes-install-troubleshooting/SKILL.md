@@ -24,6 +24,21 @@ holds more than one.
 ## Safe update procedure (this user's setup)
 
 - `hermes update` CAN be run from an agent terminal — it force-stops gateway processes itself ("Stopping Windows gateway process(es) before updating Hermes"). That self-stop is not a substitute for the supported preflight: stop every profile's gateway first (`hermes gateway stop` AND `hermes -p <profile> gateway stop`) so no writer holds the DB during the swap, then run `hermes update --plan` (read-only) before the real run. Full sequence in the `hermes-operations` skill. Note `hermes update` accepts no `--restart` flag (it is rejected as an unrecognised argument).
+- **A running `hermes.exe serve` (dashboard/backend) BLOCKS the update before the updater's own serve-stop step.** The `Another hermes.exe is running` guard fires first, so the run aborts immediately; the updater then RELAUNCHES the serve backend it stopped, which re-arms the same block on the next attempt (observed looping over two runs). Working order: stop the serve wrapper tree yourself (`Stop-Process -Id <pid>` on `venv\Scripts\hermes.exe ... serve ...` **and** its python children, then confirm the port is free), run `hermes update -y`, then relaunch with `schtasks /Run /TN "Hermes - serve backend"` and confirm the headless signature on `http://127.0.0.1:9119/` (`web UI disabled — use 'hermes dashboard'`). A stray `venv\Scripts\python.exe` from outside the checkout (editor/LSP helper) trips the `Other Hermes processes are running from this install's venv` guard the same way — kill it instead of reaching for `--force-venv`.
+- **Ce garde-fou annule le run APRES avoir arrete la gateway — et le run annule relance la gateway puis se termine.** Version et HEAD restent donc **inchanges** (`hermes --version` + `git rev-parse HEAD` avant/apres) : ce n'est pas une install partielle, le code n'a pas bouge, tuer le detenteur du venv puis relancer est sur. Ne jamais conclure « mise a jour echouee » depuis le seul code de sortie : lire le log du run.
+- **Un run lance en arriere-plan n'ecrit rien dans le terminal.** Rediriger sa sortie vers un fichier choisi dans le home Hermes (`hermes update > "$LOCALAPPDATA/hermes/update_$(date +%s).log" 2>&1 &`) et lire ce log : c'est la seule source de la cause reelle (garde-fou venv, `serve` vivant, verrou concurrent).
+- **Ne jamais lancer un second `hermes update` pendant que le premier tourne.** L'updater tient un verrou plusieurs minutes (il attend jusqu'a 190 s le drainage de la gateway) ; le second run avorte aussitot avec `Another Hermes update is already running (started <duree> ago, process <pid>)` / `Running two at once would corrupt the install`. Verifier d'abord que le processus a quitte (table des processus, cf. `windows-path-handling`), pas seulement que la version n'a pas bouge : un run encore vivant et un run termine sont indiscernables depuis `hermes --version`.
+- **`updates.pre_update_backup: false` (this host) means the updater takes NO backup at all.** Check it first; when false, make the timestamped copies yourself (config.yaml, .env per profile, `memories/`, and each `state.db` via `sqlite3.Connection.backup` rather than a plain `cp` — the gateways are writing).
+- **Two venvs can coexist in the checkout and only ONE is synced.** Here `hermes-agent/venv` (installer, on PATH) and `hermes-agent/.venv` (legacy/dev, used by some sessions) share the git checkout: the code is identical after an update but the dependency sets are not (`venv` 175 pkgs vs `.venv` 135, several shared pkgs older). Compare with `pip freeze` on both and report the drift — an update does not fix `.venv`.
+- **Identify which venv a running session uses, and which one a launcher targets, before deciding anything.** Session: `Get-CimInstance Win32_Process -Filter "Name='hermes.exe'" | Select-Object -ExpandProperty CommandLine` — a session started by hand from a venv path leaves NO shortcut, scheduled task or `Run` key behind — but do NOT conclude "no launcher targets venv X" from grepping the home, `.lnk` files and `Run` keys alone: that sweep missed a live `.vbs` that launched the serve backend from the STALE venv. The authoritative check is the process table + the scheduled-task action list + who owns the port:
+```
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*hermes-agent\.venv*' } | ForEach-Object { "$($_.ProcessId) $($_.Name) << $($_.CommandLine)" }
+Get-ScheduledTask | Where-Object { $_.TaskName -like '*ermes*' } | ForEach-Object { "$($_.TaskName) | $(($_.Actions | ForEach-Object { $_.Execute + ' ' + $_.Arguments }))" }
+(Get-NetTCPConnection -LocalPort 9119 -State Listen).OwningProcess    # then read that PID's CommandLine
+```
+Grep sweeps over the hermes home must exclude what is huge: `--exclude-dir=skills` (`.hub/index-cache/hermes-index.json` is a single-line ~100k-entry JSON whose matches alone return >100 MB and destroy the tool result), plus `hermes-agent`, `node_modules`, `cache`, `sessions`, `.archive`; pair with `-rlI --include='*.py' --include='*.ps1' --include='*.vbs'` and print file names (`-l`), not matching lines. Match on the FULL venv-qualified path (`hermes-agent\.venv\`), never the generic `.venv\Scripts` substring: the substring also matches OTHER projects' venvs (`data/hermes-optim/.venv`, `data/sdxl_lora/kohya_ss/.venv`, `data/rag/venv`) and produced both a false "no launcher references it" and a false "three scripts reference it" in one audit. Observed chains: `references/windows-launcher-chain.md`. Launchers: read the strings embedded in the `uv` trampoline — `bin\hermes.exe` carries an ABSOLUTE shebang (`#!...\venv\Scripts\python.exe`) while `venv\Scripts\hermes.exe` carries the relative `#!python.exe`, so the PATH shim always lands on `venv`. A stale venv is also betrayed by `pyvenv.cfg` (`home` = an older `.hermes-runtime\python\generation-*`) and by its `hermes_agent-<ver>.dist-info` (0.20.5 vs 0.21.3). Compare required deps (`pyproject.toml` `dependencies` vs `pip freeze` per venv): a version drift with NO missing dep is harmless, so don't touch it mid-session.
+- **Never sync or delete a venv out from under the session running in it.** `pip install -r` from the healthy venv's freeze rewrites `site-packages` under a live interpreter (lazy imports break mid-run) and can DOWNGRADE toolchain packages (here torch 2.14.0 → 2.4.1+cu118). Retire a stale venv only after EVERY process using it is gone, by reversible rename (`Rename-Item .venv .venv.retired-<ver>`), then re-verify `hermes --version` + `hermes doctor` through the PATH shim. **Windows REFUSES that rename while any process holds files inside the venv** (`System.IO.IOException` / "L'accès au chemin … est refusé"), and the agent's own session is one of those processes — a rename attempted from inside the session always fails, so do not report it as done. Working order: repoint every launcher that names the stale venv (`.vbs`/task action, keep a `.bak`), restart that service so the port is served from the good venv (kill the old tree, confirm the port is free, then `schtasks /Run /TN "Hermes - serve backend"`), and hand the user a ready-to-run script to execute from a plain PowerShell — template: `templates/retire-stale-venv.ps1` (this host: `$HERMES_HOME\docs\retirer_venv_legacy.ps1`). Keep the retired dir ~30 days; rollback is the reverse rename.
+- **Stash audit (`hermes-update-autostash-*` leftovers).** Export every entry as a patch first (`git stash show -p stash@{N} > stashN.patch`), then preserve real code in a branch pointing AT the stash commit (`git branch hermes/autostash-<label> stash@{N}`): no worktree, no write to the live tree, and the commit stays reachable after `git stash drop`. Verify with `git diff --stat <branch>^1 <branch>` (diffing the branch against `main` shows thousands of upstream files; `^1` shows exactly the stashed change). `git stash show -p -w` separates whitespace/EOL churn (droppable) from content, and drops must go highest index first since indices shift.
 - All user customizations live OUTSIDE the git checkout: config.yaml, .env, skills/, scripts/, sessions/, state.db, memories/ are in the hermes home dir, not `hermes-agent/` (the checkout). A git pull / `hermes update` therefore never touches them — verify with `git status` (clean) rather than assuming.
 - Before updating, copy with timestamp: config.yaml, state.db, memories/ (`cp <x> <x>.bak.update_$(date +%Y%m%d_%H%M%S)`).
 - OmniRoute combos can't be backed up via `curl http://127.0.0.1:20128/api/combos` — it requires auth (AUTH_001); combos live on the OmniRoute server, unaffected by a Hermes update.
@@ -172,6 +187,61 @@ print(conn.execute('PRAGMA integrity_check').fetchall())  # expect [('ok',)]
 - `hermes doctor` from a neutral dir → Required Packages all ✓, "Version files consistent".
 - `hermes gateway status` → running, and its process cmdline points at the intended python.
 
+## `hermes update` sur un home qui porte un gros `data/`
+
+- **`--backup` zippe TOUT HERMES_HOME, `data/` inclus.** Sur un home charge en poids de
+  modeles/video/RAG (mesure : 178 Go au total, 162 Go dans `data/`) l'archive a depasse
+  16 Go en 17 min alors qu'elle etait encore en haut de l'arborescence — donc des heures
+  et des dizaines de Go. Un orphelin `.pre-update-*.zip.*.partial` de plusieurs Go dans
+  `backups/` est la signature d'un run anterieur qui a subi la meme chose. Sur un host a
+  `updates.pre_update_backup: false`, lancer `hermes update --no-backup -y` et faire
+  soi-meme les copies ciblees (config.yaml, `.env` par profil, `memories/`, chaque
+  `state.db` via `sqlite3.Connection.backup`). Le snapshot rapide n'est pas perdu pour
+  autant : il est deja ecrit dans `state-snapshots/<ts>-pre-update` et survit.
+- **Ces partials sont des fichiers CACHES (prefixe `.`)** : `Get-ChildItem "<home>\backups\*.partial*"`
+  et `ls <home>/backups/*.partial*` ne matchent **rien** et font conclure a tort « aucun orphelin ».
+  Utiliser `Get-ChildItem <home>\backups -Force -Filter "*.partial*"` (ou `ls -a`) : il y en a souvent
+  plusieurs (mesure sur ce host : 3, 14,9 Go a eux trois ; `backups/` retombe alors de 16 Go a 243 Mo).
+- **Le log du run ne prouve RIEN pendant la sauvegarde** : la sortie de python est
+  bufferisee par blocs quand elle est redirigee vers un fichier, le log reste donc sur sa
+  derniere ligne pendant des minutes. Mesurer la progression sur la taille du fichier
+  `backups/.pre-update-*.zip.<pid>-<tid>.partial`, ou sur le temps CPU du python enfant
+  de `.hermes-runtime`.
+- **`hermes profile stop` n'existe pas** (sous-commandes reelles : list/use/create/
+  delete/describe/show/alias/rename/purge-identity/migrate-identity/export/import/
+  install/update/info). Arreter les gateways par `hermes gateway stop` et
+  `hermes -p <profil> gateway stop`.
+- **Suspendre les taches planifiees REPETITIVES avant le run, les reactiver apres.**
+  Meme tous les detenteurs tues, `Hermes_Gateway` (PT15M), `Hermes_Gateway_HealthCheck`
+  (PT5M) et `Hermes_NVIDIA_NIM_Proxy` (PT15M) recreent un detenteur du venv en pleine
+  mise a jour et re-arment le garde-fou : `Disable-ScheduledTask` → run →
+  `Enable-ScheduledTask` + `Start-ScheduledTask`. Controle avant/apres avec
+  `hermes update --list-venv-holders` (JSON, exit 3 si occupe) — la session de l'agent
+  elle-meme est exclue de cette liste.
+- **La synchro des dependances se differe quand le `hermes.exe` de l'agent tient le venv.**
+  Le pull git est deja applique (le HEAD bouge), puis :
+  `Could not quarantine hermes.exe (PermissionError: another process is holding it open)`
+  → `The dependency install has been deferred`. Chaque commande `hermes` suivante
+  reessaie et affiche la banniere ; l'app continue de tourner sur le venv courant.
+  Avant d'annoncer au utilisateur de lancer la commande de reprise, mesurer si des deps
+  manquent vraiment : comparer les `dependencies` de `pyproject.toml` a
+  `venv\Scripts\python.exe -m pip freeze` et **ecarter celles conditionnees a la
+  plateforme** (`sys_platform != 'win32'`) — un seul `ptyprocess` manquant sous Windows
+  est un no-op, pas une install cassee. La commande de reprise donnee par l'outil :
+  `venv\Scripts\python.exe -m pip install -e ".[all]"` depuis le checkout.
+  Mais cette commande SEULE ne suffit pas : il faut d'abord arreter les detenteurs du venv, et
+  `--list-venv-holders` en montre deux par service (un superviseur `venv\Scripts\python.exe` + un
+  travailleur `.hermes-runtime\python\generation-<id>\python.exe`) — la session de l'agent tient le
+  venv elle aussi sans figurer dans cette liste. Le marqueur du checkout, `.update-incomplete`
+  (JSON, `{"attempts": N}`), ne se purge que quand la reprise reussit. Sequence complete, pieges
+  et verification : `references/deferred-dependency-install.md`.
+- **Verifier le HEAD annonce contre le depot distant avant d'y croire.** Une consigne
+  peut nommer un commit qui n'a jamais ete `origin/main` : comparer
+  `git rev-parse origin/main` (apres `git fetch origin`) au SHA annonce et rapporter le
+  vrai. Un pull de plusieurs centaines de commits peut aussi laisser le NUMERO de version
+  de `hermes --version` inchange (meme ligne de release) alors que `upstream <sha>`
+  change — citer les deux.
+
 ## Known local patch — Telegram `updater.stop()` hangs during shutdown
 
 Symptom (spams lvl8 alerts at gateway restart, ~03:00 nightly):
@@ -192,10 +262,15 @@ cd "$HERMES_HOME/hermes-agent" && git apply "$HERMES_HOME/data/patches/telegram-
 ```
 Patch copy: `references/telegram-stop-timeout.patch`.
 
-**2026-09 update — the patch is now UPSTREAM; residual alerts are a log-monitor
-false positive, not a code bug.** The `_polling_teardown_started` guard already
-ships in `adapter.py` (the `except asyncio.TimeoutError` branch returns quietly
-DURING teardown). If `updater.stop() did not finish` STILL spams lvl8 alerts
+**2026-09-19 re-check on `main` @ `d4d9b76d8c`: the guard is NOT in the timeout
+branch — the earlier "now upstream" note below was wrong.** The only
+`except asyncio.TimeoutError` around `updater.stop()` sits in
+`_stop_updater_or_go_fatal` (adapter.py ~l.1961) and escalates unconditionally
+(`_go_fatal_network` → retryable fatal + adapter rebuild). `_teardown_started` is
+consulted by the CALLER just before (~l.2011) and just after (~l.2017) the call,
+so a teardown starting DURING the 15 s `stop()` still escalates. The window is
+narrow (the pre-call check must already have passed), which is consistent with the
+nightly spam also coming from the non-teardown path. If `updater.stop() did not finish` STILL spams lvl8 alerts
 nightly, it is the NON-teardown path — `stop()` hangs on a CLOSE-WAIT socket
 outside a shutdown, the adapter correctly logs + rebuilds and recovers, so it is
 BENIGN. `hermes gateway restart` does NOT fix it (it recurs at the next restart,
@@ -209,6 +284,10 @@ Verify genuine errors (Traceback / Exception / out of memory) still match after.
 
 ## Supporting files
 
+- `references/deferred-dependency-install.md` — finishing a deferred dependency install: the six
+  venv holders (supervisor + `.hermes-runtime` worker per service), the `.update-incomplete`
+  marker, the disable-tasks / kill / `pip install -e ".[all]"` / restart order, and the
+  verification set.
 - `references/windows-runtime-ops.md` — gateway restart on Windows (kill the
   detached `gateway run` python via PowerShell, then `schtasks /run`), reliable
   MSYS detach (`powershell Start-Process`, not `cmd //c start`), the fact that
@@ -217,3 +296,4 @@ Verify genuine errors (Traceback / Exception / out of memory) still match after.
   Gmail email-IMAP timeout fix (`EMAIL_POLL_INTERVAL` + adapter `timeout`),
   **killing ELEVATED background processes (foreground shell = access denied;
   use UAC `Start-Process -Verb RunAs`)**, and the MSYS single-slash flag pitfall.
+- `templates/retire-stale-venv.ps1` — copy-and-adapt PowerShell for putting a stale venv out of service: aborts while any process still uses it, renames reversibly, then verifies `hermes --version`, the PATH shim, `doctor` and the backend port.

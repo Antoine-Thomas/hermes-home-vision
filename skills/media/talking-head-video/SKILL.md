@@ -78,6 +78,33 @@ metadata:
   - `--source_max_dim 512` : privilégier 512 pour la fluidité sur 8GB VRAM.
   - **Stabilisation (Denoising) :** LivePortrait est extrêmement sensible au jitter de la vidéo de conduite. Appliquez toujours un filtre de débruitage temporel (ex: `FFmpeg -vf hqdn3d=1.5:1.5:6:6`) sur la vidéo de conduite *avant* l'inférence.
 
+## Identifier la provenance d'une video deja produite
+
+Avant toute analyse d'image, lire la **signature du conteneur** : c'est la seule preuve dure
+(Lap/vision ne prouvent rien seuls).
+
+- **Pipeline local (ffmpeg)** : `major_brand isom` + `encoder Lavf<ver>` +
+  `Lavc<ver> libx264` + audio **mono**. C'est ce qu'ecrivent MuseTalk, LatentSync, SadTalker,
+  wav2lip, LivePortrait sur cette machine.
+- **Export NLE (Adobe Premiere, encodeur MainConcept)** : `major_brand mp42` +
+  `encoder "AVC Coding"` + `handler_name "Mainconcept ... Media Handler"` + audio **stereo**.
+- **Un export NLE efface les tags de l'outil d'origine.** Apres un passage en montage, l'outil
+  source n'est plus identifiable par les tags : repondre « non determinable » plutot qu'inventer.
+- Indice complementaire : la presence du projet `.prproj` et des caches
+  `Adobe Premiere Pro (Beta) *` dans le meme dossier, horodates juste avant le fichier, prouve
+  l'export.
+
+**Detecter un visage basse resolution recolle** (signature MuseTalk) : comparer la variance du
+Laplacien du crop visage a celle d'un **patch de fond de meme taille**, les deux ramenes au meme
+cote (256 px). Visage **plus mou** que le fond = visage genere petit puis upscale. Visage **plus
+net** que le fond = profondeur de champ courte, donc pas de collage, donc pas MuseTalk.
+
+**Une prise de vue reelle se reconnait au mouvement** : tete baissant jusqu'a sortir presque du
+cadre, yeux qui se ferment, balayage de pitch de -77 a +19 deg. Un generateur pilote par un
+portrait unique garde la tete dans le cadre (il perdrait le visage).
+
+**Identite** : embeddings buffalo_l (`w600k_r50`), cosinus >= 0,55 = meme personne.
+
 ## Lessons and Pitfalls
 
 - **Driving Video Mismatch:** NEVER reuse an old driving video (from a previous script) for a new audio track. Lip-sync is tied to the driving video's timing; using an old one will result in \"mismatched mouth\" syndrome. Always re-run the audio-driven stage (SadTalker) before the video-driven stage (LivePortrait) when audio changes.
@@ -106,6 +133,28 @@ metadata:
 - **Keep the coordinate space straight when measuring.** Three coexist in this pipeline (source frame, face crop, 1920×1080 canvas). Measure inside the crop's own frame and add the overlay offset only for the canvas — a 1080-wide crop image given canvas coordinates yields an empty region and silently invalidates every number.
 - **`GFPGANer.enhance()` returns 3 values, `RealESRGANer.enhance()` returns 2.** Unpacking 3 from the latter raises `ValueError: not enough values to unpack`.
 - **The Laplacian alone can lie.** Ghost/duplicate contours add high-frequency energy and inflate the score — a version measured at 90 % of the source was in fact covered in double lip edges. Confirm every sharpness number with a visual check on a frame with the mouth OPEN.
+
+- **Ne PAS utiliser le test « bas du visage vs haut du visage » pour detecter une signature de
+  basse resolution.** Teste le 19/09 : le controle positif (sortie MuseTalk connue, montee en
+  1080p) donne 1,376, soit le meme ratio qu'une vraie prise de vue (1,365), alors que les sources
+  reelles donnent 0,53-0,59. Le test est confondu par le montage : il ne permet aucune conclusion.
+  Ne pas le rejouer.
+- **La periodicite de boucle (ping-pong 2N) n'est pas toujours detectable dans la sortie.**
+  Autocorrelation temporelle testee sur 4 videos : aucun creux marque, y compris sur des sorties
+  de moteurs. Son absence **n'exclut pas** MuseTalk/LatentSync (la bouche est regeneree a chaque
+  cycle). Ne pas conclure de l'absence.
+- **La variance du Laplacien depend de l'echelle : normaliser avant toute comparaison.** A netete
+  egale, un visage de 1000 px mesure ~8x moins qu'un visage de 350 px. Compare a l'oeil, un lot
+  4K annoncait un ecart x13 avec une 720p ; apres recalage du crop a 256x256 l'ecart reel etait
+  x1,25. Sans normalisation on inverse la conclusion. Le raccourci « 720p plus nette que du 4K »
+  est presque toujours un artefact de mesure.
+- **`find /c/ -maxdepth 6` ne trouve PAS les outils installe : ils sont sous
+  `data\video_youtube\<outil>`, soit une profondeur 8 depuis `C:\`.** Chercher avec `maxdepth 8`
+  ou lister directement `data\video_youtube\*/` — sinon on conclut a tort « non installe » et on
+  recommande une installation qui n'a pas lieu d'etre.
+- **Prouver qu'un outil est installe par `import torch` dans son venv, pas par `ls`.** Le
+  repertoire survit a toutes les casses d'import ; un `ls` vert ne prouve rien. Verifier aussi que
+  `torch.cuda.is_available()` est True avant d'annoncer que l'outil est pret.
 
 ## Reference Files
 - `references/echomimic-v2-setup.md`
