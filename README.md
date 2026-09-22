@@ -1,13 +1,47 @@
 # Hermes Home Vision
 
+> **Version actuelle : `1.3`** — Hermes Psychopomp
+> **Version précédente : `1.2`** — version améliorée
+> **Version originale : `1.1`** — figée, téléchargeable
+
 > Installation personnelle de Hermes Agent — 3 profils isolés, supervision continue, veille automatique.
 
-Dépôt privé : `https://github.com/Antoine-Thomas/hermes-home-vision` — il contient **tout** : le
-runtime Hermes (configuration, profils, skills, scripts) **et** sa documentation rangée sous `docs/`.
-Un seul `git clone` restaure l'ensemble.
+Dépôt **privé** (accès au propriétaire) : `https://github.com/Antoine-Thomas/hermes-home-vision` — il
+contient **tout** : le runtime Hermes (configuration, profils, skills, scripts) **et** sa documentation
+rangée sous `docs/`. Un seul `git clone` restaure l'ensemble.
+Visibilité : le dépôt a été trouvé **public** le 21/09/2026 alors que sa description annonçait
+« Privé » ; il a été **repassé en privé** le même jour, après un contrôle de **tout l'historique**
+(`docs/scripts/scan_secrets_history.py` — aucune valeur de secret réelle). Détail en §8.
 
 Version de référence : **Hermes Agent v0.21.3 (2026.9.14)**, upstream `97962358`.
 Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Windows natif, pas WSL).
+
+---
+
+## Choisir sa version
+
+| Version | Statut | Branche / Tag | Documentation |
+|---|---|---|---|
+| **1.1** | Originale, figée, téléchargeable | tag `v1.1-original` | [Release 1.1](../../releases/tag/v1.1-original) · [Wiki](../../wiki/Version-1.1) |
+| **1.2** | Stable | `v1.2-ameliorations` / `v1.2` | [Fiche détaillée](docs/IMPROVEMENTS.md) · [Changelog](docs/CHANGELOG-v1.2.md) · [Wiki](../../wiki/Version-1.2) |
+| **1.3** | **Recommandée** | `main` / `v1.3` | [Changelog v1.3](docs/CHANGELOG-v1.3.md) · [Release 1.3](../../releases/tag/v1.3) |
+
+Les trois versions restent **téléchargeables indépendamment** : la 1.1 sur le tag `v1.1-original`, la 1.2
+sur la branche `v1.2-ameliorations` (tag `v1.2`), la 1.3 sur `main` (tag `v1.3`). Aucune n'est supprimée
+ni réécrite.
+
+**Branche par défaut du dépôt : `main`** — la page d'accueil affiche donc ce README-ci, celui de la 1.3.
+
+### Installation rapide (1.3)
+
+```bash
+git clone https://github.com/Antoine-Thomas/hermes-home-vision.git
+cd hermes-home-vision
+git checkout v1.3
+```
+
+Prérequis, étapes complètes et vérifications : [Wiki — Installation 1.2](../../wiki/Installation-1.2)
+(la page wiki 1.3 reste à écrire ; le détail de la 1.3 est dans `docs/CHANGELOG-v1.3.md`).
 
 ---
 
@@ -25,6 +59,19 @@ de repli :
 
 Aucun credential n'est partagé entre profils : un bot Telegram n'appartient qu'à un seul profil, et
 les clés du routeur sont dédiées (`hermes_watch`, `hermes_veille`).
+
+---
+
+## Nouveautés v1.3
+
+- **Skill TypeSafe Jev** — 3 primitives : `noul` (juger), `choice` (trancher), `score` (noter).
+- **Wiki L1 non-agentique** — 17 pages FR (13 concepts + 4 entités) compilées par un script Python,
+  synchronisées dans SiYuan.
+- **Chaîne de repli gratuite** — `eco` → `nvidia-stack` → `free-openrouter` → `deepseek-flash`.
+- **Retrait de `auto/best-reasoning`** — alias payant mesuré (résout vers un modèle Opus), retiré de la
+  chaîne de repli.
+
+Détail complet, fichiers concernés et notes de migration : [`docs/CHANGELOG-v1.3.md`](docs/CHANGELOG-v1.3.md).
 
 ---
 
@@ -263,8 +310,17 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
   reste actif en local — seul le blob a quitté l'historique.
 - Conséquence assumée : les SHA des commits de l'ancien dépôt de documentation ont changé. Les
   identifiants cités dans les rapports restent lisibles comme références historiques.
+- **Contrôle rejoué le 21/09/2026** pour la version 1.2, sur l'historique complet : `objets=2494`,
+  `blobs=1564`, `volume=11.2 Mo` — `telegram_bot_token: 0`, `google_api_key: 0`, `github_token: 0`,
+  `huggingface_token: 0`, `pem_private_key: 0`, et **1 seul blob `sk_*` classé placeholder**
+  (16 caractères, exemple pédagogique dans une référence de skill). Conclusion du script :
+  `aucune valeur de secret reelle dans l'historique`.
+- **Visibilité remise en cohérence le 21/09/2026** : le dépôt a été trouvé **public** alors que sa
+  description annonçait « Privé » et que la règle ci-dessous proscrit une publication sans re-scan.
+  Il a été **repassé en privé** après l'audit ci-dessus, et sa description mise à jour.
 - Ne jamais rendre ce dépôt public sans re-scan : un dépôt privé n'est pas un coffre, tout ce qui y
-  entre reste dans l'historique.
+  entre reste dans l'historique. Ce contrôle a été rejoué le 21/09/2026 pour la 1.2 et doit être
+  rejoué avant toute publication ultérieure.
 
 ---
 
@@ -282,12 +338,24 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
 | `docs\scripts\bootstrap.ps1` | remise en route sur une machine vierge — DryRun par défaut, `-Apply` pour exécuter |
 | `docs\scripts\restore-from-github.md` | restauration pas-à-pas : bots Telegram, clés OmniRoute, jeton SiYuan, `data/`, tâches hors dépôt |
 | `docs\scripts\baseline_t0.py` | mesure la baseline T0 (notebooks SiYuan, fragments RAG, cron) — à régénérer sur une nouvelle machine |
+| `docs\IMPROVEMENTS.md` | fiche détaillée des améliorations 1.1 → 1.2 : état réel de chaque version, bénéfices, fichiers concernés |
+| `docs\CHANGELOG-v1.2.md` | changelog de la version 1.2 (Keep a Changelog, convention SemVer) |
+
+### Voir aussi
+
+- [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md) — fiche détaillée des améliorations v1.1 → v1.2
+- [`docs/CHANGELOG-v1.2.md`](docs/CHANGELOG-v1.2.md) — changelog de la 1.2
+- [Wiki du dépôt](../../wiki) — accueil, installation 1.2, améliorations détaillées, migration
+  depuis la 1.1, archives 1.1, FAQ
 
 ---
 
 ## Licence et contact
 
-Usage personnel — pas de licence publique. Les composants tiers (Hermes Agent, OmniRoute, SiYuan,
-NVIDIA NIM) restent sous leurs licences respectives.
+**Aucune licence déclarée.** Le dépôt ne contient aucun fichier `LICENSE`, ni en 1.1 ni en 1.2 : son
+contenu est donc sous le régime par défaut du droit d'auteur (« tous droits réservés »), sans droit
+d'usage, de modification ou de redistribution accordé au-delà de ce que permettent les conditions de
+GitHub. Usage personnel. Les composants tiers (Hermes Agent, OmniRoute, SiYuan, NVIDIA NIM) restent
+sous leurs licences respectives.
 
 Contact : Antoine-Thomas — <https://github.com/Antoine-Thomas>
