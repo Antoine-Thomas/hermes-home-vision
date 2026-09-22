@@ -9,7 +9,7 @@
 Jev est un skill d'aide à la décision installé dans Hermes. Il expose trois
 primitives : `noul` (poser un jugement), `choice` (trancher entre N options) et
 `score` (noter une option). Il sert à ne plus improviser sur les choix rapides et
-à garder une trace écrite de la décision prise. Mesures : latence 0,33–0,56 s par
+à garder une trace écrite de la décision prise. Mesures : latence 0,37–0,44 s (mesuré) par
 appel, coût ~0,000013 $ par appel. Fichiers : `skills/typesafe-ai/SKILL.md`,
 `skills/typesafe-ai/scripts/jev_helper.py`,
 `skills/typesafe-ai/references/config-hermes.md`.

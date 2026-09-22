@@ -12,7 +12,7 @@ confidence: high
 
 Jev est le skill TypeSafe intégré à Hermes pour trancher les choix rapides. Trois
 primitives : `noul` (poser un jugement), `choice` (trancher entre N options),
-`score` (noter une option). Latence 0,33–0,56 s, coût ~0,000013 $ par appel. Voir
+`score` (noter une option). Latence 0,37–0,44 s (mesuré), coût ~0,000013 $ par appel. Voir
 [[hermes-agent]] et [[omniroute]].
 
 ## Où Jev tranche dans l'écosystème
