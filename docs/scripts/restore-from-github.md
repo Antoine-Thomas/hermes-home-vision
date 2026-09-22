@@ -4,7 +4,8 @@ Guide pas-à-pas pour repartir d'un Windows 11 vierge jusqu'à une installation 
 avec les trois profils. Compagnon du script `bootstrap.ps1` : le script fait les étapes mécaniques,
 ce document dit **ce qui reste à faire à la main** (et pourquoi le script ne peut pas le faire).
 
-Dépôt unique : `https://github.com/Antoine-Thomas/hermes-home-vision` (~5 Mo, privé).
+Dépôt unique : `https://github.com/Antoine-Thomas/hermes-home-vision` (~4 Mo, **public** depuis le
+22/09/2026).
 Ce qu'il contient : le runtime (racine) **et** sa documentation (`docs/`). Ce qu'il ne contient pas :
 les secrets, les bases de sessions, `data/` (venvs, modèles, index RAG).
 
@@ -160,7 +161,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\verif_24h.ps1
   `.env` du bureau (pas de `--clone`, pas de `--clone-channels`).
 - **Aucun secret dans le chat, dans un dépôt ou dans une issue** : ce qui est collé est déjà exposé
   (transcript, `state.db`, presse-papiers) — le remède est la rotation, pas la suppression.
-- **Le dépôt privé n'est pas un coffre** : il contient l'historique complet. Toute mise en public
-  exige un re-scan (`docs\scripts\scan_secrets_history.py --repo .`).
+- **Le dépôt public n'est pas un coffre** : il contient l'historique complet. Toute bascule de
+  visibilité exige un re-scan (`docs\scripts\scan_secrets_history.py --repo .`).
 - **L'agent A2A reste désactivé** par défaut (`docs\A2A_PREPARATION.md` décrit l'activation et son
   rollback si le besoin se présente).
