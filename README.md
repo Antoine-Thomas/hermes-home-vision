@@ -1,5 +1,68 @@
 # Hermes Home Vision
+TÂCHE : Mettre à jour le README pour que la v1.3 apparaisse sur la page
+d'accueil GitHub du dépôt hermes-home-vision.
 
+CONTEXTE
+La v1.3 est publiée (release + tag) mais le README affiché parle encore
+de la v1.2. Deux causes : la branche par défaut du dépôt est
+v1.2-ameliorations, et le commit v1.3 n'a pas touché README.md.
+
+ÉTAPE 1 — État réel
+cd "$env:LOCALAPPDATA\hermes"
+git branch -a
+git log --oneline -5 -- README.md
+gh repo view Antoine-Thomas/hermes-home-vision --json defaultBranchRef
+
+Rapporte les trois sorties brutes.
+
+ÉTAPE 2 — Mettre à jour README.md sur main
+Remplacer en tête le bandeau actuel par :
+
+> **Version actuelle : `1.3`** — Hermes Psychopomp
+> **Version précédente : `1.2`** — version améliorée
+> **Version originale : `1.1`** — figée, téléchargeable
+
+Puis mettre à jour le tableau « Choisir sa version » pour ajouter la
+ligne 1.3 et basculer la 1.2 en « stable » :
+
+| Version | Statut | Branche / Tag | Documentation |
+|---------|--------|---------------|---------------|
+| 1.1 | Originale | v1.1-original | Release 1.1 |
+| 1.2 | Stable | v1.2-ameliorations / v1.2 | CHANGELOG-v1.2 |
+| 1.3 | **Recommandée** | main / v1.3 | CHANGELOG-v1.3 |
+
+Mettre à jour « Installation rapide » : `git checkout v1.3` au lieu de
+`git checkout v1.2`.
+
+Corriger la phrase « main reste la 1.1 » — ce n'est plus vrai depuis
+la publication de la v1.3 sur main.
+
+ÉTAPE 3 — Commit + push
+git add README.md
+git diff --cached --stat
+git commit -m "docs: README v1.3 - bandeau et tableau mis a jour"
+git push origin main
+
+ÉTAPE 4 — Vérifier
+gh api repos/Antoine-Thomas/hermes-home-vision/readme --jq .content | base64 -d | Select-Object -First 10
+
+Doit afficher le bandeau v1.3.
+
+ÉTAPE 5 — Branche par défaut (DEMANDER CONFIRMATION)
+Si la branche par défaut n'est pas main, m'annoncer la commande
+suivante sans l'exécuter :
+
+gh repo edit Antoine-Thomas/hermes-home-vision --default-branch main
+
+Contrainte : ne pas la lancer sans mon accord explicite — ça change
+ce que voient tous les visiteurs.
+
+CONTRAINTES :
+- NE PAS toucher à config.yaml ni aux tags
+- NE PAS modifier la branche v1.2-ameliorations
+- Erreurs brutes, pas de paraphrase
+
+COMMENCE PAR L'ÉTAPE 1.
 > **Version actuelle : `1.2`** — version améliorée, recommandée → branche `v1.2-ameliorations`, tag `v1.2`
 > **Version originale : `1.1`** — [consulter / télécharger](https://github.com/Antoine-Thomas/hermes-home-vision/tree/v1.1-original) → branche `main`, tag `v1.1-original`
 
