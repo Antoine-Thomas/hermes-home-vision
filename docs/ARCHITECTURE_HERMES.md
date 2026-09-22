@@ -293,4 +293,5 @@ rouge. `-BaselinePath <json>` compare à une autre référence, `-NoReport` n'é
   sur les 6 motifs. Les SHA de l'ancien dépôt de documentation sont donc nouveaux.
 - **Sauvegardes hors dépôt** : `Desktop\hermes_install_GIT_BACKUP_20260917_170506_AVANT_PURGE`
   (état **avant** purge — contient les blobs, à ne jamais committer ni pousser).
-- Un dépôt privé n'est pas un coffre : toute mise en public exige un re-scan complet de l'historique.
+- Le dépôt est public (22/09/2026) : il n'est pas un coffre — toute bascule de visibilité exige un
+  re-scan complet de l'historique (`docs/scripts/scan_secrets_history.py`).
