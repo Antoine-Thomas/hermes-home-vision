@@ -86,3 +86,10 @@
 - entities/nvidia-nim-proxy.md
 - concepts/hermes-config.md
 - concepts/fallback-providers.md
+
+## [2026-09-22] create | page concepts/jev.md
+
+- Ajout manuel (sans appel LLM) du concept Jev : 3 primitives (`noul`, `choice`, `score`),
+  perimetre d'usage, exemple d'appel.
+- `index.md` regenere par `update_index([], dry=False)` : 17 pages.
+- Aucune page existante modifiee.

@@ -1529,14 +1529,14 @@
     "created_by": "installed",
     "last_patched_at": "2026-09-21T23:00:17.214563+00:00",
     "last_reused_patch_generation": 2,
-    "last_used_at": "2026-09-22T15:12:50.538161+00:00",
-    "last_viewed_at": "2026-09-22T15:12:50.534651+00:00",
+    "last_used_at": "2026-09-22T19:34:46.690086+00:00",
+    "last_viewed_at": "2026-09-22T19:34:46.686665+00:00",
     "patch_count": 2,
     "patch_generation": 2,
     "pinned": false,
     "state": "active",
-    "use_count": 9,
-    "view_count": 9
+    "use_count": 10,
+    "view_count": 10
   },
   "siyuan-second-brain": {
     "archived_at": null,
