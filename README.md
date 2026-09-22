@@ -346,7 +346,7 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
 | `docs\README.md` | rôle du dossier `docs`, notes de fusion, notes de sécurité |
 | `docs\RAPPORT_*.md`, `docs\INSTALL_LOG.md` | rapports de session et journal d'installation, commande par commande |
 | `docs\snapshot\` | baselines T0, configs de référence, diffs des scripts livrés |
-| `docs\scripts\push-to-github.md` | procédure de publication (dépôt privé, contrôles bloquants) |
+| `docs\scripts\push-to-github.md` | procédure de publication (dépôt public, contrôles bloquants) |
 | `docs\scripts\bootstrap.ps1` | remise en route sur une machine vierge — DryRun par défaut, `-Apply` pour exécuter |
 | `docs\scripts\restore-from-github.md` | restauration pas-à-pas : bots Telegram, clés OmniRoute, jeton SiYuan, `data/`, tâches hors dépôt |
 | `docs\scripts\baseline_t0.py` | mesure la baseline T0 (notebooks SiYuan, fragments RAG, cron) — à régénérer sur une nouvelle machine |

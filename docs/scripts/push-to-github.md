@@ -1,9 +1,15 @@
-# Publier le dépôt sur GitHub (privé)
+# Publier le dépôt sur GitHub (dépôt **public** depuis le 22/09/2026)
 
 **Un seul dépôt désormais** : `hermes-home-vision`
 (`https://github.com/Antoine-Thomas/hermes-home-vision`). Il contient le runtime Hermes à la racine
 **et** sa documentation sous `docs/` — la fusion des deux anciens dépôts a eu lieu le 17/09/2026
 (historique préservé, secret purgé).
+
+**État au 22/09/2026** : le dépôt est **public** (`gh repo view … --json visibility` répond
+`PUBLIC`), branche par défaut `main` (v1.3), tags `v1.3`, `v1.2`, `v1.1-original`. Il a été créé
+privé, audité le 21/09/2026 (`scan_secrets_history.py` : 0 occurrence) puis publié le 22/09.
+Toute modification de visibilité (public → privé ou l'inverse) exige de rejouer cet audit —
+cf. contrôles §0 et notes §5.
 
 | Élément local | Où | Contenu |
 |---|---|---|
@@ -32,6 +38,9 @@ git ls-files | ForEach-Object { if ((Test-Path $_) -and ((Get-Item $_).Length -g
 
 # 4) arbre propre (sinon figer la derive du runtime en un commit avant de pousser)
 git status --short
+
+# 5) visibilite : le depot est public depuis le 22/09/2026.
+#    Toute bascule public <-> prive exige de rejouer le controle 2) (scan d'historique) avant.
 ```
 
 > **Si un secret apparaît : ne pas pusher.** Le retirer du fichier **et le purger de l'historique**
@@ -49,8 +58,9 @@ gh api repos/Antoine-Thomas/hermes-home-vision --jq '"\(.name) private=\(.privat
 - `404 Not Found` alors que le dépôt existe dans le navigateur → **problème de portée du jeton**, voir §2.
 - `size > 0` → le dépôt contient déjà quelque chose (un README créé à la main, par exemple) : un
   `push` sera refusé en non-fast-forward. Le vider ou cloner puis fusionner avant de pousser.
-- Créer le dépôt à la main : <https://github.com/new> → nom `hermes-home-vision`, **Private**,
-  ne cocher **ni** README **ni** .gitignore **ni** licence (sinon un commit divergent apparaît).
+- Créer le dépôt à la main : <https://github.com/new> → nom `hermes-home-vision`, **Public** (état
+  actuel) — ou **Private** si l'audit d'historique n'a pas encore tourné, à publier après re-scan.
+  Ne cocher **ni** README **ni** .gitignore **ni** licence (sinon un commit divergent apparaît).
 
 ---
 
@@ -76,7 +86,7 @@ Deux sorties, par ordre de simplicité :
 
 Vérification après correction :
 ```powershell
-gh api repos/Antoine-Thomas/hermes-home-vision --jq '.private, .size'   # true, 0
+gh api repos/Antoine-Thomas/hermes-home-vision --jq '.private, .size'   # false (dépôt public), size > 0
 ```
 
 ---
@@ -93,7 +103,8 @@ git push -u origin main
 Sans renommage, pousser la branche existante : `git push -u origin master` — mais alors adapter le
 `git fetch --depth 1 origin main` des instructions d'installation du README.
 
-Durée : quelques secondes. Après la purge, le dépôt pèse **~5 Mo** (`.git`), pas 80.
+Durée : quelques secondes. Après la purge, le dépôt pèse **~4 Mo** (`.git` local 4,4 Mo, `size` API
+3587 Ko au 22/09/2026), pas 80.
 
 ---
 
@@ -132,8 +143,11 @@ fusion « fusion depots A+B (historique preserve, secret purge) »).
   avant de pousser.
 - **Ne pas commiter** : `hermes-agent/` (dépôt upstream imbriqué), `data/`, `logs/`, `cache/`,
   `state.db*`, les `.env` réels, `auth.json`, `pastes/`, `mcp-tokens/`, `whatsapp/`, `pairing/`.
-- **Un dépôt privé n'est pas un coffre** : ne jamais le passer en public sans re-scan complet de
-  l'historique (`scan_secrets_history.py`) et sans considérer comme compromis tout secret déjà poussé.
+- **Modifier la visibilité exige un re-scan complet** : le dépôt est **public** depuis le 22/09/2026
+  (audit d'historique passé avant la bascule). Avant tout passage public → privé ou privé → public,
+  rejouer `python docs\scripts\scan_secrets_history.py --repo .` et exiger 0 occurrence. Un dépôt
+  n'est pas un coffre : tout secret déjà poussé doit être considéré comme compromis — retiré du
+  fichier **et** purgé de l'historique (§0), puis révoqué chez le fournisseur.
 - **Sauvegardes conservées hors dépôt après la fusion** :
   `Desktop\hermes_install_GIT_BACKUP_20260917_170506_AVANT_PURGE` (état **avant** purge, 80 Mo, contient
   les anciens blobs — à garder hors de tout dépôt) et
