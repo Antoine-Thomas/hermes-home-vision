@@ -6,12 +6,10 @@
 
 > Installation personnelle de Hermes Agent — 3 profils isolés, supervision continue, veille automatique.
 
-Dépôt **privé** (accès au propriétaire) : `https://github.com/Antoine-Thomas/hermes-home-vision` — il
-contient **tout** : le runtime Hermes (configuration, profils, skills, scripts) **et** sa documentation
-rangée sous `docs/`. Un seul `git clone` restaure l'ensemble.
-Visibilité : le dépôt a été trouvé **public** le 21/09/2026 alors que sa description annonçait
-« Privé » ; il a été **repassé en privé** le même jour, après un contrôle de **tout l'historique**
-(`docs/scripts/scan_secrets_history.py` — aucune valeur de secret réelle). Détail en §8.
+Dépôt **public** : `https://github.com/Antoine-Thomas/hermes-home-vision` — il contient **tout** : le
+runtime Hermes (configuration, profils, skills, scripts) **et** sa documentation rangée sous `docs/`.
+Un seul `git clone` restaure l'ensemble. L'historique a été audité le 21/09/2026 par
+`docs/scripts/scan_secrets_history.py` : aucune valeur de secret réelle. Détail en §8.
 
 Version de référence : **Hermes Agent v0.21.3 (2026.9.14)**, upstream `97962358`.
 Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Windows natif, pas WSL).
@@ -96,8 +94,22 @@ Détail complet, fichiers concernés et notes de migration : [`docs/CHANGELOG-v1
       ┌────────────────────────┼──────────────────────────────────────┐
       │   RAG   8200           │   Backend   9119        SiYuan  6806 │
       │   index 2ᵉ cerveau     │   cœur Hermes         6 notebooks    │
-      └────────────────────────┴──────────────────────────────────────┘
+      └──────────────┬─────────┴──────────────────────────┬───────────┘
+                     │                                    │
+                     └────────────────┬───────────────────┘
+                                      │
+                        ┌─────────────▼──────────────┐
+                        │   Jev  ·  OpenRouter       │
+                        │   choix rapides 2-5 options│
+                        │   backend · RAG · SiYuan   │
+                        │   ~0,4 s · ~1,3e-05 $      │
+                        └────────────────────────────┘
 ```
+
+**Jev** est le skill TypeSafe d'aide à la décision. Il intervient sur les trois services (backend
+Hermes 9119, RAG 8200, SiYuan 6806) pour trancher les choix rapides : 2 à 5 options, critères
+objectifs, décision récurrente. Latence ~0,4 s par appel, coût négligeable. Il ne remplace pas le
+modèle principal : il décide à sa place sur les questions cadrées. Voir `wiki/concepts/jev.md`.
 
 Services communs aux trois profils : **OmniRoute** (20128, routeur LLM et combos `eco` /
 `nvidia-stack`), **proxy NIM** (20200, normalise les appels NVIDIA NIM : préfixes de modèles et
@@ -315,12 +327,12 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
   `huggingface_token: 0`, `pem_private_key: 0`, et **1 seul blob `sk_*` classé placeholder**
   (16 caractères, exemple pédagogique dans une référence de skill). Conclusion du script :
   `aucune valeur de secret reelle dans l'historique`.
-- **Visibilité remise en cohérence le 21/09/2026** : le dépôt a été trouvé **public** alors que sa
-  description annonçait « Privé » et que la règle ci-dessous proscrit une publication sans re-scan.
-  Il a été **repassé en privé** après l'audit ci-dessus, et sa description mise à jour.
-- Ne jamais rendre ce dépôt public sans re-scan : un dépôt privé n'est pas un coffre, tout ce qui y
-  entre reste dans l'historique. Ce contrôle a été rejoué le 21/09/2026 pour la 1.2 et doit être
-  rejoué avant toute publication ultérieure.
+- **Visibilité** : le dépôt est **public** depuis le 22/09/2026, après audit complet de l'historique
+  (`scan_secrets_history.py`, historique purgé par `git filter-repo` le 21/09). Le dépôt ne contient
+  aucune valeur de secret, ni dans les fichiers suivis, ni dans les commits passés.
+- **Règle** : avant toute modification de la visibilité (public → privé ou l'inverse), rejouer
+  `python docs/scripts/scan_secrets_history.py --repo .` et vérifier 0 occurrence. Un dépôt n'est pas
+  un coffre : tout ce qui entre reste dans l'historique.
 
 ---
 
