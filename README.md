@@ -1,70 +1,8 @@
 # Hermes Home Vision
-TÂCHE : Mettre à jour le README pour que la v1.3 apparaisse sur la page
-d'accueil GitHub du dépôt hermes-home-vision.
-
-CONTEXTE
-La v1.3 est publiée (release + tag) mais le README affiché parle encore
-de la v1.2. Deux causes : la branche par défaut du dépôt est
-v1.2-ameliorations, et le commit v1.3 n'a pas touché README.md.
-
-ÉTAPE 1 — État réel
-cd "$env:LOCALAPPDATA\hermes"
-git branch -a
-git log --oneline -5 -- README.md
-gh repo view Antoine-Thomas/hermes-home-vision --json defaultBranchRef
-
-Rapporte les trois sorties brutes.
-
-ÉTAPE 2 — Mettre à jour README.md sur main
-Remplacer en tête le bandeau actuel par :
 
 > **Version actuelle : `1.3`** — Hermes Psychopomp
 > **Version précédente : `1.2`** — version améliorée
 > **Version originale : `1.1`** — figée, téléchargeable
-
-Puis mettre à jour le tableau « Choisir sa version » pour ajouter la
-ligne 1.3 et basculer la 1.2 en « stable » :
-
-| Version | Statut | Branche / Tag | Documentation |
-|---------|--------|---------------|---------------|
-| 1.1 | Originale | v1.1-original | Release 1.1 |
-| 1.2 | Stable | v1.2-ameliorations / v1.2 | CHANGELOG-v1.2 |
-| 1.3 | **Recommandée** | main / v1.3 | CHANGELOG-v1.3 |
-
-Mettre à jour « Installation rapide » : `git checkout v1.3` au lieu de
-`git checkout v1.2`.
-
-Corriger la phrase « main reste la 1.1 » — ce n'est plus vrai depuis
-la publication de la v1.3 sur main.
-
-ÉTAPE 3 — Commit + push
-git add README.md
-git diff --cached --stat
-git commit -m "docs: README v1.3 - bandeau et tableau mis a jour"
-git push origin main
-
-ÉTAPE 4 — Vérifier
-gh api repos/Antoine-Thomas/hermes-home-vision/readme --jq .content | base64 -d | Select-Object -First 10
-
-Doit afficher le bandeau v1.3.
-
-ÉTAPE 5 — Branche par défaut (DEMANDER CONFIRMATION)
-Si la branche par défaut n'est pas main, m'annoncer la commande
-suivante sans l'exécuter :
-
-gh repo edit Antoine-Thomas/hermes-home-vision --default-branch main
-
-Contrainte : ne pas la lancer sans mon accord explicite — ça change
-ce que voient tous les visiteurs.
-
-CONTRAINTES :
-- NE PAS toucher à config.yaml ni aux tags
-- NE PAS modifier la branche v1.2-ameliorations
-- Erreurs brutes, pas de paraphrase
-
-COMMENCE PAR L'ÉTAPE 1.
-> **Version actuelle : `1.2`** — version améliorée, recommandée → branche `v1.2-ameliorations`, tag `v1.2`
-> **Version originale : `1.1`** — [consulter / télécharger](https://github.com/Antoine-Thomas/hermes-home-vision/tree/v1.1-original) → branche `main`, tag `v1.1-original`
 
 > Installation personnelle de Hermes Agent — 3 profils isolés, supervision continue, veille automatique.
 
@@ -84,25 +22,26 @@ Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Win
 
 | Version | Statut | Branche / Tag | Documentation |
 |---|---|---|---|
-| **1.1** | Originale, figée, téléchargeable | `main` / `v1.1-original` | [Release 1.1](../../releases/tag/v1.1-original) · [Wiki](../../wiki/Version-1.1) |
-| **1.2** | Améliorée, **recommandée** | `v1.2-ameliorations` / `v1.2` | [Fiche détaillée](docs/IMPROVEMENTS.md) · [Changelog](docs/CHANGELOG-v1.2.md) · [Wiki](../../wiki/Version-1.2) |
+| **1.1** | Originale, figée, téléchargeable | tag `v1.1-original` | [Release 1.1](../../releases/tag/v1.1-original) · [Wiki](../../wiki/Version-1.1) |
+| **1.2** | Stable | `v1.2-ameliorations` / `v1.2` | [Fiche détaillée](docs/IMPROVEMENTS.md) · [Changelog](docs/CHANGELOG-v1.2.md) · [Wiki](../../wiki/Version-1.2) |
+| **1.3** | **Recommandée** | `main` / `v1.3` | [Changelog v1.3](docs/CHANGELOG-v1.3.md) · [Release 1.3](../../releases/tag/v1.3) |
 
-Les deux versions sont **téléchargeables indépendamment**. La 1.1 n'est ni supprimée ni réécrite :
-`main` reste au commit `1f1f089`. Ce que la 1.2 change exactement — et ce qu'elle ne change pas — est
-détaillé dans [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md).
+Les trois versions restent **téléchargeables indépendamment** : la 1.1 sur le tag `v1.1-original`, la 1.2
+sur la branche `v1.2-ameliorations` (tag `v1.2`), la 1.3 sur `main` (tag `v1.3`). Aucune n'est supprimée
+ni réécrite.
 
-**Branche par défaut du dépôt : `v1.2-ameliorations`** — la page d'accueil affiche donc ce README-ci.
-`main` reste la 1.1, intacte et téléchargeable.
+**Branche par défaut du dépôt : `main`** — la page d'accueil affiche donc ce README-ci, celui de la 1.3.
 
-### Installation rapide (1.2)
+### Installation rapide (1.3)
 
 ```bash
 git clone https://github.com/Antoine-Thomas/hermes-home-vision.git
 cd hermes-home-vision
-git checkout v1.2
+git checkout v1.3
 ```
 
-Prérequis, étapes complètes et vérifications : [Wiki — Installation 1.2](../../wiki/Installation-1.2).
+Prérequis, étapes complètes et vérifications : [Wiki — Installation 1.2](../../wiki/Installation-1.2)
+(la page wiki 1.3 reste à écrire ; le détail de la 1.3 est dans `docs/CHANGELOG-v1.3.md`).
 
 ---
 
@@ -120,6 +59,19 @@ de repli :
 
 Aucun credential n'est partagé entre profils : un bot Telegram n'appartient qu'à un seul profil, et
 les clés du routeur sont dédiées (`hermes_watch`, `hermes_veille`).
+
+---
+
+## Nouveautés v1.3
+
+- **Skill TypeSafe Jev** — 3 primitives : `noul` (juger), `choice` (trancher), `score` (noter).
+- **Wiki L1 non-agentique** — 17 pages FR (13 concepts + 4 entités) compilées par un script Python,
+  synchronisées dans SiYuan.
+- **Chaîne de repli gratuite** — `eco` → `nvidia-stack` → `free-openrouter` → `deepseek-flash`.
+- **Retrait de `auto/best-reasoning`** — alias payant mesuré (résout vers un modèle Opus), retiré de la
+  chaîne de repli.
+
+Détail complet, fichiers concernés et notes de migration : [`docs/CHANGELOG-v1.3.md`](docs/CHANGELOG-v1.3.md).
 
 ---
 
