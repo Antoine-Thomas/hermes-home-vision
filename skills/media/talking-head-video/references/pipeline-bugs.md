@@ -4,10 +4,11 @@ Pipeline : `C:\Users\searc\AppData\Local\hermes\data\video_youtube\pipeline_talk
 Assemblage : `C:\Users\searc\AppData\Local\hermes\data\video_youtube\assemble_v6.py`
 (wrapper de l'etape g : `LatentSync\tests\post_hf_transfer.py`)
 
-Ces trois bugs ont coute 4 interventions manuelles pendant le volet 6 (22-23/09/2026).
+Ces bugs ont coute 4 interventions manuelles pendant le volet 6 (22-23/09/2026).
 Aucun n'etait visible avant le run : les deux premiers ne se declenchent qu'a des branches
-precises (`--segmenter auto`, JSON de mesures present) et le troisieme seulement si la variable
-contient les crochets.
+precises (`--segmenter auto`, JSON de mesures present), le troisieme seulement si la variable
+contient les crochets, et le quatrieme (graphe ffmpeg non borne) se manifeste en heures d'encodage
+perdues plutot qu'en erreur.
 
 ## 1. `_taille_segment` n'existe pas (`--segmenter auto`)
 
@@ -85,21 +86,98 @@ ffmpeg -v error -f lavfi -i color=c=red:s=64x64:d=1 -f lavfi -i color=c=blue:s=6
 - **Regle generale** : chainer des labels en Python = la variable porte le **nom** (`v1`), le
   f-string porte la **syntaxe** (`[v1]`). Mettre les deux dans la variable donne des doubles crochets.
 
-## 4. Un assemblage interrompu laisse un MP4 inutilisable (moov absent)
+## 4. Assemblage final : un graphe non borne (`moov` absent, « encodage interminable »)
 
-Constate le 23/09 : l'encodage final 1080p a ete tue volontairement a 17:27 (banc d'essai),
-le fichier livre restait a 441,8 Mo / 463 470 640 octets, et `ffprobe` repond :
+**Symptome** : l'encodage final 1080p tourne des heures, le fichier grossit sans fin, et une fois
+arrete `ffprobe` repond :
 
 ```
 [mov,mp4,m4a,3gp,3g2,mj2] moov atom not found
 ...: Invalid data found when processing input
 ```
 
-Le fichier grossit pendant tout l'encodage et **n'esquisse la mouvbox qu'a la fin** : une taille
-qui augmente ne prouve pas un fichier valide. Consequences pratiques :
+**Cause racine** : les incrustations sont des images ajoutees en `-loop 1` (entrees **infinies**) et
+la commande ffmpeg d'`assemble_v6.py` ne portait ni `-shortest` ni `-t`. Sans borne, ffmpeg encode
+jusqu'a l'arret force : l'index `moov` n'est ecrit qu'a la toute fin, donc **le fichier livre ne
+pouvait jamais etre lisible**. Mesure : le meme rendu de 336 s termine en **~6 min** avec
+`-shortest`, contre **2 h 31** sans (4 h 48 de video generee, `speed=1.91x`). C'est la cause reelle
+du « assemblage beaucoup trop lent », pas l'encodeur.
 
-- ne jamais livrer/annoncer un MP4 sans `ffprobe` sur le fichier **final** (pas sur l'entree) ;
-- un `taskkill /F` sur ffmpeg, une coupure de session ou un retry du watchdog laissent ce cadavre
-  au chemin de livraison — le supprimer ou relancer l'encodage avant de conclure quoi que ce soit ;
-- lancer toujours l'encodage final en `terminal(background=true, notify_on_complete=true)` pour
-  qu'une fin de session ne le tue pas au milieu.
+**Correction** (dans `assemble_v6.py`, commande finale) :
+
+```python
+"-pix_fmt", "yuv420p", "-r", "25", "-shortest", "-c:a", "aac", ...
+```
+
+**Regles :**
+
+- **Tout graphe ffmpeg dont une entree est une image en `-loop 1` doit porter `-shortest` (ou
+  `-t <duree>`).** Sans borne, le graphe n'a pas de fin — le symptome n'est pas une erreur mais un
+  fichier qui grossit et un process qui ne rend jamais la main.
+- **Controle AVANT de lancer** : lire la ligne de progression ffmpeg (`frame=... time=... speed=...`).
+  Si `time=` depasse la duree de l'audio source, le graphe est non borne : couper et corriger.
+- **Ne pas deduire la taille attendue d'un run precedent non borne.** Ici 441 Mo puis 707 Mo venaient
+  d'encodages infinis ; le fichier juste fait 218 Mo pour 336 s. Une bande de taille heritee d'un run
+  casse fait conclure a tort a un resultat invalide.
+- **Fin d'encodage = deux conditions** : plus aucun process `ffmpeg` **et** taille stable pendant
+  60 s. La seule stabilite ou la seule taille ne suffisent pas.
+- **Validation de livraison (`ffprobe` sur le fichier final)** : `duration` = duree de l'audio,
+  `nb_frames` = `duration x fps` (8410 = 336,4 x 25), codec `h264`, 1920x1080, audio `aac`. Un
+  `duration` coherent avec `nb_frames` prouve que le fichier est complet (pas seulement present).
+- Lancer l'encodage final en `terminal(background=true, notify_on_complete=true)` pour qu'une fin de
+  session ne le tue pas au milieu, puis verifier par sondage (`stat` de taille + `tasklist`), jamais
+  en bloquant le shell.
+
+## 5. PNG d'incrustation decodes a 25 im/s
+
+- **Cause** : `["-loop", "1", "-i", png]` sans `-framerate` : une image **statique** est relue au
+  rythme de sortie (25 im/s). Avec 5 PNG = 125 decodages/s pour rien, en plus du decodage video.
+- **Correction** : `["-loop", "1", "-framerate", "1", "-i", png]` pour **chaque** PNG
+  (incrustations et filigrane). Le framerate de sortie reste impose par `-r 25` ; l'overlay repete
+  la derniere image, le rendu est identique.
+- **Verification** : `grep -n 'framerate' assemble_v6.py` -> une occurrence par entree PNG.
+
+## 6. ffmpeg orphelin apres l'echec du script
+
+- **Symptome** : un `assemble_v6.py` qui echoue laisse son `ffmpeg` vivant (subprocess non tue) ; il
+  consomme un coeur pendant des heures et peut tourner **en parallele** du suivant. Volet 6 : deux
+  ffmpeg infinis en simultane, 2 h 30 d'assemblage au lieu de ~15 min.
+- **Correction** : envelopper l'appel ffmpeg et tuer l'orphelin.
+
+```python
+try:
+    r = subprocess.run(cmd, capture_output=True, text=True)
+except Exception:
+    subprocess.run(["taskkill", "/F", "/IM", "ffmpeg.exe"], capture_output=True)
+    raise
+if r.returncode != 0:
+    subprocess.run(["taskkill", "/F", "/IM", "ffmpeg.exe"], capture_output=True)
+    sys.exit(1)
+```
+
+- **Verification** : `grep -n taskkill assemble_v6.py` (2 occurrences) ; `tasklist | grep -i ffmpeg`
+  doit etre vide apres un echec.
+- **Regle** : un encodage n'est pas termine parce que le script a rendu la main — verifier qu'aucun
+  `ffmpeg.exe` ne tourne.
+
+## 7. Reference de 19 s et duree cible d'un volet (correctifs 9 et 10)
+
+- **Symptome** : toutes les estimations du volet 6 etaient faussees. Mesure du 23/09 sur les deux
+  fichiers du Bureau : `tutotete19.mp4` dure **19,12 s** (extrait) et `tutotete20_jev_llmwiki.mp4`
+  (= volet 6 publie) dure **336,40 s**. La « reference 336 s » annoncee pointait donc sur un clip
+  de 19 s.
+- **Regle** : la reference de format et de duree d'un volet est **le volet precedent publie**,
+  verifiee par `ffprobe` au demarrage ; **si elle dure moins de 60 s, arreter et demander la bonne
+  reference** (garde-fou `verifier_reference()` dans `assemble_v6.py`).
+- **Duree cible** : jamais une valeur ronde — c'est la duree **reelle** du dernier
+  `sortie_latentsync_<volet>*.mp4` (greffe `_hf` prioritaire), passee a l'assemblage en `-t` en plus
+  de `-shortest` (`dernier_latentsync()` + `duree_ffprobe()`). Volet 6 : 336,44 s.
+- **Verification (sans encoder)** : `VIDEO_REFERENCE="<clip de 19 s>" python assemble_v6.py` doit
+  s'arreter sur « reference suspecte » **avant** tout appel ffmpeg.
+
+## 8. Scripts du pipeline non versionnes
+
+`data\video_youtube\` est gitignore : un correctif applique seulement la-bas disparait a la
+reinstallation. Le gabarit vit dans `%LOCALAPPDATA%\hermes\scripts\video\` (copie, jamais de
+placement) : `pipeline_talkinghead.py`, `assemble_v6.py` (futur `assemble_template.py`),
+`faire_overlays_v6.py`, `surveiller_v6.py`, `PIPELINE_TALKINGHEAD_README.md`.

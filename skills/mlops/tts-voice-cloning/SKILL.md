@@ -184,6 +184,13 @@ la donnee qui bloque, pas la carte (un fine-tune LoRA tient dans 6-8 Go).
   puis ne garder qu'une archive et supprimer les runs intermediaires — l'espace part tres vite.
   Verifier avant de supprimer qu'un checkpoint candidat est bien un doublon (taille identique) de
   l'archive conservee, et que `voix_reference.wav` a le meme MD5 avant et apres.
+- **Ne JAMAIS faire `pip install <paquet>` sans pin dans le venv du pipeline talking-head
+  (LatentSync, Python 3.10).** numpy 2.x y casse `scikit-image` 0.22.0 (`numpy.dtype size
+  changed`) et une roue cp311 casse `cv2` ; on installe uniquement par le fichier de contraintes
+  `data\video_youtube\requirements-latentsync.txt`
+  (`LatentSync\venv\Scripts\python.exe -m pip install -r requirements-latentsync.txt`), qui fige
+  numpy 1.26.4 + scikit-image 0.22.0 + insightface + les roues cu121. Tableau de compatibilite,
+  messages d'erreur exacts et commande de verification : `references/dependances-venv.md`.
 - Le vrai levier sur la diction reste le labo de graphies (`references/french-diction-tricks.md`)
   et une couche de correction lexicale appliquee au texte AVANT la synthese : zero GPU, effet
   immediat, et verifiable par aller-retour Whisper.
@@ -229,3 +236,4 @@ GPU 52 -> 53 degC, memoire rendue apres le run. Le fine-tune, lui, montait a 7,9
 - `references/xtts-v2-setup.md`
 - `references/french-diction-tricks.md`
 - `references/fine-tune-xtts.md` — recette d'entrainement (corpus, pas, A/B) et les quatre pieges qui font echouer la mise en route
+- `references/dependances-venv.md` — pins numpy/scikit-image du venv LatentSync (Python 3.10) : jamais de `pip install` sans pin

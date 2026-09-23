@@ -59,4 +59,28 @@ commande d'activation (`schtasks /change /tn "<nom>" /enable`) avec sa consequen
 
 `volet6-watchdog` existait a la fois comme cron Hermes (en pause) et, apres ce correctif, comme
 tache Windows : le meme nom pour deux planificateurs rend toute verification ambigue.
-Convention : prefixe `hermes ` / suffixe selon le mecanisme (`...-schtask` pour Windows).
+- Convention : prefixe `hermes ` / suffixe selon le mecanisme (`...-schtask` pour Windows).
+
+## Detacher ce qu'un tick lance (correctif 5, volet 6)
+
+Un tick cron Hermes a un **timeout de 3600 s**. Un watchdog qui termine son travail par une etape
+longue (`subprocess.run([... assemble_v6.py ...])`, 15-25 min) voit son tick timeout a chaque
+passage, et l'etape peut etre relancee en double au tick suivant.
+
+**Regle : un tick ne lance jamais un travail long en `subprocess.run`, il le detache.**
+
+```python
+with open(log, "w", encoding="utf-8") as f:
+    subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=VID,
+                     creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
+etat["assemble_lance"] = True   # sinon le tick suivant relance une deuxieme fois
+```
+
+- Le tick rend la main immediatement ; le suivi se fait sur l'**artefact final** (existence du
+  fichier livre + `ffprobe`), pas sur le code retour du process detache.
+- Poser un drapeau dans le fichier d'etat (`assemble_lance`) des le lancement : sans lui, chaque
+  tick de 15 min redemarre l'etape lourde.
+- Le log du process detache (`assemble_v6.log`) est la seule trace de son echec : le lire avant de
+  conclure.
+- Verifier : `grep -n Popen scripts/surveiller_v6.py` doit montrer le `DETACHED_PROCESS`, et
+  `subprocess.run([sys.executable, ASSEMBLE])` ne doit plus apparaitre.

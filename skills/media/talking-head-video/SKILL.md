@@ -163,13 +163,40 @@ portrait unique garde la tete dans le cadre (il perdrait le visage).
   numpy 1.26.4 + scikit-image 0.22.0, a installer par le fichier de contraintes
   `data\video_youtube\requirements-latentsync.txt` (tableau de compatibilite et commandes de
   verification : `tts-voice-cloning/references/dependances-venv.md`).
-- **Un MP4 grossit pendant tout l'encodage sans etre lisible.** Un assemblage interrompu (taskkill,
-  fin de session) laisse un fichier a la taille credible mais sans `moov` : `ffprobe` repond
-  `moov atom not found`. Toujours `ffprobe` le fichier **final** avant de l'annoncer livre.
+- **Un graphe ffmpeg avec des images en `-loop 1` doit porter `-shortest` (ou `-t`), sinon
+  l'encodage ne finit JAMAIS.** Les entrees image sont infinies : sans borne ffmpeg encode jusqu'a
+  l'arret force, le fichier grossit sans limite et l'index `moov` n'est ecrit qu'a la toute fin —
+  `ffprobe` repond `moov atom not found` sur le fichier livre. C'est la cause reelle des
+  « assemblages qui prennent 1 h a 3 h » : le meme rendu de 336 s finit en ~6 min avec `-shortest`,
+  contre 2 h 31 sans (4 h 48 de video generee, `speed=1.91x`). Controle AVANT de lancer : la ligne
+  de progression (`time=`) ne doit pas depasser la duree de l'audio, sinon le graphe est non borne.
+  Controle APRES : fin = plus aucun process `ffmpeg` **et** taille stable 60 s, puis `ffprobe` du
+  fichier **final** (jamais de l'entree), avec `nb_frames` = `duration x fps`. Ne pas deduire la
+  taille attendue d'un run precedent non borne. Detail : `references/pipeline-bugs.md`.
 - **Chainer des filtres ffmpeg en Python : la variable porte le nom, pas les crochets.**
   `cour = "0:v"` puis `f"[{cour}][{idx}:v]overlay=..."` ; `cour = "[0:v]"` produit `[[0:v]][1:v]` et
   ffmpeg repond `Error parsing filterchain` / `Trailing garbage after a filter`. Test A/B sans
   fichier de sortie (`-f null -`) : `references/pipeline-bugs.md`.
+- **Une image statique en boucle se decode a 1 im/s, pas a 25.** `["-loop", "1", "-framerate",
+  "1", "-i", png]` pour chaque PNG d'incrustation : 5 PNG a 25 im/s = 125 decodages/s pour rien.
+  Le framerate de sortie reste `-r 25` (l'overlay repete la derniere image).
+- **Reglages d'encodage YouTube par defaut : `-preset fast -crf 20`** (jamais `medium`/`crf 18`) :
+  meme qualite visuelle, 3-5x plus rapide (le volet 6 a passe 2 h 30 la-dessus). Consequence a
+  accepter : 217 Mo pour 336 s — la fourchette « 400-700 Mo » venait de runs non bornes.
+- **Un `ffmpeg` lance par `subprocess.run` survit a l'echec du script et garde un coeur pendant des
+  heures** (volet 6 : deux ffmpeg infinis en parallele, 2 h 30 au lieu de 15 min). Envelopper
+  l'appel et tuer l'orphelin :
+  `except: subprocess.run(["taskkill", "/F", "/IM", "ffmpeg.exe"], capture_output=True); raise`.
+- **La duree cible d'un volet est la duree reelle du dernier `sortie_latentsync_<volet>*.mp4`**
+  (greffe `_hf` prioritaire), lue par `ffprobe` et passee en `-t` en plus de `-shortest` : jamais
+  une valeur ronde. Volet 6 : 336,44 s.
+- **La reference de format et de duree est le volet precedent publie, verifiee `>= 60 s` au
+  demarrage du run.** Mesure du 23/09 : `tutotete19.mp4` (donne comme reference) dure 19,12 s alors
+  que le volet precedent reel (`tutotete20_jev_llmwiki.mp4`) dure 336,40 s. Sous 60 s : arreter et
+  demander la bonne reference.
+- **Versionner les scripts du pipeline** : `data\video_youtube\` est gitignore, donc un correctif
+  applique seulement la-bas ne survit pas a une reinstallation. Copier (jamais deplacer) le gabarit
+  dans `%LOCALAPPDATA%\hermes\scripts\video\` apres chaque correction.
 - **Mesurer la forme racine d'un JSON produit par un autre outil avant de le parcourir.**
   `for k, v in x.items()` sur `mesures_hf.json` (une **liste** d'un dict par instant, ecrite par
   `hf_rapport.py`) lève `AttributeError: 'list' object has no attribute 'items'` a l'etape i, apres
@@ -179,8 +206,9 @@ portrait unique garde la tete dans le cadre (il perdrait le visage).
 - `references/echomimic-v2-setup.md`
 - `references/mouth-sharpness.md` (measuring + restoring mouth sharpness)
 - `references/latentsync-setup.md`
-- `references/pipeline-bugs.md` (bugs du pipeline volet 6 : `_taille_segment`, `m.items()` sur une
-  liste, double crochet ffmpeg, MP4 sans `moov`)
+- `references/pipeline-bugs.md` (bugs du pipeline talking head : `_taille_segment`, `m.items()` sur
+  une liste, double crochet ffmpeg, graphe non borne / `moov` absent, PNG a 25 im/s, ffmpeg
+  orphelin, reference de 19 s et duree cible reelle)
 - `references/models-and-deps.md`
 - `references/musetalk-setup.md`
 - `references/liveportrait-troubleshooting.md` (ONNX/CUDA patches)
