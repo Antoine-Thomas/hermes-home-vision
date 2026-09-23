@@ -156,10 +156,31 @@ portrait unique garde la tete dans le cadre (il perdrait le visage).
   repertoire survit a toutes les casses d'import ; un `ls` vert ne prouve rien. Verifier aussi que
   `torch.cuda.is_available()` est True avant d'annoncer que l'outil est pret.
 
+- **Dependances du venv : ne JAMAIS `pip install numpy` sans pin.** Le venv LatentSync est en
+  Python 3.10 ; numpy 2.x (roue cp311) casse `cv2` (`No module named 'numpy._core._multiarray_umath'`,
+  le suffixe cp311 est le diagnostic) et numpy 2.x casse `scikit-image` 0.22.0
+  (`numpy.dtype size changed ... Expected 96 from C header, got 88`). Etat verifie : Python 3.10.11 +
+  numpy 1.26.4 + scikit-image 0.22.0, a installer par le fichier de contraintes
+  `data\video_youtube\requirements-latentsync.txt` (tableau de compatibilite et commandes de
+  verification : `tts-voice-cloning/references/dependances-venv.md`).
+- **Un MP4 grossit pendant tout l'encodage sans etre lisible.** Un assemblage interrompu (taskkill,
+  fin de session) laisse un fichier a la taille credible mais sans `moov` : `ffprobe` repond
+  `moov atom not found`. Toujours `ffprobe` le fichier **final** avant de l'annoncer livre.
+- **Chainer des filtres ffmpeg en Python : la variable porte le nom, pas les crochets.**
+  `cour = "0:v"` puis `f"[{cour}][{idx}:v]overlay=..."` ; `cour = "[0:v]"` produit `[[0:v]][1:v]` et
+  ffmpeg repond `Error parsing filterchain` / `Trailing garbage after a filter`. Test A/B sans
+  fichier de sortie (`-f null -`) : `references/pipeline-bugs.md`.
+- **Mesurer la forme racine d'un JSON produit par un autre outil avant de le parcourir.**
+  `for k, v in x.items()` sur `mesures_hf.json` (une **liste** d'un dict par instant, ecrite par
+  `hf_rapport.py`) lève `AttributeError: 'list' object has no attribute 'items'` a l'etape i, apres
+  les heures de calcul. `print(type(d).__name__, len(d))` sur un fichier reel coute 5 secondes.
+
 ## Reference Files
 - `references/echomimic-v2-setup.md`
 - `references/mouth-sharpness.md` (measuring + restoring mouth sharpness)
 - `references/latentsync-setup.md`
+- `references/pipeline-bugs.md` (bugs du pipeline volet 6 : `_taille_segment`, `m.items()` sur une
+  liste, double crochet ffmpeg, MP4 sans `moov`)
 - `references/models-and-deps.md`
 - `references/musetalk-setup.md`
 - `references/liveportrait-troubleshooting.md` (ONNX/CUDA patches)

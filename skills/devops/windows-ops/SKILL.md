@@ -120,3 +120,6 @@ puis supprimer le wrapper VBS. L'action d'origine revient (avec la fenetre).
 ## References
 
 - `references/docker-gpu-windows.md` — procedure GPU Docker Windows
+- `references/scheduled-tasks.md` — creer ET verifier une tache planifiee (regle : preuve verifiable
+  apres creation, pieges cron Hermes vs Planificateur Windows, garde-fou pour tester un tick sans
+  declencher l'action lourde)

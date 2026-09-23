@@ -93,6 +93,17 @@ relance de la copie, remettre `eco` a 3 cibles reelles par `PUT /api/combos/<ECO
 appel `model=eco` -> `200` en 1,6-2,2 s, trace `decisions=5`, 4 lignes `AUTH No credentials for auto` =
 filtrage pre-dispatch a ~0 ms. En appel **direct** les memes alias repondent `200` (`auto/gemini` 5,6 s,
 `auto/zai` 12,8 s). Ne pas promettre un gain de vitesse en les retirant : le gain est du bruit de log.
+**Un tick servi par l'etage 2 (`nvidia-stack`) ressemble a une facturation sans en etre une — ne pas le confondre
+avec DeepSeek.** Mesure 2026-09-23 01:00 Paris : le tick `cron_5c9dd16aaa37_20260923_010051` porte
+`model=nvidia-stack, billing_provider=omniroute, estimated_cost_usd=0,0082` alors que les ticks precedents
+(00:00, 23:00) portaient `model=eco, billing_provider=custom, cost=0.0`. Cause : la passe de :01 met
+`gemini-3-flash-preview` au plafond gratuit JOURNALIER (`limit: 20, model: gemini-3-flash`) et sature la
+fenetre NIM, donc le premier appel `eco` du tick tombe sur l'etage 2. Le signal d'alerte reste
+`billing_provider=deepseek` ; un `omniroute` + cout estime non nul sur `nvidia-stack` se lit
+« chaine gratuite, etage 2 », pas « bascule payante ». Verifier `config.yaml`
+(`model.default=eco` / `provider=omniroute`, `fallback_providers=[nvidia-stack, free-openrouter, deepseek-flash]`)
+avant de conclure.
+
 **Detecter une bascule payante du job, cote Hermes** : `sessions.billing_provider` du `state.db` du profil
 (`select id, model, billing_provider, estimated_cost_usd from sessions order by rowid desc limit 5`).
 Mesure 2026-09-21 : les ticks 15:01 et 16:01 de `omniroute-eco-autorefresh` sont sortis en

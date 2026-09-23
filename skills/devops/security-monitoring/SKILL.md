@@ -45,7 +45,11 @@ du message utilisateur), `NotADirectoryError` (write_file transitoire),
 `Non-retryable client error` (stall fournisseur), `Unrepairable tool_call`,
 `Retrying API call` (diagnostic OmniRoute), `httpx2: HTTP Request` (le client HTTP
 journalise chaque requête/réponse, donc un `401 Unauthorized` pendant le
-rafraîchissement OAuth d'un serveur MCP déclenche la règle auth — faux positif).
+rafraîchissement OAuth d'un serveur MCP déclenche la règle auth — faux positif),
+`calling get_updates` (erreur transitoire du polling Telegram `get_updates one more time`),
+`Another gateway instance` (double-lancement transitoire du gateway — le garde
+single-instance a fonctionné, la 2e instance sort toute seule),
+`OAuth flow error` (échec du refresh OAuth d'un serveur MCP, bénin).
 
 ## Spam d'alertes « 🔴 Ports en écoute » (port_monitor.py)
 
@@ -135,7 +139,13 @@ suivant ne remonte plus d'erreur.
    motif de la LIGNE (`Unrepairable\s+tool_call`, `Retrying\s+API\s+call`,
    `Analyzing\s+image`, `Error\s+analyzing\s+video`, `Non-retryable\s+client\s+error`),
    jamais en descendant le niveau de log du cœur.
-9. **`Fatal whatsapp adapter error (whatsapp_bridge_exited)` = le bridge Node
+9. **`agent.conversation_loop: Context length exceeded` + `agent resource teardown exceeded 10.0s`
+   sur un job cron = le job tourne en mode agent alors que son script fait déjà tout.** Le prompt de
+   l'agent lui ordonne de ré-exécuter le script déjà lancé en pre-run : contexte agent gonflé jusqu'au
+   plafond (128K pour `eco`) + double sonde (quota gratuit gaspillé). Corriger à la racine par
+   `hermes cron edit <id> --no-agent` (le script EST le job, stdout livré direct), pas en filtrant la ligne
+   — un job script-only ne lève jamais `conversation_loop`.
+10. **`Fatal whatsapp adapter error (whatsapp_bridge_exited)` = le bridge Node
    (Baileys) crash en boucle.** Si l'utilisateur n'utilise pas WhatsApp,
    `WHATSAPP_ENABLED=false` dans le `.env` ne suffit pas toujours : le désactiver
    définitif est `hermes config set platforms.whatsapp.enabled false` (ce YAML est

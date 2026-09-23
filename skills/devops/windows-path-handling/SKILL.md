@@ -40,6 +40,13 @@ L'ecriture reussie garantit que le fichier a ete ecrit au chemin **resolu** ; el
 - Bash (MSYS) : `cd /c/Users/...` fonctionne, `~` est developpe par le shell.
 - Outil natif (git, rg, node, python, ffmpeg) : les chemins ne sont PAS traduits, passer `C:/Users/...`. `~` n'est developpe ni par les outils d'ecriture ni par un programme natif.
 - Fichier temporaire qu'un programme natif doit lire : preferer `$LOCALAPPDATA/Temp` a `/tmp`.
+- **Un chemin MSYS passe a un binaire natif est resolu contre la racine du disque courant** :
+  `git clone <url> /tmp/wiki` lance depuis bash reussit (`exit 0`, aucune erreur) et cree
+  `C:\tmp\wiki` ; le `ls /tmp/wiki` qui suit repond « No such file or directory » sur un clone qui a
+  bel et bien eu lieu. Le meme ecart vaut pour tout binaire natif recevant un chemin de sortie.
+  Symptome a retenir : un outil annonce un succes et la cible est introuvable au chemin MSYS —
+  chercher sous `C:/tmp/...` avant de conclure a un echec ou de relancer.
+- **Du Python lance par l'outil `execute_code`, `subprocess.run(..., shell=True)` ouvre `cmd.exe`, PAS le bash MSYS** : `'head' n'est pas reconnu en tant que commande interne`, idem `wc`, `tail`, `find`. Le piege est silencieux sur le fond : le `exit_code` peut rester **0** alors que la sortie ne contient que les messages d'erreur de `cmd` — ne pas lire un code de retour 0 comme une preuve que la commande a tourne. Passer une **liste d'arguments** (`subprocess.run(['git', 'ls-files', 'wiki'], capture_output=True, cwd=<chemin natif>)`, `shell=False`) : c'est le seul mode ou `git`, `node`, `python` recoivent vraiment leurs arguments. Pour du filtrage POSIX (`| head`, `| wc -l`), passer par l'outil `terminal` (bash) ou filtrer en Python.
 - `curl`, `7z`, `tar` : ce sont des binaires natifs, ils ouvrent le fichier de sortie avec l'API
   Windows. Leur passer `C:/...`. Le symptome d'un `/c/...` est TROMPEUR :
   `curl: (23) client returned ERROR on write of N bytes` — ce n'est ni une erreur reseau ni un
@@ -111,6 +118,11 @@ Parades, dans l'ordre :
 - `schtasks ... 2>&1 | tr -d '\0' | grep -i <motif>` — retirer les octets nuls suffit a rendre le flux lisible ;
 - lire en Python avec le bon codec :
   `subprocess.run([...], capture_output=True, text=True, encoding="utf-16", errors="replace")` ;
+- **mettre `errors="replace"` sur TOUT `subprocess.run` en mode texte** : sans `encoding`, Python
+decode en UTF-8 et une sortie locale en cp1252 (git, outils Windows) fait tomber le thread de
+lecture — `UnicodeDecodeError: 'utf-8' codec can't decode byte 0x82 in position 80` — l'exception
+part dans un thread et la donnee revient **vide ou partielle sans erreur visible**. Meme piege pour
+un `r.stdout.decode('utf-8')` ecrit dans un `try` : le decodage ne leve pas la ou on l'attend.
 - preferer les applets PowerShell equivalentes (`Get-ScheduledTask`, `Get-CimInstance Win32_Process`) —
   leur sortie passe le shell correctement, et sur une commande simple elles suppriment le probleme.
   **Mais un cmdlet PowerShell n'est PAS une commande du shell de l'agent** : tape `Get-CimInstance`
@@ -237,6 +249,37 @@ sauvegardes, l'ecart mesure etait de 14,9 Go repartis sur 3 fichiers annonces ab
   (`find` plutot qu'un glob, `ls -a` plutot que `ls`, `-Force` plutot que rien). Une absence conclue
   d'un seul glob n'est pas une absence mesuree — et l'annonce d'un fichier « deja supprime » sur ce
   fond est un rapport faux.
+
+## Regle 12 — `Start-Process -ArgumentList` et les chemins avec espaces (mesure du 23/09/2026)
+
+`Start-Process` aplatit `-ArgumentList` en une **ligne de commande brute** : il concatene les
+lements avec des espaces **sans ajouter de guillemets**. Tout argument contenant un espace est
+alors red coupe par le programme enfant (python/argparse voit deux tokens).
+
+Mesure sur cette machine (PowerShell 5.1.26100.9444), sonde `args_dump.py` appelee avec
+`--source "C:\Users\searc\Desktop\hermes tuto\talkinghead.mp4"` :
+
+| Forme | argv recus | Verdict |
+|-------|------------|---------|
+| `-ArgumentList "script.py --source C:\...\hermes tuto\talkinghead.mp4"` | `'C:\...\hermes'` + `'tuto\talkinghead.mp4'` | **CASSE** |
+| `-ArgumentList @("script.py","--source","C:\...\hermes tuto\talkinghead.mp4")` | meme decoupage | **CASSE** |
+| `-ArgumentList @("script.py","--source",'"C:\...\hermes tuto\talkinghead.mp4"')` | 1 seul token | OK |
+| `-ArgumentList "script.py --source `"C:\...\hermes tuto\talkinghead.mp4`""` | 1 seul token | OK |
+| `& $py "script.py" "--source" "C:\...\hermes tuto\talkinghead.mp4"` | 1 seul token | OK (a preferer) |
+
+Enseignements :
+
+- **Le tableau ne suffit PAS.** L'idee recue « passer `-ArgumentList` en tableau pour que les espaces
+  soient preserves » est fausse : PowerShell rejoint les elements avec des espaces sans les citer.
+  Chaque element qui contient un espace doit porter **ses propres guillemets**.
+- **Symptome cote programme** : `argparse: error: unrecognized arguments: tuto\talkinghead.mp4`.
+  Le token tronque au premier espace suffit a identifier la cause — inutile de chercher un bug de
+  parsing dans le script.
+- **Preferer l'appel natif** (`& $exe @args`, ou en bash `(cmd &)`), qui cite correctement ;
+  pour un lancement **detache et masque**, passer par le wrapper VBS de `windows-ops`
+  (`references/scheduled-tasks.md` et la section « fenetre console qui flashe »).
+- **Sonde reutilisable** : un `args_dump.py` de 6 lignes qui imprime `sys.argv` (a garder dans
+  `cache/scratch/`) tranche le debat en une commande, sans dependre d'un run de production.
 
 ## Pitfalls
 
