@@ -1,0 +1,56 @@
+# Dependances du venv LatentSync du pipeline talking head (volet 6+)
+# Chemin du venv : C:\Users\searc\AppData\Local\hermes\data\video_youtube\LatentSync\venv
+# Python du venv : 3.10.11 (le venv est en 3.10 : NE PAS installer de wheel cp311)
+#
+# INSTALLER TOUJOURS PAR CE FICHIER, jamais `pip install <paquet>` sans pin :
+#   LatentSync\venv\Scripts\python.exe -m pip install -r requirements-latentsync.txt
+#   LatentSync\venv\Scripts\python.exe -m pip install -r requirements-latentsync.txt \
+#       --extra-index-url https://download.pytorch.org/whl/cu121   # roue torch cu121
+#
+# Versions ci-dessous = sortie reelle de `pip freeze` dans le venv (verifie le 23/09/2026).
+# Contrainte structurante : numpy 1.26.4 est la DERNIERE branche 1.x ; c'est le seul couple
+# verifie OK avec scikit-image 0.22.0 compile contre l'ABI numpy 1.x. numpy 2.x casse
+# skimage (ValueError: numpy.dtype size changed) et une roue numpy non 3.10 casse cv2
+# (No module named 'numpy._core._multiarray_umath').
+
+## Base numerique (ABI : ne pas bouger)
+numpy==1.26.4
+scipy==1.15.3
+scikit-image==0.22.0
+pandas==2.3.3
+matplotlib==3.10.9
+pillow==11.3.0
+
+## Vision / inference
+insightface==0.7.3
+onnx==1.17.0
+onnxruntime-gpu==1.21.0
+opencv-python==4.9.0.80
+opencv-contrib-python==4.11.0.86
+opencv-python-headless==4.11.0.86
+mediapipe==0.10.11
+kornia==0.8.0
+lpips==0.1.4
+decord==0.6.0
+
+## Audio
+librosa==0.10.1
+soundfile==0.14.0
+ffmpeg-python==0.2.0
+
+## PyTorch (roues cu121, a installer avec --extra-index-url)
+torch==2.5.1+cu121
+torchvision==0.20.1+cu121
+
+## Diffusion / modeles
+diffusers==0.32.2
+transformers==4.48.0
+accelerate==0.26.1
+safetensors==0.8.0
+huggingface-hub==0.30.2
+omegaconf==2.3.0
+einops==0.7.0
+PyYAML==6.0.3
+tqdm==4.70.1
+imageio==2.31.1
+imageio-ffmpeg==0.5.1
