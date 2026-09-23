@@ -32,8 +32,8 @@ SUBTITRES = {
     "B": "JEV et Hermes : relier les LLM a ta base de connaissances",
     "C": "llmwiki + Hermes : le wiki qui se met a jour tout seul",
 }
-# Choix du sous-titre : variable d'environnement SOUS_TITRE=A|B|C (defaut A).
-SELECTION = os.environ.get("SOUS_TITRE", "A").strip().upper()
+# Choix du sous-titre : variable d'environnement SOUS_TITRE=A|B|C (defaut B, choisi le 23/09).
+SELECTION = os.environ.get("SOUS_TITRE", "B").strip().upper()
 SOUS_TITRE = SUBTITRES.get(SELECTION, SUBTITRES["A"])
 EDITION = "7e edition  \u00b7  Hermes 1.3 Psychopomp"   # a confirmer (6e edition au v6)
 
@@ -186,12 +186,29 @@ def overlay_lien():
     return "overlay_03_lien_v13.png"
 
 
+def taille_auto(d, txt, role="titre", maxi=96, mini=56, limite=1230):
+    """Taille de police qui tient dans la largeur disponible (titre long = plus petit).
+
+    Le volet 7 a un titre plus long que le volet 6 : a 96 px il passait sous le logo
+    (x=1440). On reduit par pas de 2 px jusqu'a tenir dans « limite ».
+    """
+    for taille in range(maxi, mini - 1, -2):
+        f = police(role, taille)
+        if d.textbbox((0, 0), txt, font=f)[2] <= limite:
+            return f, taille
+    return police(role, mini), mini
+
+
 def carton_titre():
     im, d = vide(fond=(10, 12, 16, 255))
     d.rectangle((0, 0, W, 12), fill=C_ACCENT)
-    d.text((170, 330), TITRE, font=police("titre", 96), fill=C_TITRE)
-    d.text((170, 470), SOUS_TITRE, font=police("texte", 46), fill=C_TEXTE)
+    f_titre, t_titre = taille_auto(d, TITRE, "titre")
+    f_sous, t_sous = taille_auto(d, SOUS_TITRE, "texte", maxi=46, mini=30)
+    d.text((170, 330), TITRE, font=f_titre, fill=C_TITRE)
+    d.text((170, 470), SOUS_TITRE, font=f_sous, fill=C_TEXTE)
     d.text((170, 560), EDITION, font=police("gras", 40), fill=C_ACCENT)
+    print(f"taille du titre : {t_titre} px (largeur "
+          f"{d.textbbox((0, 0), TITRE, font=f_titre)[2]} px) / sous-titre : {t_sous} px")
     logo = os.path.join(r"C:\Users\searc\AppData\Local\hermes\data\video_youtube",
                         "hermes_logo_icon.png")
     if os.path.exists(logo):

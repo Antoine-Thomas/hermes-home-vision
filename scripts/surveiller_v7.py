@@ -29,6 +29,10 @@ les incrustations manquent, le watchdog n'annonce plus un echec : il demande une
     les fichiers sont la, « STOP » -> il se met en pause et le dit ;
   - apres 24 h sans reponse : derniere alerte puis auto-pause de la tache cron (hermes cron pause),
     avec repli sur un drapeau local si la commande echoue. Aucune boucle infinie.
+
+Correctif 8 (volet 7) : la detection du processus LatentSync passe de wmic (retire de Windows 11,
+sortie vide + code 0 -> l'alerte « processus mort » ne pouvait jamais partir) a
+Get-CimInstance Win32_Process par PowerShell. Sortie non numerique = on ne conclut pas.
 """
 from __future__ import annotations
 
@@ -98,12 +102,24 @@ def telegram(texte: str) -> bool:
 
 
 def latentsync_vivant() -> bool:
+    """Un processus LatentSync tourne-t-il ?
+
+    Correctif 8 : wmic est retire de Windows 11 et renvoyait ici une sortie vide avec un code
+    de retour 0, donc l'alerte « plus de processus LatentSync » ne pouvait jamais partir.
+    On interroge Win32_Process par PowerShell (Get-CimInstance). Toute erreur ou toute sortie
+    non numerique renvoie True : le watchdog ne conclut jamais a tort qu'un run est mort.
+    """
+    cmd = ("(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'python.exe' "
+           "-and $_.CommandLine -match 'latentsync' }).Count")
     try:
-        r = subprocess.run(["wmic", "process", "where", "name='python.exe'", "get", "CommandLine"],
-                           capture_output=True, text=True, timeout=60)
+        r = subprocess.run(["powershell", "-NoProfile", "-Command", cmd],
+                           capture_output=True, text=True, timeout=120)
     except Exception:  # noqa: BLE001
-        return True  # on ne conclut pas a tort
-    return "latentsync" in (r.stdout or "").lower()
+        return True
+    sortie = (r.stdout or "").strip()
+    if not sortie.isdigit():
+        return True
+    return int(sortie) > 0
 
 
 def lit_moniteur():
