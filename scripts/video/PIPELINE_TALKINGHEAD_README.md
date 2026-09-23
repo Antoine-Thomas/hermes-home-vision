@@ -62,7 +62,7 @@ de l'audio deja produit.
 
     cd C:\Users\searc\AppData\Local\hermes\data\video_youtube\LatentSync
     venv\Scripts\python.exe ..\pipeline_talkinghead.py ^
-        --source "C:/Users/searc/Desktop/hermes tuto/talkinghead.mp4" ^
+        --source "C:/Users/searc/Desktop/hermes tuto/tutotete19.mp4" ^
         --audio  "C:/Users/searc/AppData/Local/hermes/data/xtts/audio_youtube_v6.wav" ^
         --volet 6 --plan
 
@@ -129,7 +129,7 @@ deja faite. Si une etape manque son entree, le pipeline le dit et nomme celle qu
 - **Fenetre** : score composite normalise, jamais un critere dominant. Au volet 5, le critere
   « centrage + 2x stabilite » designait les frames 0-9 (la partie la plus molle du rush) ; le
   composite designe la frame 60, la plus nette (19,4 contre 15,3 de nettete du haut).
-- **Extraction** : le GOP du rush `talkinghead.mp4` a une keyframe toutes les 30 frames ; une
+- **Extraction** : le GOP de l'ancien rush `talkinghead.mp4` a une keyframe toutes les 30 frames ; une
   fenetre qui demarre dessus se coupe en `-c copy`, sans aucune perte.
 - **Stabilisation** : filtre impose (Savitzky-Golay 7,2 — un gaussien ecrase les vrais
   mouvements rapides), seul `k` est choisi, pour une reduction de ~65 % de l'ecart-type du

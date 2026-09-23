@@ -29,7 +29,7 @@ DUREE
 EXEMPLES
   # 1. tout le pipeline, volet 6, en tache de fond a partir de l'etape LatentSync
   venv/Scripts/python.exe tests/pipeline_talkinghead.py \\
-      --source "C:/Users/searc/Desktop/hermes tuto/talkinghead.mp4" \\
+      --source "C:/Users/searc/Desktop/hermes tuto/tutotete19.mp4" \\
       --audio  "C:/Users/searc/AppData/Local/hermes/data/xtts/audio_youtube_v6.wav" \\
       --volet 6 --depuis latentsync --detache
 
@@ -137,7 +137,7 @@ def keyframes(chemin: str, fps: float) -> list[int]:
     PIEGE ffprobe : `-show_entries frame=pts_time,key_frame` renvoie en realite
     `key_frame,pts_time` sur cette version (1,0.000000 puis 0,0.040000). On ne se fie donc
     pas a l'ordre demande : on identifie les deux champs par leur FORME (un entier 0/1 et un
-    flottant). Verifie le 20/09/2026 sur talkinghead.mp4 (keyframe unique a t=0).
+    flottant). Verifie le 20/09/2026 sur l'ancien rush talkinghead.mp4 (keyframe unique a t=0).
     """
     r = sh(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_frames",
             "-show_entries", "frame=pts_time,key_frame", "-of", "csv=p=0", chemin])
