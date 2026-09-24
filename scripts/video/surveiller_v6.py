@@ -44,6 +44,8 @@ FINAL = os.environ.get("SORTIE_VIDEO",
 ETAT = os.path.join(DOSSIER, f"surveiller_{VOLET}_state.json")
 PIPELINE = os.path.join(VID, "pipeline_talkinghead.py")
 PY_LATENTSYNC = os.path.join(VID, "LatentSync", "venv", "Scripts", "python.exe")
+# SOURCE = nouveau cut 9 s, valable v6 et v7 (le rush tutotete19.mp4 de 19,12 s etait mal coupe :
+# l'audit y trouvait une fenetre peu fiable). Le v6 et le v7 partagent donc le meme rush par defaut.
 SOURCE = r"C:\Users\searc\Desktop\hermes tuto\tutotetenewcut.mp4"
 AUDIO = r"C:\Users\searc\AppData\Local\hermes\data\xtts\audio_youtube_v6.wav"
 ENV_HERMES = r"C:\Users\searc\AppData\Local\hermes\.env"
