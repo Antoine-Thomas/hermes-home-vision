@@ -82,6 +82,14 @@ SEGMENTS = os.path.join(TESTS, "run_latentsync_segments.py")
 ENV_HERMES = r"C:\Users\searc\AppData\Local\hermes\.env"
 CHAT = "8956868107"
 
+# Sous-processus : environnement sans les variables qui exposent le venv de l'agent Hermes.
+# La tache cron Hermes (no_agent) execute ses scripts avec le venv de l'agent sur PYTHONPATH
+# (python 3.11, numpy 2.4.3). Herite par les etapes du pipeline, ce chemin passe DEVANT
+# site-packages et masque le numpy 1.26.4 du venv LatentSync (python 3.10) : la greffe HF
+# echoue sur « No module named 'numpy._core._multiarray_umath' ». Constat volets 6 et 7.
+POISON_ENV = ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP")
+ENV_SOUS_PROC = {k: v for k, v in os.environ.items() if k not in POISON_ENV}
+
 FPS_DEFAUT = 25.0
 FRAMES_DEFAUT = 136          # 5,44 s a 25 fps (fenetre validee au volet 3)
 FACTEUR_CROP = 0.90          # recadrage de stabilisation : 3456x1944 sur 3840x2160
@@ -107,6 +115,7 @@ def sh(cmd: list[str], **kw) -> subprocess.CompletedProcess:
     chemin RELATIF checkpoints/auxiliary, et rule 71 interdit de melanger cwd et chemins
     relatifs. Les chemins passes en argument sont absolus depuis main()."""
     kw.setdefault("cwd", RACINE)
+    kw.setdefault("env", ENV_SOUS_PROC)   # sans le PYTHONPATH du cron Hermes (cf. POISON_ENV)
     dire("  $ " + " ".join(cmd))
     return subprocess.run(cmd, capture_output=True, text=True, **kw)
 
@@ -845,12 +854,13 @@ def etape_latentsync(a, source_loop: str, audio: str) -> str:
         log = os.path.join(a.dossier, f"pipeline_latentsync_{a.volet}.log")
         with open(log, "w", encoding="utf-8") as f:
             p = subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=RACINE,
+                                 env=ENV_SOUS_PROC,
                                  creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
         dire(f"  lance en tache de fond : PID {p.pid}")
         dire(f"  suivi : {log}")
         dire(f"  etat  : {os.path.join(a.dossier, f'moniteur_{a.volet}_statut.json')}")
         return sortie
-    code = subprocess.call(cmd, cwd=RACINE)
+    code = subprocess.call(cmd, cwd=RACINE, env=ENV_SOUS_PROC)
     if code != 0:
         raise RuntimeError(f"LatentSync a echoue (code {code})")
     return sortie
@@ -1015,12 +1025,23 @@ def main() -> int:
         return 0
 
     # Un seul interpreteur sait faire tourner tout le pipeline : le venv de LatentSync.
+    # Le sondage porte sur numpy ET cv2 : cv2 se contente d'un avertissement quand numpy est
+    # casse, donc un sondage sur cv2 seul laisserait passer un environnement pollue.
     try:
+        import numpy  # noqa: F401
         import cv2  # noqa: F401
     except ImportError:
-        if os.path.exists(VENV_PY) and os.path.abspath(sys.executable) != os.path.abspath(VENV_PY):
-            dire(f"cv2 absent : relance avec {VENV_PY}")
-            return subprocess.call([VENV_PY, os.path.abspath(__file__)] + sys.argv[1:], cwd=RACINE)
+        # Correctif 9 : l'echec peut venir de l'environnement (PYTHONPATH du cron Hermes ->
+        # numpy 2.4.3 cp311 vu par un python 3.10) et non de l'interpreteur. On relance alors
+        # avec l'environnement assaini, meme si l'interpreteur est deja le bon ; le drapeau
+        # HERMES_PIPELINE_REEXEC empeche toute boucle.
+        if os.environ.get("HERMES_PIPELINE_REEXEC") != "1" and os.path.exists(VENV_PY):
+            env = dict(ENV_SOUS_PROC)
+            env["HERMES_PIPELINE_REEXEC"] = "1"
+            dire(f"numpy/cv2 absents dans cet environnement : relance avec {VENV_PY} "
+                 f"(environnement assaini)")
+            return subprocess.call([VENV_PY, os.path.abspath(__file__)] + sys.argv[1:],
+                                   cwd=RACINE, env=env)
 
     def actif(nom: str) -> bool:
         if a.seulement:

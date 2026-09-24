@@ -33,6 +33,15 @@ les incrustations manquent, le watchdog n'annonce plus un echec : il demande une
 Correctif 8 (volet 7) : la detection du processus LatentSync passe de wmic (retire de Windows 11,
 sortie vide + code 0 -> l'alerte « processus mort » ne pouvait jamais partir) a
 Get-CimInstance Win32_Process par PowerShell. Sortie non numerique = on ne conclut pas.
+
+Correctif 9 (volet 7) : deux angles morts de la fin de run.
+  - Environnement des sous-processus : la tache cron tourne avec le venv de l'agent sur
+    PYTHONPATH (python 3.11, numpy 2.4.3) ; herite par le pipeline, ce chemin masquait le
+    numpy 1.26.4 du venv LatentSync (python 3.10) et tuait la greffe HF. On lance maintenant
+    les sous-processus sans PYTHONPATH / PYTHONHOME / PYTHONSTARTUP.
+  - Etape g morte : si le moniteur a fini, que la sortie HF n'existe pas, que le journal de la
+    greffe ne bouge plus et qu'aucun processus pipeline ne tourne, une alerte explicite part
+    avec la fin du journal (au lieu d'« aucune progression » horaire pendant des heures).
 """
 from __future__ import annotations
 
@@ -73,6 +82,16 @@ CLI_HERMES = os.environ.get(
     "HERMES_EXE", r"C:\Users\searc\AppData\Local\hermes\hermes-agent\venv\Scripts\hermes.exe")
 # Tache cron de ce watchdog : sert a l'auto-pause apres 24 h sans reponse.
 JOB_ID = os.environ.get("JOB_ID", "3d91e98f9608")
+# Environnement des sous-processus : sans les variables qui exposent le venv de l'agent Hermes.
+# La tache cron (no_agent) tourne avec le venv de l'agent sur PYTHONPATH (python 3.11,
+# numpy 2.4.3) ; herite par les etapes du pipeline, ce chemin masque le numpy 1.26.4 du venv
+# LatentSync (python 3.10) et fait echouer la greffe HF (correctif 9, constat volet 7).
+POISON_ENV = ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP")
+ENV_SOUS_PROC = {k: v for k, v in os.environ.items() if k not in POISON_ENV}
+# Journal du lanceur manuel (cache/scratch) : l'etape g peut etre lancee soit par le watchdog
+# (--depuis hf, journal etapes_hfi_*), soit par ce lanceur. On surveille le plus recent des deux.
+JOURNAL_LANCEMENT = os.path.join(
+    r"C:\Users\searc\AppData\Local\hermes\cache\scratch", f"lancement_volet{VOLET}b.log")
 CHAT = "8956868107"
 SEUIL_SILENCE = 25 * 60
 SEUIL_BATTEMENT = 2 * 3600
@@ -109,8 +128,16 @@ def latentsync_vivant() -> bool:
     On interroge Win32_Process par PowerShell (Get-CimInstance). Toute erreur ou toute sortie
     non numerique renvoie True : le watchdog ne conclut jamais a tort qu'un run est mort.
     """
+    return processus_vivant("latentsync")
+
+
+def processus_vivant(motif: str) -> bool:
+    """Un python.exe dont la ligne de commande contient <motif> tourne-t-il ?
+
+    Toute erreur ou toute sortie non numerique renvoie True (on ne conclut pas a tort).
+    """
     cmd = ("(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'python.exe' "
-           "-and $_.CommandLine -match 'latentsync' }).Count")
+           f"-and $_.CommandLine -match '{motif}' }}.Count")
     try:
         r = subprocess.run(["powershell", "-NoProfile", "-Command", cmd],
                            capture_output=True, text=True, timeout=120)
@@ -223,7 +250,7 @@ def lancer_assemblage_detache() -> None:
     """Correctif 5 : rend la main tout de suite, l'assemblage continue en arriere-plan."""
     with open(LOG_ASSEMBLE, "w", encoding="utf-8") as f:
         subprocess.Popen([sys.executable, ASSEMBLE], stdout=f, stderr=subprocess.STDOUT,
-                         cwd=VID,
+                         cwd=VID, env=ENV_SOUS_PROC,
                          creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
 
 
@@ -343,11 +370,37 @@ def main() -> int:
         # en tache de fond : la greffe HF peut durer une heure, on ne bloque pas le tick du watchdog
         with open(log, "w", encoding="utf-8") as f:
             subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=VID,
+                             env=ENV_SOUS_PROC,
                              creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
         telegram(f"Volet {VOLET} : LatentSync termine, greffe HF / mesures / rapport lancees en tache "
                  f"de fond\nsuivi : {log}")
         etat["hfi_lance"] = True
         print(f"etapes hf/mesures/rapport lancees : {log}", file=sys.stderr)
+
+    # Correctif 9 : etape g morte. Le moniteur a fini, la sortie HF n'existe pas, le journal de
+    # la greffe ne bouge plus et plus aucun processus pipeline ne tourne. Sans cette detection,
+    # le watchdog se contentait d'« aucune progression » horaire pendant des heures (volet 7 :
+    # etape g morte a 02:41, alerte exploitable seulement a 10:41).
+    if (etat.get("hfi_lance") is True and not os.path.exists(HF)
+            and etat.get("alerte_hf_morte") is not True):
+        logs = [p for p in (os.path.join(DOSSIER, f"etapes_hfi_{VOLET}.log"), JOURNAL_LANCEMENT)
+                if os.path.exists(p)]
+        log_hf = (max(logs, key=os.path.getmtime) if logs
+                  else os.path.join(DOSSIER, f"etapes_hfi_{VOLET}.log"))
+        age = (maintenant - os.path.getmtime(log_hf)) if logs else -1.0
+        if age > 20 * 60 and not processus_vivant("pipeline_talkinghead"):
+            queue = ""
+            try:
+                with open(log_hf, encoding="utf-8", errors="replace") as f:
+                    queue = "".join(f.readlines()[-10:]).strip()[-800:]
+            except OSError:
+                pass
+            telegram(f"ALERTE : l'etape g (greffe HF) du volet {VOLET} ne tourne plus.\n"
+                     f"Aucun processus pipeline, journal arrete depuis {age/60:.0f} min.\n"
+                     f"Journal : {log_hf}\n"
+                     f"Dernieres lignes :\n{queue}")
+            etat["alerte_hf_morte"] = True
+            print("alerte : etape g morte (aucun processus pipeline)", file=sys.stderr)
 
     ref = 0.0
     for p in (MONITEUR, JOURNAL, SORTIE):
@@ -379,7 +432,7 @@ def main() -> int:
             etat["derniere_alerte"] = maintenant
     elif not latentsync_vivant() and silence > 10 * 60:
         if etat.get("alerte_mort") is not True:
-            envoyer, motif = True, "ALERTE : plus de processus LatentSync et pas de sortie"
+            envoyer, motif = True, "ALERTE : plus de processus LatentSync"
             etat["alerte_mort"] = True
     elif maintenant - etat.get("dernier_battement", 0) > SEUIL_BATTEMENT:
         envoyer, motif = True, f"battement volet {VOLET}"
