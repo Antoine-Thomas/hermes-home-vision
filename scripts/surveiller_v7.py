@@ -88,10 +88,14 @@ JOB_ID = os.environ.get("JOB_ID", "3d91e98f9608")
 # LatentSync (python 3.10) et fait echouer la greffe HF (correctif 9, constat volet 7).
 POISON_ENV = ("PYTHONPATH", "PYTHONHOME", "PYTHONSTARTUP")
 ENV_SOUS_PROC = {k: v for k, v in os.environ.items() if k not in POISON_ENV}
-# Journal du lanceur manuel (cache/scratch) : l'etape g peut etre lancee soit par le watchdog
-# (--depuis hf, journal etapes_hfi_*), soit par ce lanceur. On surveille le plus recent des deux.
-JOURNAL_LANCEMENT = os.path.join(
-    r"C:\Users\searc\AppData\Local\hermes\cache\scratch", f"lancement_volet{VOLET}b.log")
+# L'etape g ecrit son journal soit dans etapes_hfi_* (lancement par le watchdog, --depuis hf),
+# soit dans cache/scratch/lancement_v7b.log (lanceur manuel lancer_volet7b.ps1). On surveille le
+# plus recent de ces journaux : aucun autre fichier n'est ecrit pendant les ~6 h de greffe, donc
+# sans ce repere le watchdog croirait a un blocage et alerterait toutes les heures.
+SCRATCH_CACHE = r"C:\Users\searc\AppData\Local\hermes\cache\scratch"
+JOURNAUX_ETAPE_G = [os.path.join(DOSSIER, f"etapes_hfi_{VOLET}.log"),
+                    os.path.join(SCRATCH_CACHE, f"lancement_v{VOLET}b.log"),
+                    os.path.join(SCRATCH_CACHE, f"lancement_volet{VOLET}b.log")]
 CHAT = "8956868107"
 SEUIL_SILENCE = 25 * 60
 SEUIL_BATTEMENT = 2 * 3600
@@ -140,7 +144,7 @@ def processus_vivant(motif: str) -> bool:
            f"-and $_.CommandLine -match '{motif}' }}.Count")
     try:
         r = subprocess.run(["powershell", "-NoProfile", "-Command", cmd],
-                           capture_output=True, text=True, timeout=120)
+                           capture_output=True, text=True, errors="replace", timeout=120)
     except Exception:  # noqa: BLE001
         return True
     sortie = (r.stdout or "").strip()
@@ -383,11 +387,9 @@ def main() -> int:
     # etape g morte a 02:41, alerte exploitable seulement a 10:41).
     if (etat.get("hfi_lance") is True and not os.path.exists(HF)
             and etat.get("alerte_hf_morte") is not True):
-        logs = [p for p in (os.path.join(DOSSIER, f"etapes_hfi_{VOLET}.log"), JOURNAL_LANCEMENT)
-                if os.path.exists(p)]
-        log_hf = (max(logs, key=os.path.getmtime) if logs
-                  else os.path.join(DOSSIER, f"etapes_hfi_{VOLET}.log"))
-        age = (maintenant - os.path.getmtime(log_hf)) if logs else -1.0
+        presents = [q for q in JOURNAUX_ETAPE_G if os.path.exists(q)]
+        log_hf = max(presents, key=os.path.getmtime) if presents else JOURNAUX_ETAPE_G[0]
+        age = (maintenant - os.path.getmtime(log_hf)) if presents else -1.0
         if age > 20 * 60 and not processus_vivant("pipeline_talkinghead"):
             queue = ""
             try:
@@ -403,7 +405,7 @@ def main() -> int:
             print("alerte : etape g morte (aucun processus pipeline)", file=sys.stderr)
 
     ref = 0.0
-    for p in (MONITEUR, JOURNAL, SORTIE):
+    for p in (MONITEUR, JOURNAL, SORTIE, *JOURNAUX_ETAPE_G):
         if os.path.exists(p):
             ref = max(ref, os.path.getmtime(p))
     if ref == 0.0:
@@ -426,9 +428,19 @@ def main() -> int:
              f"sortie : {'%.0f Mo' % taille if fichier_ok else 'pas encore ecrite'}")
 
     envoyer, motif = False, ""
-    if silence > SEUIL_SILENCE:
+    # Pendant la greffe HF (etape g), la sortie du script est capturee par le pipeline et
+    # n'arrive qu'a la fin : aucun fichier surveille ne bouge pendant ~6 h. Un processus
+    # pipeline vivant est alors le seul repere ; on n'alerte que sur un depassement franc
+    # (garde-fou contre la pagination de 14 h du volet 5) au lieu d'« aucune progression » horaire.
+    vivant = processus_vivant("pipeline_talkinghead") if silence > SEUIL_SILENCE else False
+    seuil = 8 * 3600 if vivant else SEUIL_SILENCE
+    if silence > seuil:
         if maintenant - etat.get("derniere_alerte", 0) > 3600:
-            envoyer, motif = True, f"ALERTE : aucune progression depuis {silence/60:.0f} min"
+            if vivant:
+                envoyer, motif = True, (f"ALERTE : etape en cours depuis "
+                                        f"{silence/3600:.1f} h sans sortie ecrite")
+            else:
+                envoyer, motif = True, f"ALERTE : aucune progression depuis {silence/60:.0f} min"
             etat["derniere_alerte"] = maintenant
     elif not latentsync_vivant() and silence > 10 * 60:
         if etat.get("alerte_mort") is not True:
