@@ -29,7 +29,7 @@ DUREE
 EXEMPLES
   # 1. tout le pipeline, volet 6, en tache de fond a partir de l'etape LatentSync
   venv/Scripts/python.exe tests/pipeline_talkinghead.py \\
-      --source "C:/Users/searc/Desktop/hermes tuto/tutotete19.mp4" \\
+      --source "C:/Users/searc/Desktop/hermes tuto/tutotetenewcut.mp4" \\
       --audio  "C:/Users/searc/AppData/Local/hermes/data/xtts/audio_youtube_v6.wav" \\
       --volet 6 --depuis latentsync --detache
 

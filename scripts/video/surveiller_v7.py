@@ -75,7 +75,7 @@ FINAL = os.environ.get(
 ETAT = os.path.join(DOSSIER, f"surveiller_{VOLET}_state.json")
 PIPELINE = os.path.join(VID, "pipeline_talkinghead.py")
 PY_LATENTSYNC = os.path.join(VID, "LatentSync", "venv", "Scripts", "python.exe")
-SOURCE = r"C:\Users\searc\Desktop\hermes tuto\tutotete19.mp4"
+SOURCE = r"C:\Users\searc\Desktop\hermes tuto\tutotetenewcut.mp4"
 AUDIO = r"C:\Users\searc\AppData\Local\hermes\data\xtts\audio_youtube_v6.wav"
 ENV_HERMES = r"C:\Users\searc\AppData\Local\hermes\.env"
 CLI_HERMES = os.environ.get(
@@ -292,6 +292,13 @@ def main() -> int:
         with open(ETAT, encoding="utf-8") as f:
             etat = json.load(f)
 
+    # Repere de debut de run (correctif 12) : le livrable d'un run precedent porte le meme nom
+    # de fichier et va etre ecrase par le nouvel assemblage. Sans ce repere, le watchdog
+    # annoncerait « assemblage termine » sur l'ancien livrable et ne lancerait jamais le nouveau.
+    if "debut" not in etat:
+        etat["debut"] = maintenant
+        print(f"nouveau run : repere de debut a {time.strftime('%H:%M:%S')}", file=sys.stderr)
+
     if os.path.exists(HF):
         # Seule preuve que LatentSync a fini et que la greffe HF (etape g) est passee :
         # le RAPPORT est ecrit une premiere fois au demarrage du run, il ne sert pas de signal.
@@ -376,7 +383,13 @@ def main() -> int:
         # MP4 non finalise, a refuse (bien) et rien ne relancait ensuite (assemble_lance=true).
         hf_ok = hf_lisible(HF)
         encours_hf = processus_vivant("post_hf_transfer") or processus_vivant("pipeline_talkinghead")
-        if os.path.exists(FINAL):
+        # Correctif 12 : un livrable plus ancien que le debut du run courant est celui du run
+        # precedent (meme nom de fichier) : on l'ignore, sinon l'assemblage ne partirait jamais.
+        final_recent = (os.path.getmtime(FINAL) >= etat["debut"]) if os.path.exists(FINAL) else False
+        if os.path.exists(FINAL) and not final_recent:
+            print("livrable anterieur a ce run (ignore : il sera ecrase par le nouvel assemblage)",
+                  file=sys.stderr)
+        if final_recent:
             if etat.get("assemble_fait") is not True:
                 taille = os.path.getsize(FINAL) / 2 ** 20
                 telegram(f"Volet {VOLET} : assemblage final termine\n{FINAL}\n{taille:.0f} Mo")
@@ -385,6 +398,7 @@ def main() -> int:
             else:
                 print("assemblage deja fait", file=sys.stderr)
         elif not hf_ok:
+            # Pendant l'encodage le MP4 existe sans etre lisible : silence, c'est normal.
             if encours_hf:
                 print("greffe HF en cours d'ecriture (MP4 non finalise) : pas d'assemblage",
                       file=sys.stderr)
