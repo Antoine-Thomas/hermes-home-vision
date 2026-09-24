@@ -124,6 +124,33 @@ def telegram(texte: str) -> bool:
         return False
 
 
+def assemblee_vivante() -> bool:
+    """Un processus d'assemblage final tourne-t-il ?"""
+    return processus_vivant("assemble_v7")
+
+
+def hf_lisible(chemin: str) -> bool:
+    """Le MP4 de greffe HF est-il utilisable ?
+
+    Un fichier en cours d'encodage existe deja sur le disque (441 Mo au bout de 12 min pour le
+    volet 7) mais n'est pas lisible : ffmpeg n'ecrit l'atome moov qu'a la toute fin. ffprobe
+    renvoie alors « moov atom not found » et aucune duree. Exiger une duree exploitable evite de
+    lancer l'assemblage pendant l'encodage (arrive le 24/09 a 12:01).
+    """
+    if not os.path.exists(chemin):
+        return False
+    try:
+        r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                            "-of", "csv=p=0", chemin],
+                           capture_output=True, text=True, errors="replace", timeout=180)
+    except Exception:  # noqa: BLE001
+        return False
+    try:
+        return float((r.stdout or "").strip()) > 1.0
+    except ValueError:
+        return False
+
+
 def latentsync_vivant() -> bool:
     """Un processus LatentSync tourne-t-il ?
 
@@ -344,6 +371,11 @@ def main() -> int:
         etat.pop("attente_debut", None)
         etat.pop("attente_alerte", None)
 
+        # Correctif 11 : n'assembler que sur une greffe HF reellement lisible. Le fichier existe
+        # des le debut de l'encodage mais sans atome moov : l'assemblage de 12:01 est parti sur un
+        # MP4 non finalise, a refuse (bien) et rien ne relancait ensuite (assemble_lance=true).
+        hf_ok = hf_lisible(HF)
+        encours_hf = processus_vivant("post_hf_transfer") or processus_vivant("pipeline_talkinghead")
         if os.path.exists(FINAL):
             if etat.get("assemble_fait") is not True:
                 taille = os.path.getsize(FINAL) / 2 ** 20
@@ -352,14 +384,50 @@ def main() -> int:
                 print(f"assemblage termine : {FINAL} ({taille:.0f} Mo)")
             else:
                 print("assemblage deja fait", file=sys.stderr)
-        elif etat.get("assemble_lance") is not True:
-            print("pipeline termine : lancement de l'assemblage final en tache detachee",
+        elif not hf_ok:
+            if encours_hf:
+                print("greffe HF en cours d'ecriture (MP4 non finalise) : pas d'assemblage",
+                      file=sys.stderr)
+            elif maintenant - etat.get("alerte_hf_illisible", 0) > 3600:
+                telegram(f"ALERTE : greffe HF inutilisable pour le volet {VOLET}.\n"
+                         f"Fichier : {HF}\n"
+                         f"ffprobe : aucune duree lisible (moov atom manquant) = encodage "
+                         f"interrompu.\n"
+                         f"Etapes a-f et hf_det_{VOLET}.npz intacts : seule l'etape g est a "
+                         f"relancer.")
+                etat["alerte_hf_illisible"] = maintenant
+                print("alerte : HF illisible et plus aucun processus", file=sys.stderr)
+        elif (etat.get("assemble_lance") is not True
+              or (etat.get("assemble_essais", 1) < 3 and not assemblee_vivante()
+                  and maintenant - etat.get("assemble_dernier", 0) > 900)):
+            essais = etat.get("assemble_essais", 0) + 1
+            print(f"lancement de l'assemblage final en tache detachee (essai {essais}/3)",
                   file=sys.stderr)
             lancer_assemblage_detache()
-            telegram(f"Volet {VOLET} : assemblage final lance en tache de fond\nsuivi : {LOG_ASSEMBLE}")
+            telegram(f"Volet {VOLET} : assemblage final lance en tache de fond (essai {essais}/3)\n"
+                     f"suivi : {LOG_ASSEMBLE}")
             etat["assemble_lance"] = True
+            etat["assemble_essais"] = essais
+            etat["assemble_dernier"] = maintenant
         else:
-            print("assemblage en cours (tache detachee)", file=sys.stderr)
+            # Trois essais sans livrable et plus rien qui tourne : alerte exploitable.
+            if (not assemblee_vivante() and maintenant - etat.get("assemble_dernier", 0) > 900
+                    and etat.get("assemble_essais", 0) >= 3
+                    and maintenant - etat.get("alerte_assemble_echec", 0) > 3600):
+                queue = ""
+                try:
+                    with open(LOG_ASSEMBLE, encoding="utf-8", errors="replace") as f:
+                        queue = "".join(f.readlines()[-12:]).strip()[-700:]
+                except OSError:
+                    pass
+                telegram(f"ALERTE : l'assemblage du volet {VOLET} a echoue "
+                         f"{etat.get('assemble_essais')} fois.\n"
+                         f"Aucun processus d'assemblage et pas de livrable.\n"
+                         f"Journal : {LOG_ASSEMBLE}\n{queue}")
+                etat["alerte_assemble_echec"] = maintenant
+                print("alerte : assemblage en echec repete", file=sys.stderr)
+            else:
+                print("assemblage en cours (tache detachee)", file=sys.stderr)
         enregistre(etat)
         return 0
 
@@ -405,7 +473,7 @@ def main() -> int:
             print("alerte : etape g morte (aucun processus pipeline)", file=sys.stderr)
 
     ref = 0.0
-    for p in (MONITEUR, JOURNAL, SORTIE, *JOURNAUX_ETAPE_G):
+    for p in (MONITEUR, JOURNAL, SORTIE, HF, *JOURNAUX_ETAPE_G):
         if os.path.exists(p):
             ref = max(ref, os.path.getmtime(p))
     if ref == 0.0:

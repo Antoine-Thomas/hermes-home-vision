@@ -15,6 +15,9 @@ Correctifs appliques apres le volet 6 (detail : skills/media/talking-head-video/
   9  duree cible = duree reelle du dernier sortie_latentsync_<VOLET>*.mp4, pas une valeur ronde
   10 reference = volet precedent publie (volet 6 : tutotete20_jev_llmwiki.mp4, 336,4 s), refusee
      sous 60 s (le clip extrait de 19 s donne au volet 6 a fausse toutes les estimations)
+  11 une greffe HF existe des le debut de son encodage mais n'est lisible qu'a la fin (atome
+     moov) : verifier_entree() refuse une entree sans duree ET le signale sur Telegram (au lieu
+     du seul journal de 377 o du 24/09 12:01)
 
 Parametrable par variables d'environnement : VOLET (defaut 7), VIDEO_REFERENCE, SORTIE_VIDEO, VIDEO_DIR.
 Les valeurs du volet 7 sont figees ci-dessous : SORTIE = tutotete21_jev_llmwiki_hermes.mp4,
@@ -34,9 +37,13 @@ import os
 import re
 import subprocess
 import sys
+import urllib.parse
+import urllib.request
 
 VID = os.environ.get("VIDEO_DIR", r"C:\Users\searc\AppData\Local\hermes\data\video_youtube")
 VOLET = os.environ.get("VOLET", "7")
+ENV_HERMES = r"C:\Users\searc\AppData\Local\hermes\.env"
+CHAT = "8956868107"
 DOSSIER = os.path.join(VID, "LatentSync", "tests", f"v4_talking_head_{VOLET}")
 TIMING = os.path.join(VID, f"overlay_timing_v{VOLET}.json")
 WM = os.path.join(VID, "watermark_logo.png")
@@ -50,15 +57,59 @@ REFERENCE = os.environ.get(
 DUREE_REFERENCE_MIN = 60.0
 
 
+def telegram(texte: str) -> bool:
+    """Prevenir sur Telegram (jeton lu dans .env). Silencieux si le jeton est absent/illisible."""
+    jeton = ""
+    try:
+        with open(ENV_HERMES, encoding="utf-8", errors="replace") as f:
+            for ligne in f:
+                if ligne.startswith("TELEGRAM_BOT_TOKEN="):
+                    jeton = ligne.split("=", 1)[1].strip().strip('"').strip("'")
+                    break
+    except OSError:
+        return False
+    if not jeton:
+        return False
+    donnees = urllib.parse.urlencode({"chat_id": CHAT, "text": texte}).encode()
+    try:
+        with urllib.request.urlopen(f"https://api.telegram.org/bot{jeton}/sendMessage",
+                                    data=donnees, timeout=30) as r:
+            return r.status == 200
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def duree_ffprobe(chemin: str) -> float:
     """Duree reelle d'un fichier en secondes, lue par ffprobe."""
     r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
                         "-of", "default=noprint_wrappers=1:nokey=1", chemin],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, errors="replace")
     m = re.search(r"[\d.]+", r.stdout or "")
     if not m:
         raise SystemExit(f"duree illisible pour {chemin}\n{(r.stderr or '')[-300:]}")
     return float(m.group(0))
+
+
+def verifier_entree(entree: str) -> float:
+    """Correctif 11 : refuser (et signaler) une greffe HF non finalisee.
+
+    Un MP4 en cours d'encodage existe deja mais reste illisible : ffmpeg n'ecrit l'atome moov
+    qu'a la toute fin. Le 24/09 a 12:01 l'assemblage est parti sur un fichier de 441 Mo non
+    finalise : il a refuse (comportement correct) mais n'a laisse qu'un journal de 377 o et
+    aucune alerte. Desormais : message clair au journal + Telegram.
+    """
+    if not os.path.exists(entree):
+        raise SystemExit(f"entree introuvable : {entree}")
+    try:
+        return duree_ffprobe(entree)
+    except SystemExit as e:
+        telegram(f"ALERTE volet {VOLET} : greffe HF inutilisable, assemblage refuse.\n"
+                 f"Fichier : {entree}\n"
+                 f"Cause : {e}\n\n"
+                 f"Si l'encodage HF tourne encore, attendre la fin (aucun atome moov avant).\n"
+                 f"Sinon : relancer l'etape g -- hf_det_{VOLET}.npz et les etapes a-f sont "
+                 f"intacts, rien d'autre n'est a refaire.")
+        raise
 
 
 def verifier_reference() -> float:
@@ -104,7 +155,7 @@ def run(cmd, label=""):
 def main() -> int:
     duree_ref = verifier_reference()
     entree = dernier_latentsync()
-    duree_cible = duree_ffprobe(entree)   # correctif 9 : duree reelle, pas une valeur ronde
+    duree_cible = verifier_entree(entree)  # correctif 9 : duree reelle ; 11 : entree lisible
     print(f"reference   : {REFERENCE} ({duree_ref:.1f} s)", flush=True)
     print(f"entree      : {entree}", flush=True)
     print(f"duree cible : {duree_cible:.3f} s (duree reelle du dernier LatentSync)", flush=True)
