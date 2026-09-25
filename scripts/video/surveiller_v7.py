@@ -75,7 +75,7 @@ FINAL = os.environ.get(
 ETAT = os.path.join(DOSSIER, f"surveiller_{VOLET}_state.json")
 PIPELINE = os.path.join(VID, "pipeline_talkinghead.py")
 PY_LATENTSYNC = os.path.join(VID, "LatentSync", "venv", "Scripts", "python.exe")
-SOURCE = r"C:\Users\searc\Desktop\hermes tuto\tutotetenewcut.mp4"
+SOURCE = r"C:\Users\searc\Desktop\hermes tuto\psychopompe7.mp4"
 AUDIO = r"C:\Users\searc\AppData\Local\hermes\data\xtts\audio_youtube_v6.wav"
 ENV_HERMES = r"C:\Users\searc\AppData\Local\hermes\.env"
 CLI_HERMES = os.environ.get(
@@ -98,6 +98,9 @@ JOURNAUX_ETAPE_G = [os.path.join(DOSSIER, f"etapes_hfi_{VOLET}.log"),
                     os.path.join(SCRATCH_CACHE, f"lancement_volet{VOLET}b.log")]
 CHAT = "8956868107"
 SEUIL_SILENCE = 25 * 60
+# Correctif 13 : la greffe HF (etape g) est relancee automatiquement quand LatentSync est fini
+# sans qu'aucune sortie HF n'existe -- au plus 5 essais espaces de 30 min, puis alerte seule.
+LIMITE_RELANCE_HF = 5
 SEUIL_BATTEMENT = 2 * 3600
 SEUIL_RAPPEL_ATTENTE = 2 * 3600
 SEUIL_ABANDON = 24 * 3600
@@ -458,19 +461,32 @@ def main() -> int:
 
     # Fin du run detache (le moniteur ecrit "fin") : relancer les etapes g a i, que le
     # pipeline n'enchaine pas lui-meme quand LatentSync part en tache de fond.
-    if mon.get("fin") is not None and etat.get("hfi_lance") is not True:
-        log = os.path.join(DOSSIER, f"etapes_hfi_{VOLET}.log")
-        cmd = [PY_LATENTSYNC, PIPELINE, "--source", SOURCE, "--audio", AUDIO,
-               "--volet", VOLET, "--depuis", "hf"]
-        # en tache de fond : la greffe HF peut durer une heure, on ne bloque pas le tick du watchdog
-        with open(log, "w", encoding="utf-8") as f:
-            subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=VID,
-                             env=ENV_SOUS_PROC,
-                             creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
-        telegram(f"Volet {VOLET} : LatentSync termine, greffe HF / mesures / rapport lancees en tache "
-                 f"de fond\nsuivi : {log}")
-        etat["hfi_lance"] = True
-        print(f"etapes hf/mesures/rapport lancees : {log}", file=sys.stderr)
+    # Correctif 13 (25/09) : la relance ne depend plus d'un drapeau a usage unique. Le 24/09 un
+    # lancement premature (13:37, avant la fin de LatentSync) avait pose hfi_lance = True ; la
+    # greffe a echoue et RIEN ne l'a relancee quand LatentSync a vraiment fini a 18:34 -- le run
+    # est reste bloque 22 h. On relance donc des que le moniteur a fini, que la sortie HF manque
+    # et qu'aucun pipeline ne tourne, avec 30 min entre deux essais et 5 essais au maximum.
+    if mon.get("fin") is not None and not os.path.exists(HF):
+        if (not processus_vivant("pipeline_talkinghead")
+                and maintenant - etat.get("hfi_relance", 0) > 1800
+                and etat.get("hfi_relance_nb", 0) < LIMITE_RELANCE_HF):
+            log = os.path.join(DOSSIER, f"etapes_hfi_{VOLET}.log")
+            cmd = [PY_LATENTSYNC, PIPELINE, "--source", SOURCE, "--audio", AUDIO,
+                   "--volet", VOLET, "--depuis", "hf"]
+            # en tache de fond : la greffe HF peut durer une heure, on ne bloque pas le tick du watchdog
+            with open(log, "w", encoding="utf-8") as f:
+                subprocess.Popen(cmd, stdout=f, stderr=subprocess.STDOUT, cwd=VID,
+                                 env=ENV_SOUS_PROC,
+                                 creationflags=getattr(subprocess, "DETACHED_PROCESS", 0))
+            essai = etat.get("hfi_relance_nb", 0) + 1
+            telegram(f"Volet {VOLET} : LatentSync termine, greffe HF / mesures / rapport lancees en "
+                     f"tache de fond (essai {essai}/{LIMITE_RELANCE_HF})\nsuivi : {log}")
+            etat["hfi_lance"] = True
+            etat["hfi_relance"] = maintenant
+            etat["hfi_relance_nb"] = essai
+            etat.pop("alerte_hf_morte", None)   # nouvelle tentative : on repart d'un etat propre
+            print(f"etapes hf/mesures/rapport lancees (essai {essai}/{LIMITE_RELANCE_HF}) : {log}",
+                  file=sys.stderr)
 
     # Correctif 9 : etape g morte. Le moniteur a fini, la sortie HF n'existe pas, le journal de
     # la greffe ne bouge plus et plus aucun processus pipeline ne tourne. Sans cette detection,
@@ -488,10 +504,15 @@ def main() -> int:
                     queue = "".join(f.readlines()[-10:]).strip()[-800:]
             except OSError:
                 pass
-            telegram(f"ALERTE : l'etape g (greffe HF) du volet {VOLET} ne tourne plus.\n"
+            texte = (f"ALERTE : l'etape g (greffe HF) du volet {VOLET} ne tourne plus.\n"
                      f"Aucun processus pipeline, journal arrete depuis {age/60:.0f} min.\n"
                      f"Journal : {log_hf}\n"
                      f"Dernieres lignes :\n{queue}")
+            if etat.get("hfi_relance_nb", 0) >= LIMITE_RELANCE_HF:
+                texte += (f"\nRelances automatiques epuisees "
+                          f"({etat.get('hfi_relance_nb')}/{LIMITE_RELANCE_HF}) : intervention "
+                          f"manuelle necessaire.")
+            telegram(texte)
             etat["alerte_hf_morte"] = True
             print("alerte : etape g morte (aucun processus pipeline)", file=sys.stderr)
 

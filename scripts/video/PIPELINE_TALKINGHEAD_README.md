@@ -62,7 +62,7 @@ de l'audio deja produit.
 
     cd C:\Users\searc\AppData\Local\hermes\data\video_youtube\LatentSync
     venv\Scripts\python.exe ..\pipeline_talkinghead.py ^
-        --source "C:/Users/searc/Desktop/hermes tuto/tutotetenewcut.mp4" ^
+        --source "C:/Users/searc/Desktop/hermes tuto/psychopompe7.mp4" ^
         --audio  "C:/Users/searc/AppData/Local/hermes/data/xtts/audio_youtube_v6.wav" ^
         --volet 6 --plan
 
