@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """Horodatage des incrustations du volet 7, deduit de l'audio reellement genere.
 
-Source de verite : audio_youtube_v6.json. Le volet 7 utilise audio_youtube_v6.wav
-(336,435 s) : les bornes de tranches sont donc exactement celles mesurees pour le volet 6.
+Source de verite : audio_youtube_v7.json. Le volet 7 utilise audio_youtube_v7.wav
+(364,5 s, prise 2 apres rejeu de la tranche 09) : les bornes de tranches sont celles
+mesurees sur cet audio, pas celles du volet 6.
 Les frontieres de section sont reperees par la phrase qui les ouvre dans le texte, puis
 arrondies au debut de la tranche qui la contient.
 
@@ -18,7 +19,7 @@ import unicodedata
 
 BASE = r"C:\Users\searc\AppData\Local\hermes\data\xtts"
 VID = r"C:\Users\searc\AppData\Local\hermes\data\video_youtube"
-JSON = os.path.join(BASE, "audio_youtube_v6.json")
+JSON = os.path.join(BASE, "audio_youtube_v7.json")
 OUT = os.path.join(VID, "overlay_timing_v7.json")
 
 # incrustation -> phrase d'ouverture (dans la tranche), marge avant (s), fichier PNG
