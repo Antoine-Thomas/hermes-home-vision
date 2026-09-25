@@ -166,9 +166,14 @@ def processus_vivant(motif: str) -> bool:
     """Un python.exe dont la ligne de commande contient <motif> tourne-t-il ?
 
     Toute erreur ou toute sortie non numerique renvoie True (on ne conclut pas a tort).
+    Piege corrige le 25/09 : la commande PowerShell etait mal parenthesee (la parenthese
+    fermante manquait avant .Count). PowerShell sortait une erreur, stdout etait vide, et la
+    fonction renvoyait donc True pour TOUS les motifs, meme absents. Consequence : plus aucune
+    alerte « etape g morte », plus aucune reprise d'assemblage apres echec -- le run volet 7 est
+    reste bloque 22 h a l'etape g sans que le watchdog ne s'en apercoive.
     """
-    cmd = ("(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'python.exe' "
-           f"-and $_.CommandLine -match '{motif}' }}.Count")
+    cmd = ("@(Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'python.exe' "
+           f"-and $_.CommandLine -match '{motif}' }}).Count")
     try:
         r = subprocess.run(["powershell", "-NoProfile", "-Command", cmd],
                            capture_output=True, text=True, errors="replace", timeout=120)
@@ -176,6 +181,10 @@ def processus_vivant(motif: str) -> bool:
         return True
     sortie = (r.stdout or "").strip()
     if not sortie.isdigit():
+        # On ne conclut jamais « mort » a tort, mais on le dit : une commande cassee avait rendu
+        # toutes les alertes silencieusement inoperantes.
+        print(f"processus_vivant({motif!r}) : sortie inexploitable {sortie!r} "
+              f"(stderr {r.stderr.strip()[:140]!r}) -> True par prudence", file=sys.stderr)
         return True
     return int(sortie) > 0
 
