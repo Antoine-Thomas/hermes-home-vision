@@ -436,6 +436,37 @@ event queries): `references/long-run-monitoring.md`.
   differently named directory, while the run itself — using its own arguments — proceeds correctly.
   Related: a single log line printed by the monitor is not evidence its files landed where you think.
 
+## Gate de livraison — verifier le MP4 avant de le declarer publie
+
+Le fichier se MESURE ; un rendu qui sort en code 0 n'est pas un livrable (voir le piege `shortest=1`
+plus bas). Les 6 controles, dans cet ordre, avec les valeurs reelles a rapporter :
+
+```bash
+F="<livrable>.mp4"
+ffprobe -v error -show_entries format=duration,size,bit_rate \
+  -show_entries stream=codec_name,codec_type,width,height,r_frame_rate,avg_frame_rate,nb_frames \
+  -of default=noprint_wrappers=1:nokey=1 "$F"          # 1. conteneur + pistes
+ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames \
+  -of default=noprint_wrappers=1:nokey=1 "$F"          # 2. frames REELLES = nb_frames annonce ?
+ffmpeg -v error -i "$F" -f null -                      # 3. integrite : attendu exit 0 + 0 ligne
+ffprobe -v error -select_streams v:0 -show_entries frame=key_frame,pts_time -of csv=p=0 "$F" \
+  | awk -F, '$1==1 {print $2}'                         # 4. images cles : compte + ecart
+ffprobe -v error -select_streams a:0 -show_entries stream=duration -of default=noprint_wrappers=1:nokey=1 "$F"
+ffprobe -v error -select_streams v:0 -show_entries stream=duration -of default=noprint_wrappers=1:nokey=1 "$F"  # 5. audio vs video
+md5sum "$F"; cp "$F" "<dest>/<nom>_final.mp4"; md5sum "<dest>/<nom>_final.mp4"  # 6. empreinte + copie re-hashee
+```
+
+- Le `nb_read_frames` de `-count_frames` doit egaler le `nb_frames` annonce : tout ecart est un trou
+  dans le flux, invisible a la lecture.
+- Le decodage complet est le seul controle de coupure ; tolerance audio/video = **un dixieme de seconde**.
+  Un ecart plus grand est un defaut a signaler avant publication, pas a commenter en passant.
+- Les deux MD5 (source et copie livree) doivent etre identiques, tailles egales a l'octet pres — c'est
+  la seule preuve que la copie est complete.
+- Extraits de controle a joindre : `-vn -t 30 -b:a 192k extrait.mp3` (ecoute rapide) et
+  `-ss <t> -t 15 -c copy extrait.mp4` (meilleur moment, verification sans lire tout le fichier).
+- Rapporter les valeurs mesurees une par une, sans reprendre le brief, et ne rien relancer ni
+  supprimer sans feu vert explicite.
+
 ## Pitfalls
 
 - **Never put `shortest=1` on an overlay whose second input is a non-looped still image.** `[bgface][logo]overlay=...:shortest=1` fed by a plain `-i logo.png` (single-frame input) truncates the ENTIRE output to one frame: FFmpeg exits 0 and writes a ~1 s file that looks like a success. Either loop the still (`-loop 1 -i logo.png`) or drop `shortest=1` from the overlays and let the muxer's `-shortest` trim the export to the audio. Always `ffprobe` the result and compare its duration against the voice track (`ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 out.mp4`) before declaring the render done — exit code 0 is not evidence the video is complete.

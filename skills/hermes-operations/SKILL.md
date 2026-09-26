@@ -56,6 +56,14 @@ inspecter toolsets, plugins ou clés. Les équivalents non-interactifs :
 | Inventaire skills (N enabled, M disabled) | `hermes skills list` |
 | Budget mémoire | `hermes memory status` + `scripts/check_memory.ps1` |
 | Santé install / version | `hermes doctor`, `hermes --version` |
+| Chercher / détailler un plugin du catalogue | `hermes plugins search <motif>` · `hermes plugins info <nom>` |
+
+**Le nom d'un plugin ne prouve pas ce qu'il branche — lire `hermes plugins info <nom>` avant de
+l'installer.** La fiche donne les lignes `Tools` / `Hooks` / `Middleware` : `(none)` partout signifie
+que le plugin n'expose rien au runtime (typiquement un serveur MCP stdio lancé par `uv run`), donc il
+ne rend PAS une primitive automatiquement disponible dans le backend, quel que soit son nom. Un
+`hermes plugins list` ne dit que l'état activé/désactivé, jamais la surface d'intégration : chercher
+(`search`) → lire (`info`) → présenter la fiche, puis attendre l'accord avant d'installer.
 
 **`hermes config set` n'écrit que des scalaires.** Sur une clé *liste* il **remplace la liste entière
 par la valeur scalaire** — `hermes config set platform_toolsets.cli a2a` transforme les 17 toolsets
@@ -97,6 +105,12 @@ scopé — un `grep -rn` lancé depuis `$LOCALAPPDATA/hermes` se noie dans `data
 `pygments`/`chardet`). Chercher dans `hermes-agent/` en excluant ces quatre-là. Les plugins bundled
 sont sous `hermes-agent/plugins/<kind>/<name>/` ; `plugin.yaml` fait foi pour `requires_env` et
 `provides_tools`.
+
+**JEV (TypeSafe System One)** : primitive de decision appelee par script, pas un outil Hermes natif
+et pas d'integration backend par defaut. Signatures et pieges (`choice` prend un DICT d'options,
+`score` plafonne a 10 niveaux), latence/cout mesures, lecture du cout reel via
+`/api/v1/auth/key`, et la liste des plugins d'integration disponibles mais non installes :
+`references/jev-primitives.md`.
 
 ### Multiplexeur de sessions d'agents (tmux / Herdr) — Hermes n'a pas de backend natif
 
@@ -211,6 +225,29 @@ Register-ScheduledTask -TaskName '<nom>' -Action $action -Trigger $trigger -Sett
 ### Snapshot git de la config (`docs/`)
 
 Le depot est **unique** : runtime a la racine de `%LOCALAPPDATA%\hermes`, documentation sous `docs/`.
+
+**Le depot EST le home** (branche `main`, poussee sur son distant). Les skills vivent dans son arbre
+(`skills/**`) : corriger un skill, le committer et le pousser se fait depuis cette racine — pas depuis
+un autre depot, et **sans en chercher un ailleurs** : un balayage `.git` sur le disque remonte des
+checkouts sans rapport (un clone `wazuh` sous le `Code\GitHub` de l'utilisateur) et fait perdre le
+tour. **Le terminal s'ouvre dans `C:\WINDOWS\system32`** : faire `cd "$LOCALAPPDATA/hermes"` puis
+`pwd` + `git status --short` AVANT tout `git` ou chemin relatif ; les chemins que l'utilisateur donne
+(`skills/…`, `data/…`) sont relatifs a cette racine.
+
+Apres un commit, rapporter le hash complet (`git rev-parse HEAD`) et la ligne de push
+(`<ancien>..<nouveau>  main -> main`), et montrer le `git diff` des fichiers vises AVANT d'ajouter :
+l'operateur veut voir ce qui part, pas seulement le fait que c'est parti. Ne jamais `git add -A`
+depuis le home (l'arbre contient des dizaines de fichiers vivants, cf. `.gitignore` et l'audit).
+
+**Un chantier de maintenance se committe en étapes logiques, chacune avec le préfixe de sa nature**
+(`fix:` une correction de contenu ou de config, `docs:` la documentation et les fiches du wiki,
+`chore:` le nettoyage de fichiers et de logs). Un commit fourre-tout rend le retour arrière
+impossible quand une seule des modifications se révèle fausse. Committer **et pousser** à chaque
+étape, puis donner le hash complet : l'opérateur suit l'avancement commit par commit.
+
+**Un fichier introuvable se DIT ; il ne se cherche pas sur tout le disque.** Verifier le chemin exact
+donne et, s'il n'y est pas, le rapporter tel quel plutot que de lancer une recherche large — elle
+ramene des homonymes d'autres projets et fait conclure a tort a un livrable manquant ou deplace.
 L'ancien depot externe a ete fusionne puis renomme en `*.archive` : ne plus y chercher la doc ni le
 snapshot — tout est sous `docs/`.
 
@@ -688,6 +725,10 @@ la ligne du scheduler dans `agent.log`.
   une **empreinte** : `sha256("id:secret")[:10]`, jeton complet, `id:` inclus. Les deux côtés de la
   comparaison doivent utiliser le même schéma — une empreinte du *secret seul* face à une empreinte du
   *jeton complet* donne « ça ne correspond pas » alors que les jetons sont identiques.
+- **Quand un livrable doit NOMMER une clé sans la révéler** (rapport d'audit, inventaire d'un parc),
+  la forme attendue est le masque court : 4 premiers + 4 derniers caractères + longueur
+  (`KdvEa3…Fbvy (len=32)`). Jamais la valeur entière, jamais un extrait plus long — et une table de
+  secrets ne liste que les **noms** de variables, jamais leurs valeurs.
 - **Un identifiant de bot n'est pas un secret.** Chercher le jeton complet
   (`\b[0-9]{8,12}:[A-Za-z0-9_-]{30,40}\b`). Un grep sur `8801969330:` remonte la doc, les dumps et
   les collages qui ne citent que l'id, et fait croire à des fuites inexistantes.
@@ -769,6 +810,21 @@ contrôle, pas de commit pour cette partie. Commenter uniquement les écarts par
 et requalifier ce qui est **préexistant** (vulnérabilités npm du doctor, tâche planifiée désactivée)
 au lieu de le présenter comme une régression de la session. Quand la passe découvre un **service mort** (port muet, tâche sans prochaine exécution), ne pas se contenter de le signaler : trancher « encore utile ou vestige » en interrogeant le **consommateur** — jamais un grep de config — puis livrer des options numérotées avec une recommandation, et attendre la décision avant toute action. Recette : `references/local-service-triage.md`.
 
+**Un audit d'installation** (confronter le parc au README de référence) se livre dans
+`docs/RAPPORT_AUDIT_<AAAAMMJJ>.md` avec la structure attendue : résumé exécutif de 3-5 lignes,
+tableaux « élément | attendu | réel | écart », versions et dérive, optimisations priorisées par
+impact/effort, résultats des contrôles de sécurité, actions prioritaires, et une section finale
+« points à trancher » (les questions à poser avant toute action). Le rapport se montre **section par
+section** au fur et à mesure, et se termine par l'envoi en pièce jointe sur Telegram.
+
+**Une consigne de nettoyage qui melange des fichiers precis et une regle de retention (« supprime
+agent.log.1 et process-results, garde les 7 derniers jours ») se tranche en LISTANT les candidats,
+jamais en choisissant en silence une des deux regles.** Mesurer l'age reel
+(`find <dir> -type f -mtime +N`) et presenter la liste AVANT de supprimer : si les fichiers nommes
+sont DANS la fenetre de retention, le dire (« agent.log.1 a 4 jours ; tout process-results est < 7
+jours ») et demander le perimetre. La suppression est irreversible et c'est l'operateur qui a demande
+les deux regles a la fois.
+
 **Un plan ou un brief fourni de l'extérieur se MESURE avant d'être exécuté.** Convertir chaque
 affirmation factuelle du brief en contrôle d'assertion et l'exécuter d'abord : compteurs réels
 (`git rev-list --count`, `du -sh`), listes de fichiers calculées (`comm` des `git ls-files`),
@@ -831,6 +887,9 @@ procédure : une tentative de patch upstream échouée sur du code frais se rejo
   **restauration sur une autre machine** (installeur Hermes d'abord, puis `git init`/`fetch`/`checkout`
   par-dessus — jamais `git clone` dans un dossier non vide) et la **fusion de deux dépôts en un seul**
   (clone de travail puis `--ff-only`, collisions précalculées, rangement sous `docs/`).
+- `references/jev-primitives.md` — JEV (TypeSafe System One) : ou il vit, signatures et pieges
+  (`choice` prend un dict d'options, `score` plafonne a 10 niveaux), latence/cout mesures, cout reel
+  via `/api/v1/auth/key`, et pourquoi il n'est PAS cable dans le backend par defaut.
 - `scripts/scan_history_secrets.py` — scanner rejouable de **tout l'historique** d'un dépôt
   (`rev-list --objects --all` + `cat-file --batch`), qui rend blob / chemin / taille / occurrences /
   `sha256[:16]`, propose la liste `--purge-cmds` et sort en 1 si un motif matche (gate utilisable).
