@@ -27,6 +27,9 @@ Règle : 2 à 5 options, critères objectifs, choix récurrent.
 
 ## Où Jev ne tranche PAS
 
+## Fallback local (exploré)
+Exploré le 27/09, éliminé car Core ML/ANE Apple uniquement, incompatible Windows.
+
 - Questions ouvertes (recherche, diagnostic, création)
 - Plus de 5 options
 - Choix sans critères clairs
