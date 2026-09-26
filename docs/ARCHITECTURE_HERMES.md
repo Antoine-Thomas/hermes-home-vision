@@ -67,7 +67,6 @@ proxy NIM local `127.0.0.1:20200`, SiYuan `127.0.0.1:6806`, RAG `127.0.0.1:8200`
 | `\Hermes_Gateway_HealthCheck` | récurrent | healthcheck des gateways |
 | `\Hermes_NVIDIA_NIM_Proxy` | récurrent | proxy NIM 20200 |
 | `\OmniRouteServer`, `\OmniRoute-AutoLaunch`, `\OmniRoute-Watchdog` | démarrage + watchdog 5 min | serveur OmniRoute et sa relance |
-| `\HermesGateway` | — | **désactivé** : vestige d'avant le renommage des tâches |
 
 ---
 
