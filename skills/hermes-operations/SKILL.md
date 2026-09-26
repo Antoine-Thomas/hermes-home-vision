@@ -334,8 +334,7 @@ Clés natives **non renseignées** ici (défauts en vigueur, à connaître avant
 
 Changer `delegation.*` : `hermes config set delegation.<clé> <valeur>`, puis vérifier le placement
 réel sous `delegation:` (`grep -n "^delegation:" -A 14 config.yaml`) — une clé pointée peut atterrir
-sous une section voisine. `hermes config validate` n'existe pas dans 0.21.3 : la validation se fait
-avec `hermes config check` (exit 0, « Config version: 45 ✓ », section Required vide).
+sous une section voisine. Nota : `hermes config validate` n'existe plus dans 0.21.5 : la vérification se fait via `hermes config check` (exit 0, « Config version: 46 ✓ », section Required vide). Pour appliquer les migrations automatiques, utilisez `hermes config migrate`.
 
 **Pourquoi depth reste à 1** : `max_spawn_depth` est le seul garde-fou anti-récursion du code
 (`tools/delegate_tool.py` : `effective_role = "orchestrator" si child_depth < max_spawn_depth sinon
