@@ -117,11 +117,19 @@ Services communs aux trois profils : **OmniRoute** (20128, routeur LLM et combos
 paramètres rejetés), **RAG** (8200, index vectoriel du second cerveau ; santé sur `/sante`),
 **backend** (9119, API/dashboard), **SiYuan** (6806, base de connaissances, 6 notebooks).
 
-**Supervision.** La tâche Windows `Hermes_Gateway_HealthCheck` (toutes les 5 minutes) vérifie que
-chaque gateway est vivant (PID **et** commande `gateway run` — un PID recyclé ne compte pas), le
-relève par `Start-ScheduledTask`, alerte sur Telegram **uniquement sur transition d'état** et écrit
-une ligne `[battement]` par heure dans `logs/gateway-health.log`, ce qui donne un historique de
-disponibilité sur 24 h.
+**Supervision.** Un **seul gateway multiplexé** sert les trois profils : la tâche Windows
+`Hermes_Gateway` lance le gateway du profil `default`, et `gateway.multiplex_profiles: true`
+(`config.yaml`) fait servir les profils `watch` et `veille` par ce même processus — il n'existe
+**aucune** tâche `Hermes_Gateway_watch` ni `Hermes_Gateway_veille` séparée. La tâche
+`Hermes_Gateway_HealthCheck` (toutes les 5 minutes) vérifie que le gateway est vivant (PID **et**
+commande `gateway run` — un PID recyclé ne compte pas), le relève par `Start-ScheduledTask`, alerte
+sur Telegram **uniquement sur transition d'état** et écrit une ligne `[battement]` par heure dans
+`logs/gateway-health.log`, ce qui donne un historique de disponibilité sur 24 h.
+
+> **Note — multiplexage des profils.** Les profils `watch` et `veille` sont servis par le
+> multiplexeur du gateway `default` (`config.yaml` → `gateway.multiplex_profiles: true`) : un seul
+> processus gateway, trois configurations de profil, un seul point de supervision. Ne pas recréer une
+> tâche de gateway par profil — un second gateway sur le même bot Telegram se neutralise.
 
 **Cadence métier.** Le job cron `veille-hebdo` du profil `veille` part le lundi à 08h00, produit un
 document SiYuan daté et le livre sur Telegram.
@@ -206,29 +214,28 @@ Non versionné volontairement : `.env`, `auth.json`, `state.db*`, `sessions/`, `
    .\docs\scripts\bootstrap.ps1 -RepoUrl https://github.com/Antoine-Thomas/hermes-home-vision.git -Apply
    ```
    Il installe Hermes si besoin, pose la configuration du dépôt, copie les `.env.example`, recrée les
-   **14 tâches** dont la cible est dans le dépôt, démarre les services dans l'ordre
-   (SiYuan → OmniRoute → proxy NIM → RAG → backend → gateways) et écrit son journal dans
-   `docs\snapshot\bootstrap_<horodatage>.log`. Il **liste** les 6 tâches dont le fichier cible est
-   hors dépôt (`data\`, `C:\ProgramData\Hermes`, SiYuan, cua-driver) sans les créer.
+   **12 tâches** dont la cible est dans le dépôt (un **seul** gateway multiplexé, pas un par profil),
+   démarre les services dans l'ordre (SiYuan → OmniRoute → proxy NIM → RAG → backend → gateway) et
+   écrit son journal dans `docs\snapshot\bootstrap_<horodatage>.log`. Il **liste** les 6 tâches dont
+   le fichier cible est hors dépôt (`data\`, `C:\ProgramData\Hermes`, SiYuan, cua-driver) sans les
+   créer.
    Procédure complète, y compris les étapes manuelles : `docs\scripts\restore-from-github.md`.
 
    *Variante manuelle* (si tu préfères ne pas lancer le bootstrap) — recréer les tâches avec les
    scripts du dépôt, puis démarrer les services dans l'ordre :
    ```powershell
-   # tâches : les 3 gateways + le healthcheck
+   # tâches : 1 gateway multiplexé (3 profils) + le healthcheck
    .\scripts\creer_tache_gateway.ps1 -TaskName Hermes_Gateway        # (-DryRun par défaut, puis -Apply)
-   .\scripts\creer_tache_gateway.ps1 -TaskName Hermes_Gateway_watch
-   .\scripts\creer_tache_gateway.ps1 -TaskName Hermes_Gateway_veille
    .\scripts\check_gateways.ps1 -InstallTask -Apply
    ```
    puis **SiYuan** → **OmniRoute** (`omniroute-launch.vbs`) → **proxy NIM**
    (tâche `Hermes_NVIDIA_NIM_Proxy`) → **RAG** (`data\rag\serveur_rag.py` — attention : aucun lanceur
    n'existe pour celui-ci, cf. `ARCHITECTURE_HERMES.md` §7.9) → **backend**
-   (`gateway-service\Hermes_Serve.vbs`) → gateways `default`, `watch`, `veille`.
+   (`gateway-service\Hermes_Serve.vbs`) → gateway multiplexé (`default` + `watch` + `veille`).
 
 5. **Vérifier** :
    ```powershell
-   hermes profile list      # 3 profils, gateways running
+   hermes profile list      # 3 profils servis par 1 gateway multiplexé
    hermes doctor
    powershell -ExecutionPolicy Bypass -File .\scripts\verif_24h.ps1
    ```
@@ -280,7 +287,7 @@ curl.exe -s -o NUL -w "nouveau: %{http_code}\n" "https://api.telegram.org/bot$t/
 
 | Script | Rôle |
 |---|---|
-| `scripts\check_gateways.ps1` | healthcheck des 3 gateways : détection ≤5 min, relevage, alerte sur transition, battement horaire |
+| `scripts\check_gateways.ps1` | healthcheck des 3 profils servis par le gateway multiplexé : détection ≤5 min, relevage, alerte sur transition, battement horaire |
 | `scripts\creer_tache_gateway.ps1` | crée/durcit une tâche de gateway (logon + répétition courte, hors Job Object) — `-DryRun` par défaut |
 | `scripts\verif_24h.ps1` | rapport T+24h contre la baseline T0 (SiYuan, RAG, cron, ticks horaires, gateways, alertes, A2A OFF) |
 | `scripts\activer_a2a.ps1` / `desactiver_a2a.ps1` | activation / retour arrière A2A, paramétrés par profil et par port, diff affiché avant écriture |
