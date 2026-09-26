@@ -2,9 +2,21 @@
 
 > Installation personnelle de Hermes Agent — 3 profils isolés, supervision continue, veille automatique.
 
-Dépôt privé : `https://github.com/Antoine-Thomas/hermes-home-vision` — il contient **tout** : le
+Dépôt public : `https://github.com/Antoine-Thomas/hermes-home-vision` — il contient **tout** : le
 runtime Hermes (configuration, profils, skills, scripts) **et** sa documentation rangée sous `docs/`.
 Un seul `git clone` restaure l'ensemble.
+
+### Installation rapide (1.3)
+
+```bash
+git clone https://github.com/Antoine-Thomas/hermes-home-vision.git
+cd hermes-home-vision
+git checkout v1.3
+```
+
+Sur une machine où `%LOCALAPPDATA%\hermes` contient déjà un runtime, la marche à suivre
+détaillée plus bas (`git init`, `git remote add`, `git fetch`, `git checkout`) évite
+d'écraser l'existant.
 
 Version de référence : **Hermes Agent v0.21.3 (2026.9.14)**, upstream `97962358`.
 Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Windows natif, pas WSL).
@@ -263,7 +275,7 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
   reste actif en local — seul le blob a quitté l'historique.
 - Conséquence assumée : les SHA des commits de l'ancien dépôt de documentation ont changé. Les
   identifiants cités dans les rapports restent lisibles comme références historiques.
-- Ne jamais rendre ce dépôt public sans re-scan : un dépôt privé n'est pas un coffre, tout ce qui y
+- Le dépôt est public : un dépôt privé n'est pas un coffre, et un dépôt public encore moins. Tout ce qui y entre est lisible. Rejouer le scan anti-secret avant chaque commit, et ne jamais committer de `.env`, `state.db`, `auth.json` ou clé privée.
   entre reste dans l'historique.
 
 ---
@@ -278,7 +290,7 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
 | `docs\README.md` | rôle du dossier `docs`, notes de fusion, notes de sécurité |
 | `docs\RAPPORT_*.md`, `docs\INSTALL_LOG.md` | rapports de session et journal d'installation, commande par commande |
 | `docs\snapshot\` | baselines T0, configs de référence, diffs des scripts livrés |
-| `docs\scripts\push-to-github.md` | procédure de publication (dépôt privé, contrôles bloquants) |
+| `docs\scripts\push-to-github.md` | procédure de publication (dépôt public, contrôles bloquants) |
 | `docs\scripts\bootstrap.ps1` | remise en route sur une machine vierge — DryRun par défaut, `-Apply` pour exécuter |
 | `docs\scripts\restore-from-github.md` | restauration pas-à-pas : bots Telegram, clés OmniRoute, jeton SiYuan, `data/`, tâches hors dépôt |
 | `docs\scripts\baseline_t0.py` | mesure la baseline T0 (notebooks SiYuan, fragments RAG, cron) — à régénérer sur une nouvelle machine |
