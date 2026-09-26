@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 """Horodatage des incrustations du volet 7, deduit de l'audio reellement genere.
 
-Source de verite : audio_youtube_v7.json. Le volet 7 utilise audio_youtube_v7.wav
-(364,5 s, prise 2 apres rejeu de la tranche 09) : les bornes de tranches sont celles
-mesurees sur cet audio, pas celles du volet 6.
+Source de verite : audio_youtube_v6.json (bornes de tranches du volet 6). Le volet 7
+utilise desormais audio_youtube_v7.wav = la piste audio extraite de
+tutotete20_jev_llmwiki.mp4 (336,384 s, PCM 24 kHz mono), c'est-a-dire la MEME narration
+que le volet 6 : les bornes de tranches du volet 6 s'appliquent donc telles quelles.
+La fin de la derniere incrustation est bornee par la duree REELLE de l'audio (ffprobe).
 Les frontieres de section sont reperees par la phrase qui les ouvre dans le texte, puis
 arrondies au debut de la tranche qui la contient.
 
@@ -14,12 +16,29 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import re
 import unicodedata
 
 BASE = r"C:\Users\searc\AppData\Local\hermes\data\xtts"
 VID = r"C:\Users\searc\AppData\Local\hermes\data\video_youtube"
-JSON = os.path.join(BASE, "audio_youtube_v7.json")
+JSON = os.path.join(BASE, "audio_youtube_v6.json")
+AUDIO_V7 = os.path.join(BASE, "audio_youtube_v7.wav")
+
+
+def duree_audio(chemin: str) -> float:
+    """Duree reelle du WAV (la somme des tranches peut differer de quelques ms)."""
+    if not os.path.exists(chemin):
+        return 0.0
+    r = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                        "-of", "csv=p=0", chemin], capture_output=True, text=True)
+    try:
+        return float((r.stdout or "").strip())
+    except ValueError:
+        return 0.0
+
+
+DUREE_AUDIO = duree_audio(AUDIO_V7)
 OUT = os.path.join(VID, "overlay_timing_v7.json")
 
 # incrustation -> phrase d'ouverture (dans la tranche), marge avant (s), fichier PNG

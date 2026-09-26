@@ -10,7 +10,7 @@ PORTE D'ENTREE UNIQUE. Il enchaine les neuf etapes validees sur les volets 3, 4 
   c) extraction de la fenetre, SANS reencodage quand elle demarre sur une keyframe
   d) stabilisation verticale (recadrage dynamique + Savitzky-Golay 7,2 / k choisi, 0,65)
   e) boucle adaptee a la duree de l'audio (simple / segments optimises / ping-pong)
-  f) LatentSync 1.5 (stage2.yaml 256 px, 20 pas, guidance 1.5, deepcache) via le moniteur
+  f) LatentSync 1.5 (stage2.yaml 256 px, 25 pas, guidance 1.8, deepcache) via le moniteur
   g) greffe hautes frequences 4K (alpha, masque face, blur 5)
   h) mesures de nettete avant/apres (haut et bas du visage) + planche comparative
   i) rapport MD horodate + notification Telegram
