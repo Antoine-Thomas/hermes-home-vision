@@ -11,7 +11,7 @@ runtime Hermes (configuration, profils, skills, scripts) **et** sa documentation
 Un seul `git clone` restaure l'ensemble. L'historique a été audité le 21/09/2026 par
 `docs/scripts/scan_secrets_history.py` : aucune valeur de secret réelle. Détail en §8.
 
-Version de référence : **Hermes Agent v0.21.3 (2026.9.14)**, upstream `97962358`.
+Version de référence : **Hermes Agent v0.21.5+2729.gcdcd53c**, config version 46, upstream `97962358`.
 Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Windows natif, pas WSL).
 
 ---
@@ -52,8 +52,8 @@ de repli :
 | Profil | Rôle | Modèle par défaut | Repli |
 |---|---|---|---|
 | `default` (bureau) | assistant opérateur : code, vidéo IA, WordPress, second cerveau | `eco` (routeur local, gratuit d'abord) | `nvidia-stack` → `deepseek/deepseek-flash` |
-| `watch` | surveillance des services et automatisations | `nvidia-stack` (déterministe, gratuit) | `nemotron-super` → `auto/best-free` → `deepseek-flash` |
 | `veille` | veille technologique : arXiv, HuggingFace, RSS, catalogue OpenRouter → synthèse datée | `nvidia-stack` | `nemotron-super` → `auto/best-free` |
+| `watch` | surveillance des services et automatisations | `nvidia-stack` (déterministe, gratuit) | `nemotron-super` → `auto/best-free` → `deepseek-flash` |
 
 Aucun credential n'est partagé entre profils : un bot Telegram n'appartient qu'à un seul profil, et
 les clés du routeur sont dédiées (`hermes_watch`, `hermes_veille`).
@@ -101,15 +101,16 @@ Détail complet, fichiers concernés et notes de migration : [`docs/CHANGELOG-v1
                         ┌─────────────▼──────────────┐
                         │   Jev  ·  OpenRouter       │
                         │   choix rapides 2-5 options│
-                        │   backend · RAG · SiYuan   │
-                        │   ~0,4 s · ~1,3e-05 $      │
+                        │   wiki · RAG               │
+                        │   ~0,316 s · ~1,46e-05 $   │
                         └────────────────────────────┘
 ```
 
-**Jev** est le skill TypeSafe d'aide à la décision. Il intervient sur les trois services (backend
-Hermes 9119, RAG 8200, SiYuan 6806) pour trancher les choix rapides : 2 à 5 options, critères
-objectifs, décision récurrente. Latence ~0,4 s par appel, coût négligeable. Il ne remplace pas le
-modèle principal : il décide à sa place sur les questions cadrées. Voir `wiki/concepts/jev.md`.
+**Jev** est le skill TypeSafe d'aide à la décision. Il route entre le **wiki** (L1, connaissances
+compilées hébergées dans SiYuan) et le **RAG** (L2, recherche brute) pour trancher les choix rapides :
+2 à 5 options, critères objectifs, décision récurrente. Latence ~0,316 s par appel, coût ~1,46e-5 $.
+Limite : score sur 10 niveaux maximum. Il ne remplace pas le modèle principal : il décide à sa place
+sur les questions cadrées. Voir `wiki/concepts/jev.md`.
 
 Services communs aux trois profils : **OmniRoute** (20128, routeur LLM et combos `eco` /
 `nvidia-stack`), **proxy NIM** (20200, normalise les appels NVIDIA NIM : préfixes de modèles et
@@ -175,7 +176,7 @@ Non versionné volontairement : `.env`, `auth.json`, `state.db*`, `sessions/`, `
    Git Bash embarqué et les outils :
    ```powershell
    iex (irm https://hermes-agent.nousresearch.com/install.ps1)
-   hermes --version        # attendu : Hermes Agent v0.21.3
+   hermes --version        # attendu : Hermes Agent v0.21.5+2729.gcdcd53c
    ```
 
 2. **Poser la configuration de ce dépôt** par-dessus le runtime. `git clone` refuse un dossier non
