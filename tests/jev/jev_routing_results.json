@@ -1,0 +1,322 @@
+[
+  {
+    "num": 1,
+    "query": "Définition de 'écologie' dans mes notes",
+    "expected": "SiYuan",
+    "decision": "SiYuan",
+    "confidence": 0.94,
+    "ok": "OK",
+    "latency": 0.34540250001009554,
+    "cost": 1.4616e-05,
+    "raw": {
+      "model": "typesafe/jev-1.13-20260917",
+      "answers": {
+        "route_1": {
+          "type": "choice",
+          "choice": "SiYuan",
+          "probabilities": {
+            "SiYuan": 0.97,
+            "RAG": 0.03
+          },
+          "confidence": 0.94
+        }
+      },
+      "usage": {
+        "input_tokens": 348,
+        "output_tokens": 38,
+        "cost": 1.4616e-05
+      },
+      "id": "gen-dec-1790450767-EGK6IToSHFL9y5smRrXu",
+      "provider": "TypeSafe",
+      "_elapsed_s": 0.344
+    }
+  },
+  {
+    "num": 2,
+    "query": "Trouve-moi un passage dans mes PDF sur le climat",
+    "expected": "RAG",
+    "decision": "RAG",
+    "confidence": 0.99,
+    "ok": "OK",
+    "latency": 0.3493392000091262,
+    "cost": 1.4574e-05,
+    "raw": {
+      "model": "typesafe/jev-1.13-20260917",
+      "answers": {
+        "route_2": {
+          "type": "choice",
+          "choice": "RAG",
+          "probabilities": {
+            "RAG": 0.99,
+            "SiYuan": 0.01
+          },
+          "confidence": 0.99
+        }
+      },
+      "usage": {
+        "input_tokens": 347,
+        "output_tokens": 37,
+        "cost": 1.4574e-05
+      },
+      "id": "gen-dec-1790450767-zWpnvzu1UFa8Ewr1B0r4",
+      "provider": "TypeSafe",
+      "_elapsed_s": 0.349
+    }
+  },
+  {
+    "num": 3,
+    "query": "Le concept 'Psychopomp' existe-t-il déjà ?",
+    "expected": "SiYuan",
+    "decision": "SiYuan",
+    "confidence": 0.32,
+    "ok": "OK",
+    "latency": 0.26865550002548844,
+    "cost": 1.4658e-05,
+    "raw": {
+      "model": "typesafe/jev-1.13-20260917",
+      "answers": {
+        "route_3": {
+          "type": "choice",
+          "choice": "SiYuan",
+          "probabilities": {
+            "SiYuan": 0.66,
+            "RAG": 0.34
+          },
+          "confidence": 0.32
+        }
+      },
+      "usage": {
+        "input_tokens": 349,
+        "output_tokens": 38,
+        "cost": 1.4658e-05
+      },
+      "id": "gen-dec-1790450768-zz6DB1pqlg6629wtxvfu",
+      "provider": "TypeSafe",
+      "_elapsed_s": 0.268
+    }
+  },
+  {
+    "num": 4,
+    "query": "Résume mes 50 derniers documents sur l'IA",
+    "expected": "RAG",
+    "decision": "RAG",
+    "confidence": 0.93,
+    "ok": "OK",
+    "latency": 0.33681850001448765,
+    "cost": 1.4616e-05,
+    "raw": {
+      "model": "typesafe/jev-1.13-20260917",
+      "answers": {
+        "route_4": {
+          "type": "choice",
+          "choice": "RAG",
+          "probabilities": {
+            "RAG": 0.97,
+            "SiYuan": 0.03
+          },
+          "confidence": 0.93
+        }
+      },
+      "usage": {
+        "input_tokens": 348,
+        "output_tokens": 37,
+        "cost": 1.4616e-05
+      },
+      "id": "gen-dec-1790450768-u3iyJ6pKUVmkZAvxMW4c",
+      "provider": "TypeSafe",
+      "_elapsed_s": 0.336
+    }
+  },
+  {
+    "num": 5,
+    "query": "Créer une fiche sur 'transformer' et la relier",
+    "expected": "SiYuan",
+    "decision": "SiYuan",
+    "confidence": 0.93,
+    "ok": "OK",
+    "latency": 0.3286015000194311,
+    "cost": 1.47e-05,
+    "raw": {
+      "model": "typesafe/jev-1.13-20260917",
+      "answers": {
+        "route_5": {
+          "type": "choice",
+          "choice": "SiYuan",
+          "probabilities": {
+            "RAG": 0.04,
+            "SiYuan": 0.96
+          },
+          "confidence": 0.93
+        }
+      },
+      "usage": {
+        "input_tokens": 350,
+        "output_tokens": 38,
+        "cost": 1.47e-05
+      },
+      "id": "gen-dec-1790450768-m6z0RX9gLiMPBAU6poN9",
+      "provider": "TypeSafe",
+      "_elapsed_s": 0.328
+    }
+  },
+  {
+    "num": 6,
+    "query": "Quels documents parlent de 'reward model' ?",
+    "expected": "RAG",
+    "decision": "RAG",
+    "confidence": 0.54,
+    "ok": "OK",
+    "latency": 0.28868439997313544,
+    "cost": 1.4532e-05,
+    "raw": {
+      "model": "typesafe/jev-1.13-20260917",
+      "answers": {
+        "route_6": {
+          "type": "choice",
+          "choice": "RAG",
+          "probabilities": {
+            "RAG": 0.77,
+            "SiYuan": 0.23
+          },
+          "confidence": 0.54
+        }
+      },
+      "usage": {
+        "input_tokens": 346,
+        "output_tokens": 37,
+        "cost": 1.4532e-05
+      },
+      "id": "gen-dec-1790450769-3JobQCByLvahyu9tzPGo",
+      "provider": "TypeSafe",
+      "_elapsed_s": 0.288
+    }
+  },
+  {
+    "num": 7,
+    "query": "Mettre à jour la fiche 'JEV' avec la latence mesurée",
+    "expected": "SiYuan",
+    "decision": "SiYuan",
+    "confidence": 0.81,
+    "ok": "OK",
+    "latency": 0.26572660001693293,
+    "cost": 1.4784e-05,
+    "raw": {
+      "model": "typesafe/jev-1.13-20260917",
+      "answers": {
+        "route_7": {
+          "type": "choice",
+          "choice": "SiYuan",
+          "probabilities": {
+            "SiYuan": 0.9,
+            "RAG": 0.1
+          },
+          "confidence": 0.81
+        }
+      },
+      "usage": {
+        "input_tokens": 352,
+        "output_tokens": 38,
+        "cost": 1.4784e-05
+      },
+      "id": "gen-dec-1790450769-lFtGC00bERkZofdYFixx",
+      "provider": "TypeSafe",
+      "_elapsed_s": 0.265
+    }
+  },
+  {
+    "num": 8,
+    "query": "Classer ces 100 emails par urgence",
+    "expected": "RAG",
+    "decision": "RAG",
+    "confidence": 0.53,
+    "ok": "OK",
+    "latency": 0.3068294000113383,
+    "cost": 1.4532e-05,
+    "raw": {
+      "model": "typesafe/jev-1.13-20260917",
+      "answers": {
+        "route_8": {
+          "type": "choice",
+          "choice": "RAG",
+          "probabilities": {
+            "SiYuan": 0.23,
+            "RAG": 0.77
+          },
+          "confidence": 0.53
+        }
+      },
+      "usage": {
+        "input_tokens": 346,
+        "output_tokens": 37,
+        "cost": 1.4532e-05
+      },
+      "id": "gen-dec-1790450769-91tNRpZoXwo8njW1jNmy",
+      "provider": "TypeSafe",
+      "_elapsed_s": 0.306
+    }
+  },
+  {
+    "num": 9,
+    "query": "Le concept 'alignment' a-t-il évolué ?",
+    "expected": "SiYuan",
+    "decision": "SiYuan",
+    "confidence": 0.72,
+    "ok": "OK",
+    "latency": 0.33609450003132224,
+    "cost": 1.4616e-05,
+    "raw": {
+      "model": "typesafe/jev-1.13-20260917",
+      "answers": {
+        "route_9": {
+          "type": "choice",
+          "choice": "SiYuan",
+          "probabilities": {
+            "RAG": 0.14,
+            "SiYuan": 0.86
+          },
+          "confidence": 0.72
+        }
+      },
+      "usage": {
+        "input_tokens": 348,
+        "output_tokens": 38,
+        "cost": 1.4616e-05
+      },
+      "id": "gen-dec-1790450770-2yRwKgnd8qiGHVugO8Gp",
+      "provider": "TypeSafe",
+      "_elapsed_s": 0.336
+    }
+  },
+  {
+    "num": 10,
+    "query": "Chercher dans mes conversations passées",
+    "expected": "RAG",
+    "decision": "RAG",
+    "confidence": 0.92,
+    "ok": "OK",
+    "latency": 0.33385270001599565,
+    "cost": 1.4406e-05,
+    "raw": {
+      "model": "typesafe/jev-1.13-20260917",
+      "answers": {
+        "route_10": {
+          "type": "choice",
+          "choice": "RAG",
+          "probabilities": {
+            "RAG": 0.96,
+            "SiYuan": 0.04
+          },
+          "confidence": 0.92
+        }
+      },
+      "usage": {
+        "input_tokens": 343,
+        "output_tokens": 38,
+        "cost": 1.4406e-05
+      },
+      "id": "gen-dec-1790450770-8eYVCr1wKfnDkYCe5MUT",
+      "provider": "TypeSafe",
+      "_elapsed_s": 0.333
+    }
+  }
+]
