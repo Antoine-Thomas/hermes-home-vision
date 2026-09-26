@@ -66,7 +66,8 @@ proxy NIM local `127.0.0.1:20200`, SiYuan `127.0.0.1:6806`, RAG `127.0.0.1:8200`
 | `\Hermes_Gateway_veille` | récurrent (watchdog) | gateway du profil `veille` |
 | `\Hermes_Gateway_HealthCheck` | récurrent | healthcheck des gateways |
 | `\Hermes_NVIDIA_NIM_Proxy` | récurrent | proxy NIM 20200 |
-| `\OmniRouteServer`, `\OmniRoute-AutoLaunch`, `\OmniRoute-Watchdog` | démarrage + watchdog 5 min | serveur OmniRoute et sa relance |
+| `\OmniRoute-AutoLaunch`, `\OmniRoute-Watchdog` | démarrage + watchdog 5 min | serveur OmniRoute et sa relance |
+| `\OmniRouteServer` | — | **désactivé** : doublon (dernier run 27/08, code `0xC000013A`) — relance déjà assurée par `OmniRoute-AutoLaunch` + `OmniRoute-Watchdog` |
 
 ---
 
