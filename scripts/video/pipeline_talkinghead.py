@@ -826,6 +826,13 @@ def etape_latentsync(a, source_loop: str, audio: str) -> str:
             cycle = int(rs.get("cycle_frames", 0))
             seg = int(rs.get("segment_frames", 0))
             n_loop = int(d.get("n_frames_sortie", 0) or 0)
+        if a.segmenter != "auto":
+            # Un --segmenter explicite (nombre de frames) prime sur la valeur memorisee dans
+            # mesures_boucles : c'est le seul moyen de reprendre un run dont le decoupage etait
+            # trop gourmand en RAM (26/09 : 5400 frames = 33,6 Go, debit effondre a 9,4 s/frame).
+            w, h, _ = ffprobe_taille(source_loop)
+            cycle = cycle or 1
+            seg = taille_tranche(a, cycle, w, h, ram_libre())
         if not seg:
             # mesures absentes (boucle reprise d'un autre volet) : on recalcule
             w, h, _ = ffprobe_taille(source_loop)
