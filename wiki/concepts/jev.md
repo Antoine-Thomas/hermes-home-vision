@@ -1,7 +1,7 @@
 ---
 title: Jev
 created: 2026-09-22
-updated: 2026-09-22
+updated: 2026-09-26
 type: concept
 tags: [hermes]
 sources: []
@@ -12,7 +12,7 @@ confidence: high
 
 Jev est le skill TypeSafe intégré à Hermes pour trancher les choix rapides. Trois
 primitives : `noul` (poser un jugement), `choice` (trancher entre N options),
-`score` (noter une option). Latence 0,37–0,44 s (mesuré), coût ~0,000013 $ par appel. Voir
+`score` (noter une option). Latence 0,316 s (mesuré le 26/09/2026), coût ~0,0000146 $ par appel (soit 1,46e-5 $). Limite : score sur 10 niveaux maximum. Statut intégration backend (au 26/09/2026) : NON intégré au backend 9119 — JEV n'est appelé que par des scripts explicites (aucun hook/middleware automatique). Correctifs skills associés : commit `5fa0234`. Voir
 [[hermes-agent]] et [[omniroute]].
 
 ## Où Jev tranche dans l'écosystème
@@ -21,7 +21,7 @@ primitives : `noul` (poser un jugement), `choice` (trancher entre N options),
 |---|---|---|---|
 | Backend Hermes | 9119 | Opérationnel (modèle, route, run) | eco vs nvidia-stack, retenter un run |
 | RAG index 2ᵉ cerveau | 8200 | Classification, rattachement | quel notebook SiYuan, créer ou réutiliser une page |
-| SiYuan | 6806 | Routage documentaire | archiver, dédupliquer |
+| Wiki (hébergé dans SiYuan) | 6806 | Routage documentaire | archiver, dédupliquer |
 
 Règle : 2 à 5 options, critères objectifs, choix récurrent.
 
