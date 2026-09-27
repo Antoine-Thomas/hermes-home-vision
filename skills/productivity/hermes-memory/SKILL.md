@@ -25,6 +25,16 @@ python "%LOCALAPPDATA%\hermes\data\rag\router_memoire.py" "question"
 - **Secret Protection**: `indexer.py` automatically filters secrets (tokens, API keys) based on `SECRET_PATTERNS`.
 - **Memory Limits**: `check_memory.ps1` alerts when `MEMORY.md` > **2100** chars or `USER.md` > **1300** (older notes say 1375 for USER — 1300 is current). MEMORY's hard injection cap is 2200; 2100 is the early-warning line, so aim under the alert threshold, not merely under the cap. The script measures raw CRLF, so a Python `len(open(f).read())` on universal newlines reads ~2 chars/line LOWER and is not authoritative for the alert.
 - **Desaturation**: When MEMORY.md or USER.md approaches saturation, archive old entries to SiYuan and rewrite to regain margin. Since 2026-09-17 this is scripted: `%LOCALAPPDATA%\hermes\scripts\desaturer_memoire.py` (`--dry-run` default, `--auto` only above the alert thresholds) + scheduled task « Hermes - desaturer memoire », Sunday 04:00, log `scripts/desaturation.log`. It requires SiYuan up (otherwise it changes nothing, exit 1), archives the whole file into `journal / Archive <FICHIER> - <date>` before rewriting, keeps a `.bak`, rolls back if the size is still over the threshold, and refuses to touch protected sections. Full decision rules in `references/desaturation.md`.
+- **Correcting a factual claim — measure first.** A memory line is a note, not a source: it has
+  already carried a stale version and a stale config number. Measure before rewriting —
+  `hermes --version` plus `grep -m1 _config_version config.yaml`, `netstat -ano | grep :<port>` for a
+  real listener, `Get-ScheduledTask | Where-Object {$_.TaskName -like '<prefix>*'}` for real task
+  names. Then edit **only the false line**: a diff larger than that line means the wrong region moved,
+  and the rest of the file must stay byte-identical. A claim that looks invented is often
+  real-but-stale (a "nonexistent" port was the documented port of a service stopped months earlier) —
+  establish what the thing **is** before writing that it does not exist. Report the size delta against
+  the alert threshold, and name the doubtful neighbours on the same line instead of fixing them in the
+  same pass.
 - **Obsolescence**: Apply the `> À revérifier: YYYY-MM-DD` convention to SiYuan documents.
 
 ## Staged writes — the write-approval queue
@@ -46,6 +56,7 @@ Rules that matter:
 - **Discard the entry after applying it by hand** (`reject <id>`): operations are `replace old_text → content`, so a leftover proposal whose `old_text` still matches re-applies on the next sweep and duplicates the inserted line.
 - **Read the operations and sum their size deltas against the real current size before writing.** A single "compact" memory line runs ~250 chars and a small two-op batch ~235 — on a file already near the alert threshold that is the whole remaining margin.
 - **Verify the write landed before reporting it applied** — grep the target file for the new text and re-run `check_memory.ps1`. Reporting a proposal as applied without that read lets an unapplied proposal survive an entire session as a false fact.
+- **Backlog review: recommend, never apply.** Render one line per proposal — `id` (first 8 chars of the filename), date (`st_mtime`), a one-line summary, and a verdict `APPROUVER / REJETER / FUSIONNER` — then stop; the user decides with `/memory pending`. Two proposals whose `old_text` targets the same entry supersede each other: recommend the newest and reject the older. A proposal whose fact was corrected meanwhile shrinks to whatever part is still new (`FUSIONNER`), and one that adds the **location of a secret** to a publicly versioned file is rejected. Check the proposal's channel claim against the live measurement before endorsing it — a proposal listing three channels while the gateway health file lists four is `FUSIONNER`, not `APPROUVER`.
 
 ## Pitfalls
 - **`§` separators are structural, not cosmetic.** The store splits entries on `ENTRY_DELIMITER = "\n§\n"` (`tools/memory_tool_store.py`). A memory file rewritten as markdown `##` sections separated by blank lines is read as **one single entry** — so any `replace`/`remove` rewrites the whole file and silently destroys every other entry. Keep a line containing only `§` between entries, and check the format after any external edit: a restructured file is a loaded gun, not a styling choice.

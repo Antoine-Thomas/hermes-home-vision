@@ -218,7 +218,28 @@ l'edition laisse la version fausse en ligne, et c'est la release que le monde li
   dans le rapport : ni correction silencieuse, ni recopie silencieuse. Une valeur
   mesuree se reprend d'un fichier de mesures reel, jamais d'un souvenir :
   rechercher le chiffre dans le depot (`search_files`, ou `grep` en ligne de
-  commande) avant de l'ecrire ou de le corriger.
+  commande) avant de l'ecrire ou de la corriger.
+- **Un message de commit prescrit par l'operateur se corrige quand la mesure le contredit** : avant de
+  figer une affirmation, la mesurer (`hermes --version` + `grep -m1 _config_version config.yaml` pour
+  la version, `netstat -ano | grep :<port>` pour un port, `Get-ScheduledTask` pour le nom reel des
+  taches planifiees). Une affirmation perimee figee dans un message de commit y reste pour toujours :
+  ecrire le **fait mesure** et le signaler. Corollaire : une affirmation fausse n'est pas forcement
+  une invention — etablir ce que la chose **est** avant d'ecrire qu'elle n'existe pas (un port annonce
+  « inexistant » etait le port documente d'un service a l'arret depuis des mois).
+- **Une lecon apprise deux fois se FUSIONNE, elle ne s'empile pas** : quand deux passages d'un meme
+  fichier disent la meme chose (une passe concurrente et la session), reduire a **un seul** traitement
+  canonique et ne laisser sur l'autre site qu'un **renvoi** d'une phrase. Controler par
+  `grep -c "<motif>"` avant/apres et relire le diff : aucun point voisin ne doit bouger. Un fichier ou
+  la meme regle vit deux fois se contredit a la premiere correction.
+- **Un diff se montre AVANT d'ecrire** : `scripts/dryrun_edit.py` reconstruit le contenu en memoire,
+  imprime le diff unifie et les comptes lignes/caracteres, et n'ecrit qu'avec `--write` — c'est ce diff
+  que l'operateur relit, et la preuve que le reste du fichier est intact.
+- **Un compte attendu n'est pas un critere d'arret** : les writers de runtime reviennent en quelques
+  minutes (`cron/jobs.json` : `completed` +1, `last_run_at`/`next_run_at`) et l'ecriture en cours de la
+  session reste visible dans le porcelain. Le critere porte sur le **contenu du commit** : indexer par
+  chemin explicite, verifier `git diff --cached --name-only` = l'ensemble nomme, et `git show --stat
+  HEAD` apres chaque commit d'un cycle a plusieurs commits ; toute entree restante se **rapporte**,
+  jamais ne s'absorbe.
 - **Ne pas ecraser un fichier existant** sans le signaler ; ne pas modifier
   `README.md`, `docs/README.md` ou les tags si la demande ne les cite pas.
 

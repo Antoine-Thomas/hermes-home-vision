@@ -93,6 +93,14 @@ controle apres chaque lot avec `git diff --cached --name-only | wc -l`. Garde-fo
 committer : `git diff --cached --name-only | grep -E "^(installs|tools)/"` vide, et les plus gros
 blobs indexes lus en `sort -rn` sur leur taille.
 
+**Une liste de fichiers annoncee n'est pas un contrat.** Entre deux releves espaces de 5 min,
+`cron/jobs.json` est revenu modifie (`completed` +1, `last_run_at` et `next_run_at` avances par le
+planificateur) et l'ecriture que la session vient de faire pour un cycle ulterieur reste dans le
+porcelain. Le critere d'arret porte donc sur le **contenu du commit** : indexer le sous-ensemble
+nomme, prouver `git diff --cached --name-only` == cet ensemble, `git show --stat HEAD` apres chaque
+commit, et **rapporter** les entrees restantes (writer de runtime, ecriture en attente) au lieu de
+les absorber ou d'annoncer un echec.
+
 ### La sequence complete du figeage, puis push immediat
 
 L'ordre qui fonctionne, et ce qui doit etre prouve a chaque etape :
@@ -195,13 +203,9 @@ cree a 12:36, section documentaire ecrite par la revue a 12:37:19.
 session a l'origine de la revue), `evidence.file_path`, et les sha256 `before`/`after` ; les contenus
 sont archives dans `.curator_backups/blobs/`.
 
-**Angle mort du ledger : il ne journalise que les ecritures passees par l'outillage de skill**
-(`skill_manage` / patch). Une ecriture **directe** du fichier — script Python, `write_file`,
-redirection shell — n'y laisse **aucune** entree, ni cote `curator` ni cote `agent`. Consequence a
-double sens : « pas d'entree curator apres mon ecriture » ne prouve pas qu'aucun tiers n'a ecrit ; et
-une ecriture faite par script est invisible dans l'historique du fichier. Le ledger sert donc a
-**attribuer** une ecriture a son auteur, jamais a **enumerer** les ecritures — la preuve d'immobilite
-reste `stat -c '%y'` + `wc -l` releves deux fois.
+**Angle mort du ledger** : il ne journalise que les ecritures passees par l'outillage de skill
+(`skill_manage` / patch) — une ecriture **directe** du fichier (script, `write_file`, redirection
+shell) n'y laisse **aucune** entree. Fait, mesure et parade : **point 6**.
 
 Mesure par horodatage, avant tout commit d'un fichier de cette famille :
 
@@ -238,9 +242,16 @@ introduit (`grep -c "v0.21.5" memories/MEMORY.md`).
 
 ### 6. L'angle mort du ledger
 
-Le ledger ne journalise que les ecritures passant par `skill_manage` ou `patch`. Une ecriture **directe**
-(script Python, redirection shell, edition manuelle) y est **invisible** : la derniere entree pour ce
+**Le fait.** Le ledger ne journalise que les ecritures passees par l'outillage de skill (`skill_manage`,
+`patch`). Une ecriture **directe** du fichier — script Python, `write_file`, redirection shell, redaction
+manuelle — n'y laisse **aucune** entree, ni cote `curator` ni cote `agent` : la derniere entree pour ce
 fichier peut donc etre **plus ancienne que le fichier lui-meme** (mesure : fusion ecrite a 12:44:18,
-derniere entree du ledger 12:40:06 — ecart non journalise). Consequence pratique : la date du ledger
-n'est **pas** une preuve suffisante pour affirmer « personne n'a touche ce fichier depuis X ». La
-preuve, c'est le **mtime du fichier**, releve deux fois a 30 s d'ecart (regle du point 3).
+derniere entree du ledger 12:40:06 — ecart non journalise).
+
+**La regle.** La date du ledger n'est **pas** une preuve d'immobilite : « pas d'entree curator apres mon
+ecriture » ne prouve pas qu'aucun tiers n'a ecrit. Le ledger sert a **attribuer** une ecriture a son
+auteur, jamais a **enumerer** les ecritures.
+
+**La parade.** La preuve d'immobilite reste `stat -c '%y  %n'` + `wc -l` releves deux fois a >= 30 s
+d'ecart (regle du point 3). Une ecriture faite par script etant invisible dans l'historique du fichier,
+un diff qui porte des lignes qu'on n'a pas ecrites se **nomme** dans le message de commit.
