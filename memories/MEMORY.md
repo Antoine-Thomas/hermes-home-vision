@@ -19,3 +19,5 @@ Audit LoRA/vidéo: venv dédié data\video_youtube\LatentSync\venv (insightface 
 Skills: 90 actifs (7 désactivés). Bots Telegram: default=@Hermes_assistante_2026_bot (chat 8956868107), veille=@Hermesveille1_veille_bot, watch=@Omaths2_watch_bot (tâche désactivée, exclu du healthcheck)
 §
 Hermes dans hermes-agent\ : hermes-agent\venv = seul venv actif (PATH, tous lanceurs); .venv → .venv.retired-0.20.5 (rétention ~19/10). Détail docs\HERMES_VENVS.md
+§
+Git Hermes: depot canonique = %LOCALAPPDATA%\hermes (remote GitHub Antoine-Thomas/hermes-home-vision, public, main); C:\Users\searc\Projets\hermes-home-vision = clone de lecture, a rafraichir seulement apres un push confirme. installs/ et tools/ (~2,5 Go d'outillage) exclus localement via .git/info/exclude — jamais a committer.
