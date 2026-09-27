@@ -35,3 +35,12 @@ Router only. Full content split verbatim into `references/hermes-agent-body/`. N
 - Troubleshooting -> `references/hermes-agent-body/15-troubleshooting.md`
 - Where to Find Things -> `references/hermes-agent-body/16-where-to-find-things.md`
 - Contributor Quick Reference -> `references/hermes-agent-body/17-contributor-quick-reference.md`
+
+## Références upstream (hors corps découpé)
+
+- Desktop App Plugins -> `references/desktop-plugins.md`
+- TUI Widgets -> `references/tui-widgets.md`
+- Themes / Skins -> `references/themes.md`
+- Petdex (mascottes animées) -> `references/petdex.md`
+- Nous Portal — apps tierces -> `references/portal-auth-for-third-party-apps.md`
+- delegate_task : diagnostic du plafond de concurrence -> `references/delegate-task-concurrency-diagnosis.md`
