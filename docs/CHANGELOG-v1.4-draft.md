@@ -85,6 +85,11 @@ actuelle, aucun tag ni release v1.4 n'existe. Les deux bloqueurs ci-dessous inte
 | B1 | **MP4 livrable absent** (ex-« tronqué ») | `Desktop\hermes tuto\tutotete20_jev_llmwiki.mp4` : **introuvable**, dossier supprimé ; aucune copie ailleurs. Réassemblage complet requis. |
 | B2 | **Watchdog en pause** | Tâche planifiée Windows `volet6-watchdog` = `Disabled` ; cron job Hermes `4a646bb6eab4` (`every 15m`) = `enabled: false`, `paused_at 2026-09-23T13:10:09+02:00`, `last_status: ok`. |
 
+## Indexation RAG — source `script_v4` retirée (27/09/2026)
+
+- Source script_v4 retirée : dossier Desktop\hermes_tuto_v4 introuvable (suppression définitive, corbeille vide), source no-op silencieuse depuis le 27/09. 714 fragments perdus.
+  Retrait de `("script_v4", source_scripts)` de la boucle `construire()` et de l'entrée `script_v4` du manifeste `par_source` dans `data/rag/indexer.py` (hors dépôt) ; `source_scripts()` reste définie, inerte.
+
 ## À faire avant de publier la v1.4
 
 - [ ] Relancer l'assemblage final et vérifier le MP4 livré par `ffprobe` (durée + streams).
