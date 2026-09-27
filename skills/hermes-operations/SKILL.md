@@ -72,12 +72,17 @@ pas écrites se NOMME** (message de commit, rapport) au lieu d'être absorbé en
 
 ## Inspection et config : méthodes non-interactives
 
-`hermes tools` est **interactif** : lancé hors TTY il bloque la session. Ne jamais l'appeler pour
-inspecter toolsets, plugins ou clés. Les équivalents non-interactifs :
+`hermes tools` **sans sous-commande** est l'interface interactive : lancée hors TTY elle bloque la
+session. Ses **sous-commandes** sont non-interactives et sûres (`tools list`, `tools --summary`,
+`tools disable|enable <nom>`) — et c'est la seule surface qui dit l'état **réel** d'un toolset : une
+intention écrite dans `config.yaml` sous une clé que rien ne lit n'y change rien
+(`references/profile-provisioning.md` §9). Les équivalents non-interactifs :
 
 | Besoin | Commande |
 |---|---|
 | État des plugins (activé / `not enabled`) | `hermes plugins list` |
+| État RÉEL des toolsets d'un profil | `hermes -p <profil> tools list` · `hermes -p <profil> tools --summary` |
+| Activer / désactiver un toolset (écrit `platform_toolsets.<plateforme>`) | `hermes -p <profil> tools disable <nom>…` · `tools enable <nom>…` |
 | Lire une valeur de config | `hermes config get <clé.pointée>` |
 | Écrire une valeur de config | `hermes config set <clé.pointée> <valeur>` |
 | Intégrité / migration de la config | `hermes config check` |
@@ -111,7 +116,10 @@ complète, harness de vérification sur copie et test d'isolation `HERMES_HOME` 
 
 **`hermes config validate` n'existe pas** (sous-commandes réelles : `show, edit, get, set, unset,
 path, env-path, check, migrate`) — `check` est le validateur : il affiche `Config version: N ✓` et
-sort 0. De même `hermes plugins status <nom>` n'existe pas : seulement `list`, `enable`, `disable`.
+sort 0. De même `hermes plugins status <nom>` n'existe pas : seulement `list`, `enable`, `disable`. Et
+`hermes tools --list` n'existe pas (la forme est `hermes tools list`) : l'argument rejeté remonte en
+`unrecognized arguments` par le parseur **principal**, ce qui ressemble faussement à un problème de
+`-p <profil>`.
 Si l'utilisateur demande une commande absente, dire laquelle est fausse et basculer sur
 l'équivalent — ne pas improviser un flag.
 

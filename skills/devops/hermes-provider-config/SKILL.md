@@ -84,7 +84,15 @@ hermes config set EXEMPLE_API_KEY ""           # placeholder a remplir a la main
   Verifier par `grep -c '^NOM_API_KEY='` + un controle Python qui n'imprime que
   booleen / longueur.
 - Le terminal masque les variables `*API_KEY` en `***` : une sortie `***` ne
-  prouve pas que la valeur est fausse, seulement qu'elle est un secret.
+  prouve pas que la valeur est fausse, seulement qu'elle est un secret. **Aucune lecture de préfixe
+  n'est donc possible** (`grep '^CLE=' | cut -c1-20` rend `***`) : la valeur est masquée avant d'arriver
+  dans le contexte.
+- **Prouver qu'une rotation a atteint TOUS les `.env` : comparer des empreintes, jamais les valeurs.**
+  Pour chaque fichier, n'imprimer que la longueur, deux booléens de préfixe et `sha256(valeur)[:8]`
+  (script qui ne rend que ces champs) : des empreintes identiques dans `hermes/.env` et
+  `hermes/profiles/*/.env` = la même clé partout. Une clé attendue ABSENTE d'un profil n'est pas un
+  oubli si ce profil tourne sur un autre fournisseur (`veille` en `nvidia-stack` n'a pas de
+  `DEEPSEEK_API_KEY`) : nommer les profils porteurs au lieu de raisonner sur « les N .env » attendus.
 - Cle collee dans le chat = compromise : la remplacer par un placeholder dans
   `.env`, demander la rotation, ne jamais la re-afficher ni la recopier dans un log.
 

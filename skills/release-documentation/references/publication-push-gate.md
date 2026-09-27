@@ -101,6 +101,12 @@ nomme, prouver `git diff --cached --name-only` == cet ensemble, `git show --stat
 commit, et **rapporter** les entrees restantes (writer de runtime, ecriture en attente) au lieu de
 les absorber ou d'annoncer un echec.
 
+Corollaire : **le chemin d'un fichier cite par la demande est un souvenir, pas une reference.**
+Relever le chemin exact dans `git status --porcelain` (nouveaux fichiers compris) avant l'`add` : un
+fichier annonce a la racine du depot peut vivre sous `skills/<skill>/scripts/`. Un `git add` a
+plusieurs chemins dont un faux n'echoue que pour ce pathspec et indexe **les autres** — l'index
+partiel se voit au seul controle `git diff --cached --name-only` == l'ensemble nomme.
+
 ### La sequence complete du figeage, puis push immediat
 
 L'ordre qui fonctionne, et ce qui doit etre prouve a chaque etape :
@@ -212,6 +218,18 @@ Mesure par horodatage, avant tout commit d'un fichier de cette famille :
     stat -c '%y  %n' <fichiers> ; wc -l <fichiers>
     sleep 30
     stat -c '%y  %n' <fichiers> ; wc -l <fichiers>      # identiques = stable
+
+**Sur un lot, une empreinte par fichier vaut mieux qu'un `stat` ligne a ligne** : un `wc -l` identique
+ne dit rien d'une reecriture a nombre de lignes constant. Prendre une photo **complete** du lot, puis
+la comparer a la seconde photo — une seule commande couvre les N fichiers et un seul `diff` tranche :
+
+    for f in <fichiers>; do printf '%s  %s  %s\n' "$(md5sum "$f" | cut -c1-32)" "$(stat -c '%Y %s' "$f")" "$f"; done > "$TMPDIR/t0.txt"
+    sleep 180
+    ... meme boucle ... > "$TMPDIR/t1.txt"
+    diff "$TMPDIR/t0.txt" "$TMPDIR/t1.txt" && echo IDENTIQUE
+
+`diff` muet = md5, mtime **et** taille inchanges sur tout le lot. Refaire la photo **juste avant le
+`git add`** : la fenetre de 3 min prouve le passe, pas l'instant de l'indexation.
 
 Le reste de l'identification (inventaire des processus reellement actifs, propositions en attente) est
 dans la section « revue d'arriere-plan » du skill `hermes-operations`.

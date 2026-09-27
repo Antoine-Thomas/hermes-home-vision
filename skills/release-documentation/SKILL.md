@@ -288,7 +288,7 @@ tableau — c'est la que l'utilisateur decide.
 locales, lecture des colonnes de `git status --porcelain`, preuve du tip distant) et le
 rafraichissement d'un clone en retard, et l'**ecriture concurrente de la revue d'arriere-plan** (elle
   ecrit dans les 2 min qui suivent une ecriture de session : attendre ~3 min, prouver la stabilite par
-  mtime + `wc -l`, s'orienter dans `skills/.curator_ledger.jsonl`, ne pas confondre
+  empreinte du lot entier (md5 + mtime + taille) relevee deux fois, s'orienter dans `skills/.curator_ledger.jsonl`, ne pas confondre
   `pending/memory/*.json` avec une ecriture) sont dans `references/publication-push-gate.md`. Le skill
   `github` est un bundle (non modifiable) : les recettes GitHub propres a ce depot vivent donc ici,
   section « Rendre la version visible sur la page d'accueil ».

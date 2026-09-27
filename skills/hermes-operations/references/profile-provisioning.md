@@ -195,7 +195,54 @@ Attendu : la réponse littérale. `Unknown provider` ⇒ section `providers:` ma
 modèle réellement demandé et l'erreur amont, ce qui distingue une clé refusée, un modèle hors liste
 d'autorisation et un relais qui ne sait pas streamer.
 
+**Vérifier la RÉPONSE du profil contre ta propre mesure.** Un tour `-z` juste sur la question posée
+peut sur-affirmer un détail qu'il ajoute de lui-même (comptage annoncé « identique en sensible et
+insensible à la casse », faux : 9 vs 14). Recouper chaque chiffre avec ta propre commande avant de le
+reprendre dans un rapport — sinon le chiffre inventé devient un fait.
+
 ## 8. Le gateway du profil reste arrêté jusqu'à décision
 
 Provisionner un profil ne l'allume pas. Ne pas démarrer son gateway « pour voir » : ce sont deux
 décisions distinctes, et un profil équipé mais éteint est un état voulu.
+
+## 9. Le profil tel qu'un wizard `setup` peut le laisser : toolsets et environnements de dépendances
+
+Un wizard peut écrire son INTENTION de désactiver un toolset sous `tools.<plateforme>.<toolset>.enabled`
+— un chemin que Hermes ne lit pas. La mesure qui tranche est `hermes -p <nom> tools list` (ou
+`--summary`), jamais le `config.yaml` : une intention sans effet laisse le toolset **actif**, et un
+toolset actif **provisionne son environnement de dépendances** dans le profil.
+
+```
+profiles/<nom>/environments/<toolset>/
+  active.json          # {"generation": "gen-<hash>", "requirements": ["<pkg>==<ver>"]}
+  gen-<hash>/          # pyproject.toml + uv.lock + venv/   <- le poids est ici
+```
+
+Mesurer avant de juger : `du -sh profiles/<nom>` puis `du -sh profiles/<nom>/environments/*`. Ici le
+seul toolset `browser` actif a provisionné `browser-use==0.13.10` : 299 Mo de `venv` pour un profil de
+310 Mo. **Ce poids n'est PAS celui du navigateur** : les Chromium/Playwright vivent dans le cache
+PARTAGÉ `%LOCALAPPDATA%\ms-playwright` (1,4 Go, un dossier par version) — l'inspecter avant
+d'attribuer un poids navigateur au profil, et ne pas y toucher pour alléger un profil.
+
+Assainir, dans cet ordre (chemin supporté, réversible) :
+
+```bash
+cp profiles/<nom>/config.yaml profiles/<nom>/config.yaml.bak_<horodatage>_pre-clean
+hermes -p <nom> tools disable browser image_gen   # écrit platform_toolsets.<plateforme>, la clé autoritative
+# puis retirer le bloc mort tools.<plateforme>.* du config.yaml (édition textuelle ciblée)
+mv profiles/<nom>/environments/browser-use "$LOCALAPPDATA/hermes/backups/<nom>-browser-use_$(date +%Y%m%d_%H%M%S)"
+```
+
+- **Mettre l'environnement en QUARANTAINE, jamais le supprimer** : c'est un venv régénérable (le
+  `pyproject.toml`/`uv.lock` du `gen-*` est sa recette) mais le supprimer ne se défait pas — déplacé
+  dans `backups/`, il se restaure ; réactiver le toolset le reprovisionne de toute façon.
+- **Avant de retirer une clé de config, prouver que rien ne la lit** : `rg '<nom-de-la-clé>'` dans
+  `hermes-agent` → 0 occurrence = clé morte. Une clé morte n'est pas neutre : elle laisse l'opérateur
+  croire à un réglage appliqué.
+- **`hermes profile create` n'a PAS de `--no-setup`** (options réelles : `--clone`, `--clone-all`,
+  `--clone-from`, `--clone-channels`, `--sync-imports`, `--no-alias`, `--no-skills`, `--description`) :
+  **recréer un profil pour effacer une pollution le repollue**, en détruisant un profil qui répondait.
+  Un profil fonctionnel mais lourd s'assainit sur place ; la recréation ne se décide que pour un profil
+  cassé, et à part.
+- Vérifier après coup que le profil répond toujours (§7) et que le poids a bougé
+  (`du -sh profiles/<nom>`) — pas depuis la seule édition de config.
