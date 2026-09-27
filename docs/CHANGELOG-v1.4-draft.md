@@ -89,6 +89,7 @@ actuelle, aucun tag ni release v1.4 n'existe. Les deux bloqueurs ci-dessous inte
 
 - Source script_v4 retirée : dossier Desktop\hermes_tuto_v4 introuvable (suppression définitive, corbeille vide), source no-op silencieuse depuis le 27/09. 714 fragments perdus.
   Retrait de `("script_v4", source_scripts)` de la boucle `construire()` et de l'entrée `script_v4` du manifeste `par_source` dans `data/rag/indexer.py` (hors dépôt) ; `source_scripts()` reste définie, inerte.
+  Reste cosmétique : 4 fichiers nomment encore 'script_v4' comme valeur de filtre acceptable (serveur_rag.py, router_memoire.py, audit_rag.py, chercher.py). Aucun effet fonctionnel.
 
 ## À faire avant de publier la v1.4
 
