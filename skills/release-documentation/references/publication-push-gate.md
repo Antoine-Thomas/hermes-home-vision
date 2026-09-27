@@ -247,6 +247,13 @@ seule skill. Trois consequences a tenir : un arbre propre juste apres un commit 
 mais la **grouper** dans un gel dedie ; et ne pas lire sa reapparition comme un echec du commit
 precedent.
 
+**Consequence pratique de la cadence (~15 min) : un depot propre n'est pas un objectif atteignable, c'est
+un etat de quelques minutes.** Mesure (27/09/2026) : 4 passes en 1 h 04 — 13:20, 13:56, 14:08, 14:24 —
+chacune pendant que la session travaillait. La regle des 3 min de stabilite reste, mais elle devient :
+**verifier la stabilite, geler l'ENSEMBLE des entrees curator, pousser, accepter la re-derive** dans les
+15 min. Le gel se fait donc a un moment **choisi** (fin de session, fin d'heure, avant un push important),
+jamais une passe apres l'autre.
+
 ### 2. Comment le detecter
 
 `skills/.curator_ledger.jsonl` est la source de verite : une ligne JSON par ecriture, avec
