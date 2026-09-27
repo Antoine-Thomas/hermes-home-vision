@@ -12,6 +12,7 @@ auth.json
 /hermes-agent/
 data/
 bin/
+profiles/*/skills/
 
 # ── Binaires, archives, médias lourds ────────────────────────────────────────
 *.exe
