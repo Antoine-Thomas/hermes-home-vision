@@ -14,8 +14,13 @@ Usage :
 
 Codes de sortie :
     0 = OK
-    2 = Jev injoignable ou en erreur — l'erreur brute est affichée et AUCUNE
-        route n'est inventée (voir contrainte : ne jamais simuler une décision).
+    2 = Jev injoignable ou en erreur. Deux cas distincts :
+        - erreur hors du bloc Jev (wiki illisible, helper absent) : l'erreur
+          brute est affichée sur stderr et AUCUNE route n'est renvoyée ;
+        - Jev injoignable : repli LOCAL en code — route "rag", forced_reason
+          "Jev injoignable", route_source "fallback_local". Aucun autre moteur
+          de décision n'est sollicité (pas de repli Laya) ; le code 2 reste
+          renvoyé pour que l'appelant voie la dégradation.
 """
 from __future__ import annotations
 
@@ -104,31 +109,50 @@ def route(question: str) -> dict:
             "wiki_state": st,
         }
 
-    r = jev(
-        state={"question": question, **st},
-        questions={
-            "route": {
-                "type": "choice",
-                "instructions": (
-                    "Cette question doit-elle être servie par le Wiki (L1 : "
-                    "connaissances déjà compilées, concepts, entités, synthèses) "
-                    "ou par le RAG (L2 : recherche brute dans les documents) ? "
-                    "Choisir 'wiki' si les pages compilées suffisent pour "
-                    "répondre, 'rag' s'il faut fouiller les sources brutes, "
-                    "'both' si une synthèse doit être confrontée aux sources."
-                ),
-                "criteria": ROUTE_OPTIONS,
+    try:
+        r = jev(
+            state={"question": question, **st},
+            questions={
+                "route": {
+                    "type": "choice",
+                    "instructions": (
+                        "Cette question doit-elle être servie par le Wiki (L1 : "
+                        "connaissances déjà compilées, concepts, entités, synthèses) "
+                        "ou par le RAG (L2 : recherche brute dans les documents) ? "
+                        "Choisir 'wiki' si les pages compilées suffisent pour "
+                        "répondre, 'rag' s'il faut fouiller les sources brutes, "
+                        "'both' si une synthèse doit être confrontée aux sources."
+                    ),
+                    "criteria": ROUTE_OPTIONS,
+                },
+                "wiki_coverage": {
+                    "type": "noul",
+                    "instructions": (
+                        "Les pages déjà compilées du wiki couvrent-elles le sujet de "
+                        "la question ? Probabilité de oui. Proche de 0,5 = indécision, "
+                        "pas une intensité moyenne."
+                    ),
+                },
             },
-            "wiki_coverage": {
-                "type": "noul",
-                "instructions": (
-                    "Les pages déjà compilées du wiki couvrent-elles le sujet de "
-                    "la question ? Probabilité de oui. Proche de 0,5 = indécision, "
-                    "pas une intensité moyenne."
-                ),
-            },
-        },
-    )
+        )
+    except Exception:
+        # Repli LOCAL (décision D7) : Jev injoignable ne laisse pas l'appelant
+        # sans route, mais aucune décision n'est inventée — on renvoie vers les
+        # sources brutes. Aucun repli Laya. Le CLI sort en 2 (dégradation vue).
+        return {
+            "question": question,
+            "route": "rag",
+            "forced": True,
+            "forced_reason": "Jev injoignable",
+            "route_source": "fallback_local",
+            "route_confidence": None,
+            "route_probabilities": None,
+            "wiki_coverage": None,
+            "model": None,
+            "usage": {"cost": 0},
+            "elapsed_s": 0.0,
+            "wiki_state": st,
+        }
 
     a = r.get("answers", {})
     ch = a.get("route", {}) or {}
@@ -159,9 +183,13 @@ def main(argv: list[str]) -> int:
         print("ERREUR Jev : %s: %s" % (type(exc).__name__, exc), file=sys.stderr)
         return 2
 
+    # Repli local = Jev injoignable : la route est renvoyée, mais le code de
+    # sortie reste 2 pour que l'appelant voie la dégradation (décision D7).
+    code = 2 if res.get("route_source") == "fallback_local" else 0
+
     if as_json:
         print(json.dumps(res, ensure_ascii=False, indent=2))
-        return 0
+        return code
 
     st = res["wiki_state"]
     print("Question    : %s" % res["question"])
@@ -179,7 +207,7 @@ def main(argv: list[str]) -> int:
     print("Modèle      : %s" % (res["model"] or "-"))
     print("Latence     : %s s" % res["elapsed_s"])
     print("Coût        : %s $" % res["usage"].get("cost", 0))
-    return 0
+    return code
 
 
 if __name__ == "__main__":

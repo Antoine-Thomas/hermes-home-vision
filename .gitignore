@@ -43,6 +43,8 @@ logs/
 *.bak.*
 **/*.bak
 **/*.bak.*
+*.bak_*
+**/*.bak_*
 cron/output/
 **/cron/output/
 **/cron/ticker_*

@@ -68,6 +68,23 @@ Le MP4 final au chemin de livraison (`Desktop\hermes tuto\tutotete20_jev_llmwiki
 (CRF 20 preset fast depuis le 23/09 16:11) pour obtenir un fichier livrable. Un assemblage
 interrompu ne laisse aucune trace visible côté taille de fichier.
 
+**Mise à jour du 27/09/2026 (mesurée, pas supposée)** : le chemin ci-dessus n'existe plus — le
+dossier `Desktop\hermes tuto` a été supprimé et aucune copie de `tutotete20_jev_llmwiki.mp4`
+n'existe ailleurs sur la machine (recherche par nom dans le profil utilisateur : seule
+`data/video_youtube/description_clip_jev_llmwiki.md` subsiste). Le constat « tronqué » n'est donc
+plus vérifiable : le blocage n'est plus « réparer un fichier tronqué » mais **réassembler** un
+livrable absent.
+
+## Bloqueurs de publication de la v1.4 (état mesuré le 27/09/2026)
+
+Ce document reste un **brouillon non publié** : `README.md` annonce toujours la 1.3 comme version
+actuelle, aucun tag ni release v1.4 n'existe. Les deux bloqueurs ci-dessous interdisent de publier :
+
+| # | Bloqueur | État mesuré le 27/09/2026 |
+|---|---|---|
+| B1 | **MP4 livrable absent** (ex-« tronqué ») | `Desktop\hermes tuto\tutotete20_jev_llmwiki.mp4` : **introuvable**, dossier supprimé ; aucune copie ailleurs. Réassemblage complet requis. |
+| B2 | **Watchdog en pause** | Tâche planifiée Windows `volet6-watchdog` = `Disabled` ; cron job Hermes `4a646bb6eab4` (`every 15m`) = `enabled: false`, `paused_at 2026-09-23T13:10:09+02:00`, `last_status: ok`. |
+
 ## À faire avant de publier la v1.4
 
 - [ ] Relancer l'assemblage final et vérifier le MP4 livré par `ffprobe` (durée + streams).
