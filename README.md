@@ -1,17 +1,19 @@
 # Hermes Home Vision
 
-> **Version actuelle : `1.3`** — Hermes Psychopomp
+> **Version actuelle : `1.4`** — Hermes Aegis (préparée, non publiée)
+> **Version stable précédente : `1.3`** — Hermes Psychopomp
 > **Version précédente : `1.2`** — version améliorée
 > **Version originale : `1.1`** — figée, téléchargeable
 
-> Installation personnelle de Hermes Agent — 3 profils isolés, supervision continue, veille automatique.
+> Installation personnelle de Hermes Agent — 4 profils isolés, supervision continue, veille automatique,
+> sécurité vérifiable.
 
 Dépôt **public** : `https://github.com/Antoine-Thomas/hermes-home-vision` — il contient **tout** : le
 runtime Hermes (configuration, profils, skills, scripts) **et** sa documentation rangée sous `docs/`.
 Un seul `git clone` restaure l'ensemble. L'historique a été audité le 21/09/2026 par
 `docs/scripts/scan_secrets_history.py` : aucune valeur de secret réelle. Détail en §8.
 
-Version de référence : **Hermes Agent v0.21.5+2729.gcdcd53c**, config version 46, upstream `97962358`.
+Version de référence : **Hermes Agent v0.21.5+3779.g8f897d2**, config version 46, upstream `8f897d2d23`.
 Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Windows natif, pas WSL).
 
 ---
@@ -22,13 +24,16 @@ Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Win
 |---|---|---|---|
 | **1.1** | Originale, figée, téléchargeable | tag `v1.1-original` | [Release 1.1](../../releases/tag/v1.1-original) · [Wiki](../../wiki/Version-1.1) |
 | **1.2** | Stable | `v1.2-ameliorations` / `v1.2` | [Fiche détaillée](docs/IMPROVEMENTS.md) · [Changelog](docs/CHANGELOG-v1.2.md) · [Wiki](../../wiki/Version-1.2) |
-| **1.3** | **Recommandée** | `main` / `v1.3` | [Changelog v1.3](docs/CHANGELOG-v1.3.md) · [Release 1.3](../../releases/tag/v1.3) |
+| **1.3** | **Stable (recommandée)** | tag `v1.3` | [Changelog v1.3](docs/CHANGELOG-v1.3.md) · [Release 1.3](../../releases/tag/v1.3) |
+| **1.4** | **Préparée, non publiée** — bloqueurs B1/B2 ouverts | `main`, **aucun tag** | [Architecture Aegis](docs/ARCHITECTURE_AEGIS.md) · [Changelog v1.4](docs/CHANGELOG-v1.4.md) |
 
-Les trois versions restent **téléchargeables indépendamment** : la 1.1 sur le tag `v1.1-original`, la 1.2
-sur la branche `v1.2-ameliorations` (tag `v1.2`), la 1.3 sur `main` (tag `v1.3`). Aucune n'est supprimée
-ni réécrite.
+Les quatre versions restent **téléchargeables indépendamment** : la 1.1 sur le tag `v1.1-original`, la 1.2
+sur la branche `v1.2-ameliorations` (tag `v1.2`), la 1.3 sur le tag `v1.3`, la 1.4 sur `main` — **aucun tag
+1.4 n'existe**. Aucune version n'est supprimée ni réécrite.
 
-**Branche par défaut du dépôt : `main`** — la page d'accueil affiche donc ce README-ci, celui de la 1.3.
+**Branche par défaut du dépôt : `main`** — elle porte la documentation de la **1.4 Aegis, préparée et non
+publiée** ; la version stable reste la **1.3** (tag `v1.3`), et la 1.4 ne sera taguée qu'après ses deux
+bloqueurs (voir §10).
 
 ### Installation rapide (1.3)
 
@@ -45,7 +50,7 @@ Prérequis, étapes complètes et vérifications : [Wiki — Installation 1.2](.
 
 ## 1. Qu'est-ce que c'est
 
-Hermes Agent déployé en configuration **multi-profils** sur Windows 11. Trois profils isolés — chacun
+Hermes Agent déployé en configuration **multi-profils** sur Windows 11. Quatre profils isolés — chacun
 son `config.yaml`, son `.env`, son bot Telegram, sa clé OmniRoute, son modèle par défaut et sa chaîne
 de repli :
 
@@ -54,9 +59,11 @@ de repli :
 | `default` (bureau) | assistant opérateur : code, vidéo IA, WordPress, second cerveau | `eco` (routeur local, gratuit d'abord) | `nvidia-stack` → `deepseek/deepseek-flash` |
 | `veille` | veille technologique : arXiv, HuggingFace, RSS, catalogue OpenRouter → synthèse datée | `nvidia-stack` | `nemotron-super` → `auto/best-free` |
 | `watch` | surveillance des services et automatisations | `nvidia-stack` (déterministe, gratuit) | `nemotron-super` → `auto/best-free` → `deepseek-flash` |
+| `docs-writer` | rédaction documentaire (cwd `C:/Users/searc/hermes-docs`) | `deepseek-flash` (direct) | — |
 
 Aucun credential n'est partagé entre profils : un bot Telegram n'appartient qu'à un seul profil, et
-les clés du routeur sont dédiées (`hermes_watch`, `hermes_veille`).
+les clés du routeur sont dédiées (`hermes_watch`, `hermes_veille`). Le profil `docs-writer` ne porte ni
+bot Telegram ni clé OmniRoute : il appelle directement l'API DeepSeek.
 
 ---
 
@@ -76,51 +83,97 @@ Détail complet, fichiers concernés et notes de migration : [`docs/CHANGELOG-v1
 ## 2. Architecture
 
 ```
-      ┌───────────────────┐      ┌───────────────────┐      ┌───────────────────┐
-      │ default (bureau)  │      │       watch       │      │      veille       │
-      │ config.yaml       │      │ config.yaml       │      │ config.yaml       │
-      │ .env dédié        │      │ .env dédié        │      │ .env dédié        │
-      │ bot Telegram 1    │      │ bot Telegram 2    │      │ bot Telegram 3    │
-      │ clé OmniRoute 1   │      │ clé hermes_watch  │      │ clé hermes_veille │
-      └─────────┬─────────┘      └─────────┬─────────┘      └─────────┬─────────┘
-                │                          │                          │
-                └──────────────┬───────────┴──────────────┬───────────┘
-                               │                          │
-                  ┌────────────▼───────────┐   ┌──────────▼───────────┐
-                  │   OmniRoute   20128    │   │   Proxy NIM   20200  │
-                  │   routeur LLM, combos  │   │   Nemotron local     │
-                  └────────────┬───────────┘   └──────────────────────┘
-                               │
-      ┌────────────────────────┼──────────────────────────────────────┐
-      │   RAG   8200           │   Backend   9119        SiYuan  6806 │
-      │   index 2ᵉ cerveau     │   cœur Hermes         6 notebooks    │
-      └──────────────┬─────────┴──────────────────────────┬───────────┘
-                     │                                    │
-                     └────────────────┬───────────────────┘
-                                      │
-                        ┌─────────────▼──────────────┐
-                        │   Jev  ·  OpenRouter       │
-                        │   choix rapides 2-5 options│
-                        │   wiki · RAG               │
-                        │   ~0,316 s · ~1,46e-05 $   │
-                        └────────────────────────────┘
+╔═══════════════════════════════════════════════════════════════════════════════════════════╗
+║ COUCHE 1 — PROFILS (isolation)                                                            ║
+║                                                                                           ║
+║   ┌────────────────┐  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐          ║
+║   │     default    │  │      watch     │  │     veille     │  │   docs-writer  │          ║
+║   │  config.yaml   │  │  config.yaml   │  │  config.yaml   │  │  config.yaml   │          ║
+║   │  .env dédié    │  │  .env dédié    │  │  .env dédié    │  │  .env dédié    │          ║
+║   │  bot Telegram  │  │  bot Telegram  │  │  bot Telegram  │  │  (pas de bot)  │          ║
+║   │ clé OmniRoute  │  │ clé hermes_    │  │ clé hermes_    │  │  DeepSeek seul │          ║
+║   │                │  │      watch     │  │     veille     │  │                │          ║
+║   └───────┬────────┘  └───────┬────────┘  └───────┬────────┘  └───────┬────────┘          ║
+║           │                   │                   │                   │                   ║
+║   ACL de chaque .env : Système(F) · Administrateurs(F) · searc(F) — non héritées          ║
+╚═══════════╪═══════════════════╪═══════════════════╪═══════════════════╪═══════════════════╝
+            └───────────────────┴─────────┬─────────┴───────────────────┘
+                                          │
+╔═════════════════════════════════════════▼═════════════════════════════════════════════════╗
+║ COUCHE 2 — ROUTAGE (LLM)                                                                  ║
+║                                                                                           ║
+║   ┌────────────────────────────────────┐        ┌────────────────────────────────────┐    ║
+║   │        OmniRoute   20128           │        │        Proxy NIM   20200           │    ║
+║   │  routeur LLM, combos + repli       │        │  Nemotron local (NVIDIA NIM)       │    ║
+║   │  ordonné :                         │        │  normalise préfixes de modèles     │    ║
+║   │    free-openrouter                 │        │  et paramètres rejetés             │    ║
+║   │    nvidia-stack                    │        └────────────────────────────────────┘    ║
+║   │    deepseek                        │                                                   ║
+║   └────────────────────────────────────┘                                                   ║
+║                                                                                           ║
+║   Principe : gratuit d'abord, payant en dernier — chaque bascule est tracée (§5).          ║
+╚═════════════════════════════════════════╪═════════════════════════════════════════════════╝
+                                          │
+╔═════════════════════════════════════════▼═════════════════════════════════════════════════╗
+║ COUCHE 3 — CERVEAU (mémoire)                                                              ║
+║                                                                                           ║
+║   ┌───────────────┐   ┌───────────────┐   ┌───────────────┐                               ║
+║   │   RAG   8200  │   │ Backend  9119 │   │ SiYuan   6806 │                               ║
+║   │  index 2ᵉ     │   │  cœur Hermes  │   │  base de      │                               ║
+║   │  cerveau      │   │  API/dashboard│   │  connaissances│                               ║
+║   └───────┬───────┘   └───────────────┘   └───────────────┘                               ║
+║           │                                                                               ║
+║   ┌───────▼────────────────────────────┐   ┌────────────────────────────────────────┐     ║
+║   │  JEV  ·  OpenRouter                │   │  Laya  ·  ONNX local (CPU)             │     ║
+║   │  décision typée : noul/choice/score│   │  accélérateur gratuit, hors ligne      │     ║
+║   │  route wiki (L1) · RAG (L2)        │   │  JEV reste le décideur principal        │     ║
+║   └────────────────────────────────────┘   └────────────────────────────────────────┘     ║
+╚═════════════════════════════════════════╪═════════════════════════════════════════════════╝
+                                          │
+╔═════════════════════════════════════════▼═════════════════════════════════════════════════╗
+║ COUCHE 4 — SÉCURITÉ (Aegis)                                                               ║
+║                                                                                           ║
+║   ACL minimales      secrets hors git      Wazuh           ports Windows                  ║
+║   ─────────────      ─────────────────     ───────────     ──────────────────────         ║
+║   3 ACE par .env     0 secret versionné    manager 55085    plage réservée 54985-55084    ║
+║   non héritées       12 sauvegardes        indexer 9200    → remap, jamais de bind forcé  ║
+║   CodexSandboxUsers  hors du dépôt         allowlist à jour                           ║
+║   retirée            (hermes-secrets-                                                     ║
+║                       backup\)                                                            ║
+╚═══════════════════════════════════════════════════════════════════════════════════════════╝
 ```
 
-**Jev** est le skill TypeSafe d'aide à la décision. Il route entre le **wiki** (L1, connaissances
-compilées hébergées dans SiYuan) et le **RAG** (L2, recherche brute) pour trancher les choix rapides :
-2 à 5 options, critères objectifs, décision récurrente. Latence ~0,316 s par appel, coût ~1,46e-5 $.
-Limite : score sur 10 niveaux maximum. Il ne remplace pas le modèle principal : il décide à sa place
-sur les questions cadrées. Voir `wiki/concepts/jev.md`.
+**Les quatre couches.** ① **Profils** — quatre environnements isolés (`default`, `watch`, `veille`,
+`docs-writer`), chacun son `config.yaml`, son `.env` et ses credentials. ② **Routage** — OmniRoute
+(20128) et le proxy NIM (20200) : gratuit d'abord, payant en dernier, bascules tracées. ③ **Cerveau** —
+RAG (8200), backend (9119), SiYuan (6806), JEV (décision typée via OpenRouter) et Laya (accélérateur
+ONNX local). ④ **Sécurité** — ACL minimales, secrets hors git, Wazuh, plages de ports Windows.
 
-Services communs aux trois profils : **OmniRoute** (20128, routeur LLM et combos `eco` /
-`nvidia-stack`), **proxy NIM** (20200, normalise les appels NVIDIA NIM : préfixes de modèles et
-paramètres rejetés), **RAG** (8200, index vectoriel du second cerveau ; santé sur `/sante`),
-**backend** (9119, API/dashboard), **SiYuan** (6806, base de connaissances, 6 notebooks).
+Détail complet, limites mesurées et commandes de vérification :
+[`docs/ARCHITECTURE_AEGIS.md`](docs/ARCHITECTURE_AEGIS.md).
 
-**Supervision.** Un **seul gateway multiplexé** sert les trois profils : la tâche Windows
+**JEV** est le skill TypeSafe d'aide à la décision (`noul` juger, `choice` trancher, `score` noter). Il
+route entre le **wiki** (L1, connaissances compilées hébergées dans SiYuan) et le **RAG** (L2, recherche
+brute) pour trancher les choix rapides : 2 à 5 options, critères objectifs, décision récurrente.
+Modèle `typesafe/jev-1.13` via OpenRouter. **Vérifié le 27/09/2026** : route `wiki`, confiance 0,98,
+0,48 s, 3,54e-05 $ par appel. Limite : score sur 10 niveaux maximum. Il ne remplace pas le modèle
+principal : il décide à sa place sur les questions cadrées. Si JEV est injoignable,
+`wiki/scripts/jev_router.py` bascule sur la route `rag` avec `route_source: "fallback_local"` et sort en
+code **2** — la dégradation est visible, jamais silencieuse. Voir `wiki/concepts/jev.md`.
+
+**Services communs** aux profils : **OmniRoute** (20128, routeur LLM, combos `eco` / `nvidia-stack` /
+`free-openrouter` / `deepseek`), **proxy NIM** (20200, normalise les appels NVIDIA NIM : préfixes de
+modèles et paramètres rejetés), **RAG** (8200, index vectoriel du second cerveau ; santé sur `/sante`,
+2 314 fragments au 27/09/2026), **backend** (9119, API/dashboard), **SiYuan** (6806, base de
+connaissances, **7 notebooks**, local seulement). **Wazuh** complète la pile côté sécurité : API
+manager `127.0.0.1:55085` (remap du 55000, cf. §8) et indexer `0.0.0.0:9200`.
+
+**Supervision.** Un **seul gateway multiplexé** sert **trois des quatre profils** : la tâche Windows
 `Hermes_Gateway` lance le gateway du profil `default`, et `gateway.multiplex_profiles: true`
 (`config.yaml`) fait servir les profils `watch` et `veille` par ce même processus — il n'existe
-**aucune** tâche `Hermes_Gateway_watch` ni `Hermes_Gateway_veille` séparée. La tâche
+**aucune** tâche `Hermes_Gateway_watch` ni `Hermes_Gateway_veille` séparée. Le profil `docs-writer`
+n'est pas servi par le gateway : c'est un profil de rédaction en ligne de commande, sans canal de
+messagerie. La tâche
 `Hermes_Gateway_HealthCheck` (toutes les 5 minutes) vérifie que le gateway est vivant (PID **et**
 commande `gateway run` — un PID recyclé ne compte pas), le relève par `Start-ScheduledTask`, alerte
 sur Telegram **uniquement sur transition d'état** et écrit une ligne `[battement]` par heure dans
@@ -147,15 +200,19 @@ document SiYuan daté et le livre sur Telegram.
 ├── skills\                      bibliothèque de skills du profil default (par catégories)
 ├── profiles\
 │   ├── watch\                   config.yaml + .env.example + skills\ du profil watch
-│   └── veille\                  config.yaml + .env.example + skills\ du profil veille
+│   ├── veille\                  config.yaml + .env.example + skills\ du profil veille
+│   └── docs-writer\             config.yaml + .env.example (profil de rédaction, sans bot)
 ├── scripts\                     automatisations du runtime (healthcheck, tâches, A2A, vérification)
 ├── cron\                        jobs du profil default et leur historique d'exécution
 ├── gateway-service\             lanceurs VBS des gateways (démarrage masqué, hors Job Object)
 ├── omniroute-launch.vbs/.cmd    lancement silencieux d'OmniRoute (garde LISTENING)
 └── docs\                        documentation, rapports, architecture, snapshots
+    ├── ARCHITECTURE_AEGIS.md    architecture 1.4 en 4 couches (profils, routage, cerveau, sécurité)
     ├── ARCHITECTURE_HERMES.md   architecture consolidée + points ouverts
     ├── A2A_PREPARATION.md       procédure d'activation A2A (non activée)
     ├── architecture_2_agents.md décision d'architecture du pair local
+    ├── CHANGELOG-v1.4.md        changelog de la 1.4 Aegis (préparée, non publiée)
+    ├── CHANGELOG-v1.4-draft.md  post-mortem de la production du volet 6 (document de travail)
     ├── README.md                rôle du dossier docs et notes de fusion
     ├── RAPPORT_*.md             rapports de session
     ├── snapshot\                baselines et copies de référence
@@ -184,7 +241,7 @@ Non versionné volontairement : `.env`, `auth.json`, `state.db*`, `sessions/`, `
    Git Bash embarqué et les outils :
    ```powershell
    iex (irm https://hermes-agent.nousresearch.com/install.ps1)
-   hermes --version        # attendu : Hermes Agent v0.21.5+2729.gcdcd53c
+   hermes --version        # attendu : Hermes Agent v0.21.5+3779.g8f897d2
    ```
 
 2. **Poser la configuration de ce dépôt** par-dessus le runtime. `git clone` refuse un dossier non
@@ -255,6 +312,7 @@ contiennent que des **noms** de variables, jamais de valeur.
 | `.env` (profil `default`) | `OMNIROUTE_API_KEY`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS`, `TELEGRAM_HOME_CHANNEL`, `SIYUAN_TOKEN`, `SIYUAN_URL`, `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`, `KIMI_API_KEY`, `NVIDIA_API_KEY_GEMMA4`, `EMAIL_*`, `WHATSAPP_*` |
 | `profiles\watch\.env` | `OMNIROUTE_API_KEY` (clé dédiée `hermes_watch`, restreinte à 5 modèles), `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS`, `TELEGRAM_HOME_CHANNEL`, `DEEPSEEK_API_KEY`, `OPENROUTER_API_KEY`, `KIMI_API_KEY`, `NVIDIA_API_KEY_GEMMA4`, `WHATSAPP_*` |
 | `profiles\veille\.env` | `OMNIROUTE_API_KEY` (clé dédiée `hermes_veille`, 7 modèles autorisés), `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ALLOWED_USERS`, `TELEGRAM_HOME_CHANNEL`, `SIYUAN_TOKEN`, `SIYUAN_URL` |
+| `profiles\docs-writer\.env` | `DEEPSEEK_API_KEY` (seul credential : profil de rédaction, sans bot Telegram ni clé OmniRoute) |
 
 **Règles d'isolation**
 
@@ -338,6 +396,29 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
 - **Visibilité** : le dépôt est **public** depuis le 22/09/2026, après audit complet de l'historique
   (`scan_secrets_history.py`, historique purgé par `git filter-repo` le 21/09). Le dépôt ne contient
   aucune valeur de secret, ni dans les fichiers suivis, ni dans les commits passés.
+- **ACL des `.env` (couche Aegis)** — les quatre fichiers de secrets (`default`, `watch`, `veille`,
+  `docs-writer`) portent exactement **3 ACE non héritées** : `Système(F)` · `Administrateurs(F)` ·
+  `searc(F)`. La ACE héritée `CodexSandboxUsers:(I)(RX)` — posée par un outil tiers, qui laissait un
+  groupe applicatif lire les secrets — a été retirée des quatre :
+  ```powershell
+  icacls "<fichier>.env" /inheritance:r /grant:r "Système:(F)" "Administrateurs:(F)" "%USERNAME%:(F)"
+  ```
+  Vérification : `icacls <fichier>` → 3 ACE `(F)`, 0 `(I)`, 0 trace `CodexSandboxUsers`.
+- **12 sauvegardes `.env` isolées hors du dépôt** — rangées dans
+  `%USERPROFILE%\hermes-secrets-backup\<profil>\` (arborescence miroir par profil : sans elle, les
+  fichiers homonymes s'écrasaient), avec ACL restreinte et intégrité prouvée par `sha256` identique
+  avant/après. Un motif `.gitignore` empêche de **publier** un `.env`, pas de le **lire** : une copie
+  laissée dans l'arbre du dépôt restait une surface (zip, indexation, sauvegarde de dossier).
+- **Hygiène du dépôt** — `.gitignore` durci : `/hermes-agent/` **ancré** (le motif non ancré avalait
+  aussi le skill bundled `skills/autonomous-ai-agents/hermes-agent/`, resté hors du dépôt et donc
+  absent du point de restauration), motif `*.bak_*` / `**/*.bak_*` (l'ancien `.bak_` littéral ne
+  matchait qu'un fichier nommé exactement `.bak_`) et `profiles/*/skills/`. Quatre fichiers `.bak`
+  sortis de l'index (`git rm --cached`), **conservés sur disque**.
+- **Wazuh** — manager : API sur `127.0.0.1:55085`, indexer sur `0.0.0.0:9200`, les deux déclarés dans
+  `ports.allowlist`. Le port d'API du conteneur reste `55000`, mais Windows réserve la plage TCP
+  **54985-55084** (mesuré : `netsh int ipv4 show excludedportrange protocol=tcp`) : le port est
+  **remappé** juste au-dessus plutôt que forcé (`"127.0.0.1:55085:55000"`). Preuve de vie de l'API :
+  `curl -sk -X POST "https://localhost:55085/security/user/authenticate?raw=true"` → **200 + un jeton d'API** (préfixe `ey`).
 - **Règle** : avant toute modification de la visibilité (public → privé ou l'inverse), rejouer
   `python docs/scripts/scan_secrets_history.py --repo .` et vérifier 0 occurrence. Un dépôt n'est pas
   un coffre : tout ce qui entre reste dans l'historique.
@@ -360,13 +441,31 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
 | `docs\scripts\baseline_t0.py` | mesure la baseline T0 (notebooks SiYuan, fragments RAG, cron) — à régénérer sur une nouvelle machine |
 | `docs\IMPROVEMENTS.md` | fiche détaillée des améliorations 1.1 → 1.2 : état réel de chaque version, bénéfices, fichiers concernés |
 | `docs\CHANGELOG-v1.2.md` | changelog de la version 1.2 (Keep a Changelog, convention SemVer) |
+| `docs\ARCHITECTURE_AEGIS.md` | architecture de la 1.4 « Aegis » : les **4 couches** (profils, routage, cerveau, sécurité), principes directeurs, limites connues et contournements, commandes de vérification |
+| `docs\CHANGELOG-v1.4.md` | changelog de la 1.4 (préparée, non publiée) : sécurité et ACL, Wazuh, JEV, Laya, skills, RAG, dépendances, bloqueurs B1/B2 |
 
 ### Voir aussi
 
 - [`docs/IMPROVEMENTS.md`](docs/IMPROVEMENTS.md) — fiche détaillée des améliorations v1.1 → v1.2
 - [`docs/CHANGELOG-v1.2.md`](docs/CHANGELOG-v1.2.md) — changelog de la 1.2
+- [`docs/ARCHITECTURE_AEGIS.md`](docs/ARCHITECTURE_AEGIS.md) — architecture de la 1.4 en 4 couches
+- [`docs/CHANGELOG-v1.4.md`](docs/CHANGELOG-v1.4.md) — changelog de la 1.4 (préparée, non publiée)
 - [Wiki du dépôt](../../wiki) — accueil, installation 1.2, améliorations détaillées, migration
   depuis la 1.1, archives 1.1, FAQ
+
+---
+
+## 10. Bloqueurs de publication de la v1.4
+
+La 1.4 « Hermes Aegis » est **préparée, non publiée** : aucun tag, aucune release. Deux bloqueurs
+l'interdisent (état mesuré le 27/09/2026) :
+
+| # | Bloqueur | État mesuré |
+|---|---|---|
+| **B1** | **MP4 livrable absent** (ex-« tronqué ») | `Desktop\hermes tuto\tutotete20_jev_llmwiki.mp4` : **introuvable** — dossier supprimé, corbeille vide, aucune copie ailleurs. Le tutoriel JEV / LLM Wiki doit être **réassemblé** (`assemble_v6.py`). |
+| **B2** | **Watchdog volet6 en pause** | Tâche planifiée Windows `volet6-watchdog` = `Disabled` ; cron job Hermes `4a646bb6eab4` (`every 15m`) = `enabled: false`, `paused_at 2026-09-23T13:10:09+02:00`, `last_status: ok` — en pause depuis le 23/09. |
+
+Détail, conséquences et checklist de publication : [`docs/CHANGELOG-v1.4.md`](docs/CHANGELOG-v1.4.md).
 
 ---
 
