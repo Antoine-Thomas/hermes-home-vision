@@ -42,6 +42,14 @@ de sortie). Ordre de grandeur confirmé par rapport au test de référence
 « 0,36 s / 0,000014154 $ » : l'ordre de grandeur est validé, pas la valeur exacte
 (elle dépend de la taille de l'état et du nombre de questions).
 
+### Re-vérification (2026-09-27) — Jev est ACTIF
+
+Ne pas se fier au compteur `https://openrouter.ai/api/v1/credits` : il peut afficher
+`total_credits=0` alors que Jev répond normalement. Mesure du 27/09 : auto-test
+`jev_helper.py` 3/3, 0,29-0,36 s et 1,25-1,47 × 10⁻⁵ $ par décision ; 10/10 sur les
+10 cas de routage RAG/SiYuan (`tests/jev/`). C'est cette confusion qui avait produit
+la note « Jev en pause » — fausse, corrigée dans `SKILL.md` le 27/09.
+
 ## IA Hermes disponibles (config.yaml réelle, vérifiée)
 
 | Rôle | Provider | Modèle | Coût | Latence indicative |

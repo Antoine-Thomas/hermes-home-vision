@@ -161,7 +161,7 @@ commit `65a39f39`).
   `score()`. Auto-test : `python scripts/jev_helper.py`.
 - Détail complet (mesures, seuils, cas d'usage, limites) : `references/config-hermes.md`.
 - Fallback local : laya-onnx-windows (Windows CPU, ~190 ms/décision, 0 $)
-- JEV est en pause depuis le 27/09 (crédits OpenRouter à 0 $). Fallback actif : laya-onnx-windows. Réactiver JEV en rechargeant des crédits sur https://openrouter.ai/settings/credits
+- JEV est actif (vérifié le 27/09/2026) : 0,29-0,47 s et 1,25-1,47e-5 $ par décision, 10/10 sur les cas de routage RAG/SiYuan. Attention : le compteur https://openrouter.ai/api/v1/credits peut afficher total_credits=0 sans que JEV soit bloqué — ce n'est PAS un indicateur d'indisponibilité (c'est ce qui a produit la note erronée). Fallback local hors ligne : laya-onnx-windows (~160-220 ms/décision, 0 $).
 - Jev ne remplace pas le LLM principal Hermes (`deepseek-flash`, fallbacks
   `omniroute/eco` et `omniroute/nvidia-stack`) : c'est une primitive de décision,
   pas un rédacteur. Ne pas l'appeler quand la décision se prend en code pur.
