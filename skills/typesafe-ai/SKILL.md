@@ -160,6 +160,7 @@ commit `65a39f39`).
 - Helper prêt à l'emploi : `scripts/jev_helper.py` — `jev()`, `noul()`, `choice()`,
   `score()`. Auto-test : `python scripts/jev_helper.py`.
 - Détail complet (mesures, seuils, cas d'usage, limites) : `references/config-hermes.md`.
+- Fallback local : laya-onnx-windows (Windows CPU, ~190 ms/décision, 0 $)
 - Jev ne remplace pas le LLM principal Hermes (`deepseek-flash`, fallbacks
   `omniroute/eco` et `omniroute/nvidia-stack`) : c'est une primitive de décision,
   pas un rédacteur. Ne pas l'appeler quand la décision se prend en code pur.
