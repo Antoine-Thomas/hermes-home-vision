@@ -18,6 +18,15 @@ volumineuses ou sensibles, donc c'est le `.gitignore` qui porte la politique.
   sa ligne) et `git ls-files <dossier>` (**vide = non suivi**). Appliquer ce controle a tout skill dont
   le nom est aussi celui d'un dossier ignore (checkout, vendor, dossier d'outil) avant d'affirmer qu'un
   skill est sauvegarde — et le dire a l'operateur plutot que de presenter la copie locale comme versionnee.
+  **Ancrer un motif de dossier fait AUSSITOT remonter ce qu'il avalait** : apres le passage a
+  `/hermes-agent/`, les copies par profil (`profiles/<nom>/skills/<categorie>/hermes-agent/`) sont
+  apparues en `??` alors qu'aucun skill de profil n'avait jamais ete suivi (`git ls-files
+  'profiles/*/skills/'` = 0). Donc dans le meme tour : `git status --short` pour lister le nouveau
+  visible, puis trancher pour CHAQUE chemin — committer (c'est du contenu vivant qui n'etait pas
+  sauvegarde) ou l'exclure explicitement ; une regle d'exclusion laide arrive en effet de bord, elle ne
+  se laisse pas en non-suivi indefiniment. Un profil peut rester invisible pour une AUTRE raison :
+  `.git/info/exclude` (`git check-ignore -v <chemin>` le nomme, ici `/profiles/docs-writer/`) — ne pas
+  conclure « ce profil n'a pas de copie » avant de l'avoir verifie.
 - `data/` contient d'autres depots imbriques (`data/nim-clients/.git`) et des venv : ignorer `data/`
   en bloc.
 

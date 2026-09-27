@@ -323,7 +323,10 @@ seul, sans mode export) — le rafraîchir signifierait inventer un format : le 
 signaler.
 
 **Une liste de décisions numérotée (D1…Dn) fournie par l'opérateur s'applique à la lettre, item par
-item, et s'arrête à ses propres gates.**
+item, et s'arrête à ses propres gates.** Un item conditionnel qui demande de « montrer le diff AVANT
+écriture » se traite en **deux temps** : livrer le diff proposé dans le rapport, ne rien écrire, et
+attendre le GO — écrire puis montrer le diff dans le compte rendu inverse la consigne, même quand
+l'écriture est techniquement correcte. Un item marqué OPTIONNEL n'exempte pas de cette preuve préalable.
 
 - **Une consigne littérale qui n'atteint pas son but se SIGNALE, elle ne se corrige pas en silence.**
   Un motif `.gitignore` sans joker (`.bak_`) ne matche que le fichier nommé exactement `.bak_` : le
@@ -349,6 +352,13 @@ item, et s'arrête à ses propres gates.**
   affiche tout le fichier en +/- peut n'avoir changé que 2 lignes. Trancher par `git diff --numstat`
   (2/0 attendu), `git diff --stat` et `grep -c $'\r' <fichier>` (0 CRLF attendu) — `.gitattributes`
   (`* text=auto eol=lf`) normalise à l'index, donc l'avertissement CRLF de git n'est pas un écart.
+- **Corriger une ligne dans un bloc : ne matcher QUE cette ligne.** Un `old_string` qui inclut les
+  lignes voisines les **supprime** (le remplacement ne restitue que ce qu'on écrit, pas le contexte
+  au-delà) : mesuré sur un `.gitignore` à blocs, un simple passage de `hermes-agent/` à `/hermes-agent/`
+  a effacé `data/`, puis `bin/` au correctif suivant. Après toute édition de ce genre, prouver la
+  minimalité par `git diff --numstat <fichier>` (attendu `1 1`) **et** relire le bloc entier — sur un
+  `.gitignore`, une ligne d'exclusion perdue (`data/`, `logs/`, `.env*`) ne salit pas le diff : elle rend
+  le motif inopérant, et le `git add -A` suivant indexe ce qu'elle protégeait.
 - **« Ne pas pousser avant mon go » est absolu** : commit seulement, jamais `git push`, et l'état de
   l'index se rapporte tel quel (prêt, rien perdu) entre deux tours.
 
