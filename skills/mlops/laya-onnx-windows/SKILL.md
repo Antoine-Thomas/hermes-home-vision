@@ -133,6 +133,32 @@ dimension `n`) : on partage le forward au lieu de le payer par question.
   `%LOCALAPPDATA%\hermes\data\laya-onnx\english\` (deplacement effectue le 27-09-2026).
 - Le venv Hermes et `config.yaml` ne doivent jamais etre touches : tout vit dans un venv dedie.
 
+## Limites mesurées (27/09/2026)
+
+Trois faiblesses validées en benchmark réel, à connaître avant tout branchement en
+production :
+
+1. **`noul` en français échoue.** État FR + question FR → 0.0259 (répond NON) alors
+   que le même contenu en anglais donne 0.8211 (OUI). Cause : Laya est entraîné sur
+   des labels anglais ; en français il suit ses labels par défaut. Contournement :
+   passer la question en `choice` à 2 options neutres, ou tout mettre en anglais.
+
+2. **État > 512 tokens : troncature à droite.** Latence ×6 (815 ms → 4 900-5 300 ms
+   pour 4 questions) et décisions dégradées (refund 0.42 au lieu de 0.89). La phrase
+   décisive en fin de texte est perdue. Contournement : résumer l'état à < 512 tokens
+   avant l'appel.
+
+3. **Budget d'options : ~48 tokens/option max.** Formule `(head_max_len-16)//k`.
+   10 options longues → budget ~17 tokens/option, distribution aplatie.
+   Contournement : limiter à 6-7 options courtes maximum.
+
+Test de compatibilité JEV : 6/10 d'accord sur le routage RAG/SiYuan (60 %, sous la
+cible 80 %). Laya lit les mots de surface (« documents », « PDF » → RAG) là où JEV
+lit l'intention (« créer une fiche » → SiYuan). Aucun seuil de confiance ne sépare
+les deux populations (confiances correctes 0.516-0.694, fausses 0.512-0.695 : elles
+se chevauchent). **Conclusion : JEV reste le décideur principal pour le routage ;
+Laya est un accélérateur gratuit, pas un substitut.**
+
 ## Files
 
 - `scripts/laya_onnx.py` — runtime complet (construction du prompt, inference, post-traitement) :
