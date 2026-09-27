@@ -95,3 +95,29 @@ Verdicts : SUR (supprimable) / A VERIFIER (a valider en phase B) / A GARDER.
 - Verdict par defaut : **A GARDER** / ne pas toucher sans demande explicite.
 - Une quarantaine "deja comptee ailleurs" dans l'inventaire ne se supprime pas deux fois : la compter une
   seule fois et le dire.
+
+## Poids d'un modele en plusieurs formats (dossier diffusers : unet/, text_encoder/)
+
+- Controle : ouvrir le SCRIPT de run vivant et lire la paire `--pretrained_model_name_or_path=<dossier>` +
+  `--variant=<v>`. C'est elle qui designe le fichier charge : `--variant=fp16` fait lire
+  `diffusion_pytorch_model.fp16.safetensors`, pas `diffusion_pytorch_model.safetensors`.
+- Verdict par defaut : **SUR** pour les variantes non chargees et citees par aucun script —
+  `*.bin` (ancien format PyTorch, lu seulement si le `.safetensors` manque), `*.fp16.bin`,
+  `*.non_ema.bin|safetensors` (poids non-EMA, jamais lus par un entrainement standard).
+- Garder 2 poids + `config.json` : la variante reellement chargee et le `.safetensors` fp32 de repli
+  (defaut de diffusers quand `--variant` est omis).
+- Ne pas conclure depuis la liste des fichiers du dossier : ils servent a l'ENTRAINEMENT (diffusers),
+  tandis qu'une UI d'inference (ComfyUI, A1111) charge ses propres checkpoints mono-fichier ailleurs —
+  elle n'en "protege" aucun.
+
+## Store d'une application desinstallee ou renommee (.bak, store orphelin)
+
+- Controle : trois sondes avant de declarer le store orphelin — (1) le binaire existe-t-il encore
+  (`find <dir-de-l-app> -maxdepth 2 -iname "*.exe"`) ; (2) un pointeur de HOME vise-t-il ce store
+  (un `.<app>-home-pointer` pointant vers un dossier ABSENT = pointeur mort) ; (3) la config utilisateur
+  subsiste-t-elle ailleurs (`AppData/Roaming/<App>`) ?
+- Verdict par defaut : **A VERIFIER** — un dossier de programme qui ne contient plus que 2 DLL + le store
+  de modeles signifie application desinstallee, mais le store peut etre la seule copie locale de gros poids
+  a re-telecharger (chiffrer le re-telechargement avant de proposer).
+- Lire les MANIFESTES du store (JSON de type ollama/localai) avant de traiter un blob comme orphelin :
+  un blob reference par un manifeste est une dependance de l'app, pas un residu.
