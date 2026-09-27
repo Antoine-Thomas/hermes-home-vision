@@ -5,7 +5,7 @@ set "HERMES_HOME=C:\Users\searc\AppData\Local\hermes"
 set "PYTHONIOENCODING=utf-8"
 set "HERMES_GATEWAY_DETACHED=1"
 set "HERMES_SUPERVISED_CHILD=1"
-set "VIRTUAL_ENV=C:\Users\searc\AppData\Local\hermes\hermes-agent\venv"
+set "VIRTUAL_ENV=C:\Users\searc\AppData\Local\hermes\tools"
 set "PYTHONPATH=C:\Users\searc\AppData\Local\hermes\hermes-agent;%PYTHONPATH%"
-C:\Users\searc\AppData\Local\hermes\hermes-agent\venv\Scripts\python.exe -m hermes_cli.main gateway run
+C:\Users\searc\AppData\Local\hermes\tools\python-3.14.7+20260901-win32-x64\python.exe -m hermes_cli.main gateway run
 exit /b 0
