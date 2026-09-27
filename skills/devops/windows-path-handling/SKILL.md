@@ -57,6 +57,22 @@ L'ecriture reussie garantit que le fichier a ete ecrit au chemin **resolu** ; el
   `//run` arrive litteralement comme `//run` (`Argument ou option non valide`). Preferer l'equivalent
   PowerShell (`Start-ScheduledTask`, `Get-ScheduledTask`, `Register-ScheduledTask`) ou passer par
   `cmd //c "<commande complete>"` en gardant la commande entre guillemets.
+- **`msiexec` : `//x` / `//i` / `//qn` ne donnent pas une option invalide mais un ECHEC SILENCIEUX**
+  (mesure du 27/09/2026). `msiexec //x "{GUID}" //qn //norestart //l*v C:\...\log` lance depuis bash
+  rend **`exit 103`**, n'ecrit **aucun fichier de log** et ne desinstalle **rien** : le produit reste
+  au registre, le dossier d'installation garde ses fichiers, le service reste en place. Le code 103
+  n'est pas un code de retour MSI documente, il ne dit rien de la cause. La forme qui marche est
+  PowerShell avec liste d'arguments, et le code de retour est alors le vrai :
+  `Start-Process msiexec.exe -ArgumentList @('/x','{GUID}','/qn','/norestart','/l*v','C:\...\log') -Wait -PassThru`
+  -> `.ExitCode` (0 = succes | 3010 = succes + reboot requis | 1605 = produit inconnu | 1603 = echec).
+  Ne jamais croire le code seul : verifier l'EFFET — presence du produit sous
+  `HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\{GUID}` et nombre de
+  fichiers du dossier cible. Pour desinstaller, viser le **ProductCode** lu au registre (l'Uninstall
+  key) plutot que `Get-CimInstance Win32_Product | Uninstall()`, qui declenche une reconfiguration de
+  tous les paquets MSI et reste lent. Un MSI legitime signe porte une signature Authenticode
+  verifiable (`Get-AuthenticodeSignature`) : c'est la provenance a exiger quand l'editeur ne publie
+  pas de SHA256, et la table `Property` du paquet se lit en COM (`WindowsInstaller.Installer`) pour
+  confirmer la version avant d'installer.
 - **Commandes PowerShell depuis bash** : des qu'une commande contient des variables `$env:` ou des
   guillemets imbriques, ne pas la passer en ligne a `powershell -Command` — les variables arrivent
   mangees (`UserId:OMATHS\:USERNAME`) et l'appel echoue (mappage de compte introuvable sur
