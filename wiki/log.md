@@ -93,3 +93,10 @@
   perimetre d'usage, exemple d'appel.
 - `index.md` regenere par `update_index([], dry=False)` : 17 pages.
 - Aucune page existante modifiee.
+
+## [2026-09-27] create | page concepts/laya-onnx-windows.md
+
+- Ajout manuel (sans appel LLM) du concept Laya ONNX Windows CPU : installation sans PyTorch,
+  contrat du graphe, latences mesurees (190 ms par decision), comparaison avec Jev.
+- `index.md` mis a jour a la main (section Concepts, ordre alphabetique) : 18 pages.
+- Aucune page existante modifiee.

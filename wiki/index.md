@@ -3,7 +3,7 @@
 > Catalogue du contenu. Chaque page wiki est listée sous son type avec un
 > résumé d'une ligne. **Lire ce fichier en premier** pour trouver les pages
 > pertinentes d'une question.
-> Last updated: 2026-09-22 | Total pages: 17
+> Last updated: 2026-09-27 | Total pages: 18
 
 ## Concepts
 - [[auto-best-free]] — Le modèle `auto/best-free` était configuré comme primary, mais il ne répond jamais (400/502).
@@ -15,6 +15,7 @@
 - [[free-openrouter]] — Le combo free-openrouter a été ajouté à OmniRoute le 22‑09‑2026.
 - [[hermes-config]] — La configuration d'Hermes définit le modèle par défaut (`eco`), le provider (`omniroute`), la chaîne de repli via `fallback_providers`, et le nombre maximal de tentatives (`agent.api_max_retries`).
 - [[jev]] — Jev est le skill TypeSafe intégré à Hermes pour trancher les choix rapides.
+- [[laya-onnx-windows]] — Laya en ONNX sur CPU : fallback local gratuit de Jev (~190 ms par décision, sans PyTorch).
 - [[nvidia-stack]] — Le `nvidia-stack` constitue un étage de repli gratuit basé sur les modèles NVIDIA.
 - [[primary-model]] — Le modele principal est le premier a repondre a une requete.
 - [[provider-connection]] — Dans OmniRoute, une connexion fournisseur definit la facon dont un service d'IA externe est atteint.
