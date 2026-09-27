@@ -154,3 +154,57 @@ pas de deux).
 `create mode ... <chemin>` de la sortie du pull nomment les fichiers arrives ; puis `ls -l` sur la
 page attendue et lecture d'un marqueur interne (`grep -m1 'updated:' <fiche>`). Un `git rev-parse
 HEAD` egal de part et d'autre ne dit rien du contenu reellement present.
+
+## Ecriture concurrente du curator (revue d'arriere-plan)
+
+### 1. Le phenomene et son minutage
+
+Une **revue d'arriere-plan** (fork du curateur) tourne apres le travail d'une session et ecrit dans les
+**memes** fichiers que celle-ci : les `SKILL.md` et `references/*.md` des skills, et
+`memories/MEMORY.md`. Un `git add` peut donc capturer un etat a moitie ecrit par elle — et un porcelain
+qui « bouge tout seul » ne vient pas forcement du runtime.
+
+Mesure sur cette machine : skill patche a 12:22:41, memoire ecrite a 12:22:43, fin du tour de revue a
+12:22:52 (`Background review complete ... result=skill+memory`, `origin=background_review`) — soit
+**dans les 2 minutes** autour des ecritures de la session. Elle suit la session de tres pres : profil
+cree a 12:36, section documentaire ecrite par la revue a 12:37:19.
+
+### 2. Comment le detecter
+
+`skills/.curator_ledger.jsonl` est la source de verite : une ligne JSON par ecriture, avec
+`"actor": "agent"` = la session elle-meme, `"actor": "curator"` = la revue, `evidence.session_id` (la
+session a l'origine de la revue), `evidence.file_path`, et les sha256 `before`/`after` ; les contenus
+sont archives dans `.curator_backups/blobs/`.
+
+Mesure par horodatage, avant tout commit d'un fichier de cette famille :
+
+    stat -c '%y  %n' <fichiers> ; wc -l <fichiers>
+    sleep 30
+    stat -c '%y  %n' <fichiers> ; wc -l <fichiers>      # identiques = stable
+
+Le reste de l'identification (inventaire des processus reellement actifs, propositions en attente) est
+dans la section « revue d'arriere-plan » du skill `hermes-operations`.
+
+### 3. Discipline avant de committer
+
+Apres la derniere ecriture documentaire : **attendre ~3 min**, prouver la stabilite (horodatages releves
+deux fois a >= 30 s d'ecart, plus `wc -l`), puis `git add` **par chemin explicite** — jamais `-A`,
+jamais un repertoire entier. Sinon on fige un etat a moitie ecrit : le diff valide n'est plus celui qui
+part. Et **un diff qui porte des lignes qu'on n'a pas ecrites se NOMME** dans le message de commit et
+dans le rapport (par exemple « passes concurrentes fusionnees ») au lieu d'etre absorbe en silence.
+
+### 4. `pending/memory/*.json` : propositions sans effet
+
+Les propositions de **memoire** de la revue vivent dans `pending/memory/*.json` (`origin:
+"background_review"`) et **n'ont aucun effet tant qu'elles ne sont pas approuvees** : `MEMORY.md` n'est
+pas modifie par une proposition en attente. Observe sur un meme tour de revue : un **ajout** a ete
+applique directement (`logs/agent.log` : `tool memory completed`, quelques centaines de caracteres) tandis
+que la **reecriture d'une entree existante** restait en attente. Le backlog s'accumule : 7 propositions
+entre le 17/09 et le 27/09, aucune appliquee.
+
+### 5. Le piege de la sonde par debut de texte
+
+Prouver qu'une proposition est **appliquee** par la **FIN** du texte propose, jamais par son debut :
+quand seule la tete de l'entree change (`v0.21.3` -> `v0.21.5`), les 70 premiers caracteres sont
+identiques et la comparaison conclut a tort « applique ». Confirmer par un controle direct du fait
+introduit (`grep -c "v0.21.5" memories/MEMORY.md`).
