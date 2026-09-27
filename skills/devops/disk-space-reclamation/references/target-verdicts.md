@@ -1,0 +1,97 @@
+# Grille de verdict par categorie de cible
+
+Un nom de dossier ne prouve rien. Pour chaque categorie : le controle a faire, et le verdict par defaut
+quand le controle ne tranche pas.
+
+Verdicts : SUR (supprimable) / A VERIFIER (a valider en phase B) / A GARDER.
+
+---
+
+## Cache d'un gestionnaire de paquets (uv, pip, npm, pnpm, cargo)
+
+- Controle : identifier la commande de regeneration (`uv cache clean <famille>`, `npm cache clean --force`)
+  et la presence du gestionnaire.
+- Verdict par defaut : **SUR**.
+- Piege : ne supprimer qu'une FAMILLE de cache, pas le dossier parent. Le layout uv separe
+  `archive-v0` (roues depaquete, le gros du poids), `sdists-*`, `simple-*`, `wheels-*`, `git-v0`. Mesure :
+  `archive-v0` = 16,7 Go sur 17,1 Go du parent ; supprimer le parent emporte les cinq familles.
+- Emplacement typique : `%LOCALAPPDATA%\uv\cache`, `~/.cache/pip`, `~/.npm/_cacache`.
+
+## Cache de modeles (HuggingFace hub, torch/hub, whisper, ollama)
+
+- Controle : `grep -rn -i -E "<nom-modele>|SentenceTransformer|HF_HOME|<chemin-du-cache>" <scripts actifs>`
+  puis lire le manifeste du service (modele + nombre de fragments indexes).
+- Verdict par defaut : **A VERIFIER**. Le cache HF contient les poids que les scripts locaux chargent par
+  nom de depot (embeddings de RAG, CLIP d'un pipeline diffusion, whisper d'un transcripteur) : le
+  supprimer casse un service en marche et impose un re-telechargement.
+- **Suppression partielle possible** : tout sauf le(s) depot(s) references. Chiffrer l'option separement
+  (total cache moins le poids du modele utilise) et la proposer comme decision utilisateur, pas l'appliquer.
+- Contrainte de l'utilisateur a respecter au mot : "jamais de telechargement sans validation". Un cache
+  re-telechargeable n'est donc pas gratuit — dire ce qui devra etre re-telecharge, et combien.
+
+## node_modules
+
+- Controle : mesurer le `node_modules` RACINE **et** ceux des workspaces (`apps/*/node_modules`,
+  `web/`, `ui-tui/`) separement — le premier ne contient pas les seconds. Chercher les binaires de
+  runtime dedans (`electron`, `node-pty`) et l'existence d'un build (`apps/desktop/dist`).
+- Verdict par defaut : **A VERIFIER**.
+- Regenerable par `npm ci` / `npm install`, mais coute reseau + build : ce n'est pas un residu. Si un
+  runtime y est present (Electron ~335 Mo) et qu'une app construite a ete rebuild recemment, c'est une
+  installation en service.
+
+## Archive d'installation telechargee (.7z / .zip d'une distribution)
+
+- Controle : verifier que la copie EXTRAITE existe et fonctionne (binaire d'entree present, dossier de
+  donnees garni) et que l'archive est bien la meme distribution.
+- Verdict par defaut : **SUR** si l'installation extraite est en service.
+- Piege de chemin : l'archive git dans le dossier des sources ou au-dessus, pas dedans ; verifier
+  l'existence reelle avant de mesurer, un libelle d'audit peut pointer un sous-dossier qui ne la contient
+  pas.
+- Sinon (rien d'extrait) : l'archive est la seule copie locale — la garder ou signaler le re-telechargement.
+
+## Sauvegarde (Desktop/hermes_backup_*, skills_backup_*, *.bak.*)
+
+- Controle : (1) completude — presence de `memories/`, `skills/`, `data/`, `state.db`, `.env` ; (2) est-elle
+  la plus recente ; (3) son contenu est-il versionne ailleurs (`git check-ignore -v <cible>` +
+  `git ls-files <cible> | wc -l`).
+- Verdict par defaut : **A VERIFIER**.
+- Un `data/` et un `.env` ignores par git font de la sauvegarde la SEULE copie hors profil : la declarer
+  redundante parce que le depot git est propre est faux.
+- Un dossier de sauvegarde voisin plus recent mais vide (0 Mo) est un ECHEC de sauvegarde : le signaler
+  comme anomalie. Il ne remplace rien.
+
+## Snapshot d'etat (<horodatage>-pre-update)
+
+- Controle : comparer avec l'etat courant (`state.db` courant vs celui du snapshot, version installee).
+- Verdict par defaut : **A VERIFIER** — c'est le chemin de rollback de la derniere mise a jour. Garder tant
+  que la version en place n'a pas passe son rodage.
+
+## Venv / environnement Python retire (.venv.retired-*)
+
+- Controle : lire la doctrine du profil (`grep -n -i -E "retention|retired" docs/*.md`) — une date de
+  suppression prevue y est souvent ecrite.
+- Verdict par defaut : **A GARDER** jusqu'a la date documentee.
+- La taille annoncee est souvent fausse (mesure : 1,10 Go vs 177 Mo annonces) : remesurer.
+
+## Runtime de navigateur (ms-playwright, .cache/puppeteer)
+
+- Controle : identifier le moteur REELLEMENT configure (`browser.engine` dans config.yaml), chercher le
+  second cache, verifier les processus en cours et les serveurs MCP qui l'utilisent.
+- Verdict : **SUR** pour celui qui n'est PAS le moteur en service ; **A GARDER** pour l'autre.
+- Ne pas supprimer les deux "parce qu'ils font doublon".
+
+## Dossier de travail d'un skill (sous cache/scratch, ou un dossier de skill)
+
+- Controle : le skill est-il actif ? `config.yaml` -> `skills.disabled` (une liste YAML, pas un flag par
+  skill). Verifier aussi le mtime : ecrit le jour meme = travail en cours.
+- Verdict : **A GARDER** si le skill est actif.
+- Signaler separement le risque de conception : `cache/scratch` est elague automatiquement apres 24 h
+  d'inactivite, donc un artefact durable (poids convertis, export) qui y vit peut disparaitre tout seul.
+  Proposer un emplacement durable plutot que de le supprimer.
+
+## Magasin interne d'un service (backups/ du profil, .curator_backups, quarantaine)
+
+- Controle : mtime des SOUS-dossiers (un magasin de blobs ecrit le jour meme est actif).
+- Verdict par defaut : **A GARDER** / ne pas toucher sans demande explicite.
+- Une quarantaine "deja comptee ailleurs" dans l'inventaire ne se supprime pas deux fois : la compter une
+  seule fois et le dire.

@@ -13,3 +13,5 @@
 - Secret collé dans le chat (jeton GitHub): ne jamais le demander/afficher, signaler + rotation.
 §
 Runs longs GPU : veut le lancement en background non bloquant, des notifications Telegram périodiques et un watchdog indépendant de la session.
+§
+Donne des procédures numérotées et attend une conformité littérale; tout écart avec la mesure se signale dans le rapport, jamais corrigé en silence.

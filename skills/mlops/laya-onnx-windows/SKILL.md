@@ -37,10 +37,16 @@ python -m venv laya-win-venv                  # Python 3.11
 
 # 2. telecharger UNIQUEMENT le checkpoint voulu (~1,7 Go anglais, ~3 Go de plus sinon)
 python - <<'PY'
+import os
 from huggingface_hub import snapshot_download
-snapshot_download("mariojcr/laya-onnx", allow_patterns=["english/*"], local_dir="laya-onnx")
+dest = os.path.join(os.environ["LOCALAPPDATA"], "hermes", "data", "laya-onnx")
+snapshot_download("mariojcr/laya-onnx", allow_patterns=["english/*"], local_dir=dest)
 PY
 ```
+
+Emplacement canonique du checkpoint : `%LOCALAPPDATA%\hermes\data\laya-onnx\english\`
+(deja peuple le 27-09-2026 : `laya.onnx` 1,69 Go + `tokenizer.json` + `rl_agent_config.json`).
+**Jamais sous `cache/scratch/`** (voir Pitfalls).
 
 Versions mesurees : onnxruntime 1.30.0, tokenizers 0.23.2, huggingface_hub 1.33.0, numpy 2.4.6.
 Chargement de la session : ~2,6 s, une seule fois au demarrage.
@@ -122,11 +128,16 @@ dimension `n`) : on partage le forward au lieu de le payer par question.
   « non » a une entree clairement positive : verifier sur ses propres donnees ; au besoin poser
   la meme question en `choice` a 2 options neutres.
 - **Echelle a 512 tokens** sur le checkpoint anglais : l'etat est tronque a droite.
+- **Ne jamais stocker le checkpoint sous `cache/scratch/`** : ce dossier est purge apres 24 h
+  d'inactivite et l'export de 1,69 Go disparait sans avertissement. Emplacement canonique :
+  `%LOCALAPPDATA%\hermes\data\laya-onnx\english\` (deplacement effectue le 27-09-2026).
 - Le venv Hermes et `config.yaml` ne doivent jamais etre touches : tout vit dans un venv dedie.
 
 ## Files
 
 - `scripts/laya_onnx.py` — runtime complet (construction du prompt, inference, post-traitement) :
-  `python laya_onnx.py --onnx-dir <dir> --self-test` rejoue l'exemple du README Laya.
+  `python laya_onnx.py --onnx-dir %LOCALAPPDATA%\hermes\data\laya-onnx\english --self-test`
+  rejoue l'exemple du README Laya (verifie le 27-09-2026 : `department` -> `billing`,
+  `refund_requested` noul 0,9041 ; 1175 ms pour 4 questions).
 - `references/mesures-2026-09.md` — mesures de reference : latence, sorties du cas README,
   comparaison JEV.

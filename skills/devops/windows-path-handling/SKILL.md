@@ -322,3 +322,5 @@ contenu du fichier — il est intact, c'est l'ecriture qui n'a pas eu lieu.
 ## Voir aussi
 
 - L'umbrella `windows-ops` (operations Windows : GPU Docker/WSL2, tuning).
+- `disk-space-reclamation` — audit d'espace disque : mesurer une arborescence volumineuse (`du` MSYS trop
+  lent sur des cibles en Go, enumeration .NET) et statuer avant de supprimer.

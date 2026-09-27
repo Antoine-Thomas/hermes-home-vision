@@ -63,6 +63,16 @@ Attribuer l'écriture à son auteur, dans cet ordre :
 moitié écrit et le diff audité n'est plus celui qui part. Et **un diff qui porte des lignes qu'on n'a
 pas écrites se NOMME** (message de commit, rapport) au lieu d'être absorbé en silence.
 
+**Elle repasse toutes les ~15 min : ne pas courir après chaque passe.** Mesure : 4 passes en 1 h 04,
+chacune pendant que la session travaillait, la dérive repassant de 1 à 10 entrées sans que la session
+ait touché à une skill — et une passe réécrit des fichiers que la session vient de committer. Un arbre
+propre est donc un **état de quelques minutes, pas un objectif** : geler à chaque passe revient à un
+commit toutes les ~15 min, dont l'historique ne dit plus rien. Pratique retenue par l'opérateur :
+**gel groupé** — laisser les passes s'accumuler, figer l'ENSEMBLE des entrées à un moment choisi (fin de
+session, fin d'heure, avant un push important) avec la preuve de stabilité de 3 min, pousser, et
+accepter la re-dérive. Une passe survenue pendant le gel se ramasse au gel suivant ; la voir réapparaître
+n'est pas l'échec du commit précédent.
+
 ## ESTOP — what it does
 
 - Sentinel file: `%LOCALAPPDATA%/hermes/ESTOP` (written by `agent/estop.py`). Checked via `check_paused(component, logger)`.
@@ -781,7 +791,15 @@ hermes -p <profil> cron run <job_id>  # test immédiat, part au tick suivant (< 
   (`GET .../v1beta/models` cote Gemini, `GET /v1/models` cote routeur) ? Un modele absent de
   `providers.<p>.models` dans `config.yaml` reste utilisable, mais l'y ajouter evite de le croire
   indisponible. Montrer le diff avant d'appliquer, et NOMMER les autres jobs qui partagent le meme
-  modele avant de n'en corriger qu'un seul a la demande.
+  modele avant de n'en corriger qu'un seul.
+- **`cron/jobs.json` est TOUJOURS modifié : le committer seulement si une DÉFINITION change.** Le
+  planificateur y réécrit l'état de runtime à chaque tir (`completed`, `next_run_at`, `last_run_at`,
+  `updated_at`, `scheduled_at`, `dispatched_at`, `lateness_seconds`) — 24 lignes de diff pour 2 jobs
+  sur 14, dont **0** touchant une définition. Le garde-fou est `scripts/cron_jobs_gate.py` (sortie 0 =
+  bruit de runtime seul, 1 = définition modifiée, avec les lignes fautives) : ne pas le retaper en
+  one-liner — un filtre `^[+-]` sans exclusion des deux lignes d'en-tête du diff (`--- a/…`, `+++ b/…`)
+  ne renvoie **jamais** « bruit » et valide tout. Corollaire de comptage : dans un relevé de porcelain,
+  la ligne `M cron/jobs.json` **ne compte pas** comme une entrée de dérive.
 - **`execute_code` est refusé dans un job cron** : « BLOCKED: execute_code runs arbitrary local Python
   … Cron jobs run without a user present to approve it ». Le job doit passer par `terminal` (+ `write_file`
   pour un payload), pas par Python — un run qui compte sur `execute_code` échoue une fois sur deux.

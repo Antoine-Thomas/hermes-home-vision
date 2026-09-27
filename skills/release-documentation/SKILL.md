@@ -248,6 +248,13 @@ l'edition laisse la version fausse en ligne, et c'est la release que le monde li
   chemin explicite, verifier `git diff --cached --name-only` = l'ensemble nomme, et `git show --stat
   HEAD` apres chaque commit d'un cycle a plusieurs commits ; toute entree restante se **rapporte**,
   jamais ne s'absorbe.
+- **`cron/jobs.json` ne compte PAS comme entree de derive** : il est sale par conception (etat de
+  runtime reecrit a chaque tir de job) et ne se committe que si une **definition** de job a change —
+  `scripts/cron_jobs_gate.py` (skill `hermes-operations`) tranche, parce qu'un filtre `^[+-]` sans
+  exclusion des deux lignes d'en-tete du diff (`--- a/…`, `+++ b/…`) ne renvoie jamais « bruit » et
+  valide tout. Et un arbre propre n'est qu'un **etat de quelques minutes** : la revue d'arriere-plan
+  repasse en moyenne toutes les ~15 min, donc on **gele l'ENSEMBLE** des entrees a un moment choisi
+  (fin de session, avant un push important), jamais passe par passe.
 - **Ne pas ecraser un fichier existant** sans le signaler ; ne pas modifier
   `README.md`, `docs/README.md` ou les tags si la demande ne les cite pas.
 
