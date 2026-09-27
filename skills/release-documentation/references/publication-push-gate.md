@@ -93,11 +93,16 @@ donc **TOUJOURS** sale. C'est un etat normal, pas une derive.
 
 Ne le committer que quand une **definition** change. Garde-fou, a lancer avant le `git add` :
 
-    git diff -U0 cron/jobs.json | grep -E '^[+-]' \
+    git diff -U0 cron/jobs.json | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' \
       | grep -vE '"(completed|next_run_at|last_run_at|updated_at|scheduled_at|dispatched_at|lateness_seconds)"'
 
 Sortie **vide** = 100 % de bruit de runtime = on ne committe pas. Sortie **non vide** = une definition a
 bouge = on committe (le diff est alors petit et lisible, donc utile).
+
+Les deux lignes d'en-tete du diff (`--- a/...`, `+++ b/...`) matchent aussi `^[+-]` : sans le
+`grep -vE '^(\+\+\+|---)'`, la sortie n'est **jamais** vide et le garde-fou valide le bruit comme du
+contenu. Mesure (27/09/2026) sur un diff de 24 lignes 100 % runtime : sans l'exclusion, deux lignes de
+sortie ; avec, zero. Un garde-fou se teste sur un cas de bruit **avant** d'etre fige, sinon il ne dit rien.
 
 Mesure (27/09/2026) : 24 lignes de diff (12 ajouts, 12 suppressions), dont **0** touchant une definition —
 les 24 se repartissent sur `completed` (4), `next_run_at` (4), `last_run_at` (4), `scheduled_at` (4),
