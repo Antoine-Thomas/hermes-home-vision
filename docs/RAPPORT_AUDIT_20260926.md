@@ -133,3 +133,25 @@ Anomalies :
 - Faut-il supprimer HermesGateway (Disabled) ou la réactiver ?
 - Faut-il élargir le probe eco et ré-ajouter des cibles ?
 - Faut-il changer le modèle du cron « LLM Wiki contradictions » ?
+
+## 10. Dépendance amont js-yaml — note du 27/09/2026
+
+`npm audit --workspaces=false` sur le checkout `hermes-agent/` remonte **1 vulnérabilité high** : `js-yaml`
+épinglé à **4.3.1** (2 entrées de `package.json` + `package-lock.json`), avis « maxTotalMergeKeys does not
+limit CPU use for empty merge sources » (DoS par merge keys). Correctif disponible : **4.3.2**, non
+semver-major.
+
+Aucun correctif local n'est prescrit, volontairement :
+- `hermes doctor --fix` est sans effet ici : `_check_npm_audit()` (`hermes_cli/doctor_tools.py`) ignore
+  complètement `should_fix` et ne prescrit aucune commande mutante.
+- Chaque `hermes update` relance un `npm ci` déterministe depuis le lockfile committé, qui réinstalle
+  4.3.1 : un `npm audit fix` local ne persiste pas (commentaire du code, cf. #116774).
+- Les arbres audités sont ceux du dépôt (racine, workspaces `web`/`ui-tui`, bridge WhatsApp) ;
+  `tools/agent-browser-*` est un binaire préemballé sans `node_modules`, donc hors périmètre : aucun
+  impact sur `browser_back` / `browser_click`.
+
+Action retenue : **ne pas toucher `package.json` / `package-lock.json` localement** (réécrits à l'update
+suivant) et **ne pas ouvrir d'issue amont** — le sujet est déjà suivi en amont :
+`NousResearch/hermes-agent#125576` (npm audit, synthèse), `#106775` (advisories dev-tree dont le correctif
+existe mais reste derrière la porte de 14 jours de `min-release-age`), `#68736`, `#107356`, plus la
+référence `#116774` citée dans le code du doctor. Remède durable : bump du lockfile en amont.
