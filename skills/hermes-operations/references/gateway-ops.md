@@ -38,3 +38,14 @@ config : aucun bot ne peut lui parler.
 Ce que le libellé signifie réellement : le profil existe dans l'inventaire. Ce qu'il ne dit pas : le
 gateway le sert. Pour savoir si un canal est servi, la source est `logs/gateway-health.state.json`,
 jamais `hermes profile list`.
+
+## Limite observée : deepseek-flash over-affirme
+
+Sur une question de comptage (fichiers de `wiki/concepts/` contenant « Laya »), deepseek-flash a répondu
+juste — 1 fichier, le bon — puis a ajouté une affirmation non vérifiée : « comptage identique en sensible
+et insensible à la casse ». Mesure : 9 occurrences en sensible, 14 en insensible. La réponse était bonne,
+le détail ajouté était faux.
+
+À surveiller pour tout profil qui produit de la documentation : les chiffres, les dates et les noms de
+fichiers doivent être relus contre la mesure. Le modèle comble les trous par plausibilité, pas par
+mesure — un chiffre juste en tête de réponse n'authentifie pas ce qui le suit.
