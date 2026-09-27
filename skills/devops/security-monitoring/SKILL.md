@@ -80,7 +80,19 @@ un port PERSISTANT (encore ouvert au run suivant) déclenche l'alerte 🔴 backd
 Un process éphémère (ex. « AI.exe » disparu, port 25001 fermé) ne doit donc
 jamais être whitelisté à l'aveugle : laisser le mécanisme de persistance trancher.
 
-## Vérifier après chaque ajout
+## Vérifier AVANT d'éditer, puis après chaque ajout
+
+**Prouver d'abord que la ligne n'est pas DEJA filtrée.** Une même ligne qui revient nuit après nuit
+dans `errors.log` n'est pas une preuve d'alerte : le journal garde la ligne brute, le filtre agit à la
+**classification**. Compter les occurrences par horodatage sur la fenêtre réelle
+(`grep -h '<motif>' logs/errors.log logs/agent.log.1 logs/agent.log.2 | awk '{print substr($0,1,23)}' | sort`,
+puis dater le fichier avec `head -1` / `tail -1` — `errors.log` couvre quelques jours, pas 24 h) : deux
+lignes à la **même seconde** sont UN incident (l'adaptateur puis `gateway.run`), pas deux, et un pic à
+la même minute chaque nuit désigne un redémarrage planifié, pas une panne. Rejouer ensuite les lignes
+RÉELLES trouvées sur l'`EXCLUDE` **en cours** : quand les deux rendent `None`, le filtre est déjà en
+place — ne rien éditer, et le rapporter comme « N occurrences brutes dans le journal, 0 alerte
+émise ». Un filtre posé lors d'une session précédente se retrouve ainsi sans retaper de motif ; le
+harnais rejouable est `scripts/verify_exclude.py`.
 
 `classify()` est autonome : la ligne exclue doit donner `None`, les vraies
 erreurs doivent encore déclencher :
