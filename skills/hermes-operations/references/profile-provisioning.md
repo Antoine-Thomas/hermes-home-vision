@@ -53,8 +53,17 @@ listes d'autorisation) : elle borne les dégâts, rend l'usage attribuable et se
 la valeur dans le `.env` **du profil**, jamais recopier celui du poste.
 
 Si l'écriture se fait à l'aveugle — parce que le secret ne doit pas transiter par le contexte de
-l'agent — faire créer, poser et relire par **un seul script** qui n'affiche que le préfixe et la
-longueur. C'est la seule forme qui ne laisse pas le secret dans l'historique de conversation.
+l'agent — faire créer, poser et relire par **un seul script**.
+
+Pour la relecture, **ne rien imprimer de la valeur, pas même le préfixe** : la sortie de l'outil
+terminal masque les valeurs qui ressemblent à un secret (`DEEPSEEK_API_KEY=***`). Un `grep | cut` sur le
+préfixe ne rend donc pas le préfixe, et un préfixe tronqué qui passerait ferait un secret partiel dans
+l'historique de conversation.
+
+Relire par **sonde booléenne + empreinte** : longueur, `startswith('<préfixe attendu>')`, et
+`sha256(valeur)[:8]`. C'est l'empreinte qui prouve l'égalité : la même clé posée dans trois `.env` de
+profils rend trois fois la même empreinte — la seule preuve qu'une rotation a atteint **chaque** profil,
+sans que la valeur n'apparaisse nulle part.
 
 ## 3. Modèle et chaîne de repli
 
@@ -246,3 +255,14 @@ mv profiles/<nom>/environments/browser-use "$LOCALAPPDATA/hermes/backups/<nom>-b
   cassé, et à part.
 - Vérifier après coup que le profil répond toujours (§7) et que le poids a bougé
   (`du -sh profiles/<nom>`) — pas depuis la seule édition de config.
+- **`tools list` est une sous-commande, `--list` n'existe pas** : `hermes -p <nom> tools --list` échoue
+  en `unrecognized arguments: --list`. La forme qui marche est `hermes -p <nom> tools list` (ou
+  `--summary` pour le compte par plateforme) — le sous-commande est positionnelle
+  (`list` / `disable` / `enable` / `post-setup`).
+- **Un profil de rôle se taille APRÈS l'assainissement, pas seulement au moment de la plainte.** Le
+  wizard laisse la distribution par défaut (browser, image_gen, computer_use, cronjob, tts, vision…).
+  Passer la liste effective en revue contre le rôle et désactiver ce qui n'a pas d'usage —
+  `hermes -p <nom> tools disable computer_use cronjob tts` — puis **rapporter la liste qui reste**,
+  plutôt que de laisser l'opérateur croire que le profil est nu. Conséquence à énoncer :
+  `profiles/<nom>/` étant exclu du dépôt (`.git/info/exclude`), cette liste n'est **pas versionnée** —
+  le seul état de référence est le disque, et un `git status` ne montrera jamais ce changement.
