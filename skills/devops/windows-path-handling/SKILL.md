@@ -147,6 +147,12 @@ a change sur 3 lignes.
   210/210 lignes annoncees CR sur un fichier LF). Comparer les octets en Python, pas avec grep.
 - Avant d'editer un fichier existant, mesurer sa convention (`read_bytes().count(b"\r\n")`) et la
   preserver : ces scripts (`.ps1`, `.env`, `.yaml`) sont edites par plusieurs sessions.
+- **L'outil `patch` peut normaliser TOUT un fichier en CRLF sans rien casser du commit** : le diff
+  affiche alors chaque ligne en `-`/`+` et ressemble a un reformatage complet. Sur un fichier
+  versionne, verifier avant de conclure : `git diff --numstat <fichier>` (un seul chiffre de lignes
+  ajoutees = rien de perdu) et `git diff --ignore-cr-at-eol <fichier>` (le diff logique). Avec
+  `* text=auto eol=lf` dans `.gitattributes`, l'index normalise et le commit ne porte que les lignes
+  voulues — la reecriture des fins de ligne est un bruit de working tree, pas un contenu publie.
 - Un chemin Windows insere dans du texte genere doit etre relu en octets : un heredoc bash a deja
   transforme `scripts\verif_24h.ps1` en `scripts<VT>erif_24h.ps1` (le `\v` est devenu un onglet
   vertical, invisible a l'oeil dans l'editeur). Controler `b.count(b"\x0b") == 0` apres insertion.
@@ -280,6 +286,24 @@ Enseignements :
   (`references/scheduled-tasks.md` et la section « fenetre console qui flashe »).
 - **Sonde reutilisable** : un `args_dump.py` de 6 lignes qui imprime `sys.argv` (a garder dans
   `cache/scratch/`) tranche le debat en une commande, sans dependre d'un run de production.
+
+## Regle 13 — `write_file` refuse d'ecraser un fichier lu en mode pagine
+
+Reecrire EN ENTIER un fichier deja lu avec `read_file(..., limit=...)` est refuse par le garde
+anti-ecrasement (« last read with offset/limit pagination (partial view) ... use patch ») : le
+fichier n'est PAS modifie, et l'erreur ne dit rien de son contenu. **Rejouer le meme `write_file` a
+l'identique ne passera pas davantage** — c'est une boucle, et le compte de repetitions declenche
+l'avertissement de boucle de l'outil.
+
+- Le chemin qui marche est `patch` : une passe par section visee (`old_string` / `new_string`),
+autant de `patch` que de sections a changer. C'est aussi ce que recommande le message du garde.
+- Relire le fichier en entier puis reecrire n'est PAS une parade : une nouvelle lecture paginee
+(meme avec la limite maximale) laisse le garde en place. Sur un fichier long, l'edition se fait en
+`patch`, jamais en ecrasement.
+- Le meme garde protege un fichier modifie sur le disque depuis la derniere lecture : relire,
+fusionner, puis `patch`.
+- Diagnostic : un outil de reecriture qui « refuse » n'a rien tronque. Ne pas partir verifier le
+contenu du fichier — il est intact, c'est l'ecriture qui n'a pas eu lieu.
 
 ## Pitfalls
 

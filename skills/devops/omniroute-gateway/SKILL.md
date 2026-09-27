@@ -177,6 +177,25 @@ Etat du pool gratuit (verifie 2026-09-17) : tout `oc/*` et `opencode/*` renvoie
 `403 OpenCode's free tier can only be used from within OpenCode` (ou `402 requires an
 opencode API key`) — le pool gratuit OpenCode n'est plus exploitable via OmniRoute.
 Les seules routes gratuites vivantes sont Gemini (cle perso) et le proxy NIM local.
+
+**Un probe elargi sur tout le pool (`oc/*`, `opencode/*`, `kr/*`, alias de backup) ne rend aucune cible
+utilisable — et son CLASSEMENT doit se faire sur le CODE HTTP, pas sur le corps de la reponse.**
+Mesure : 18 cibles sondees, 15 mortes, 0 vivante. Le mur OpenCode revient en **`403`** avec
+`type: "permission_error"` et `code: "insufficient_quota"` : un classement naif du genre « le corps
+contient `quota`/`limit` donc rate-limite » range une fermeture DEFINITIVE dans les cibles
+temporairement indisponibles, et fait esperer un modele qui ne reviendra jamais. Classer sur le statut
+(`200` = vivant, `429` = rate-limite, `400/401/402/403/404` = terminal, a ne pas re-sonder) et lire
+`type`/`code` seulement pour le motif.
+**Consequence de decision : sans cible saine, un combo ne se repare PAS.** Le garder tel quel en repli
+(ne pas le retirer du `config.yaml`) et basculer le primaire sur une route vivante nommee, en le
+disant. Reconstruire un combo a partir de zero cible saine reproduit exactement le scenario « combo
+reduit a 1 cible -> tout le trafic part sur le fallback payant ».
+
+**Le provider natif `deepseek` n'a pas besoin d'un bloc `providers:` pour servir de primaire.**
+`plugins/model-providers/deepseek/` declare `base_url`, `env_vars: (DEEPSEEK_API_KEY,)` et
+`fallback_models: (deepseek-v4-pro, deepseek-flash)` : `model.default: deepseek-flash` +
+`model.provider: deepseek` suffit, et l'alias `model_aliases.flash` porte deja la meme cible. Ecrire
+`provider: deepseek` sans bloc `providers.deepseek` n'est donc pas une config incomplete.
 Un tick sain peut afficher **2/17** sans que rien ne soit casse : si `gemini/gemini-3-flash-preview`
 prend un `429 All credentials ... are cooling down` pendant la sonde (echec transitoire, compteur non
 incremente), seules les 2 cibles NIM passent et le script rend `changed=false` avec `eco` intact a 3
@@ -451,6 +470,17 @@ qu'une route reellement limitee par minute revient toute seule. Croiser avec
 
 ## Diagnostics & API
 - **API Endpoints**: Use `/api/combos` for management (requires Bearer token) and `/v1/models` for inspection.
+- **Lire les combos en direct sans exposer la cle** : le jeton vit dans le `.env` du home, l'extraire
+  dans une variable au moment de l'appel (jamais l'afficher) puis appeler l'API :
+  ```bash
+  KEY=$(grep -m1 '^OMNIROUTE_API_KEY=' "$LOCALAPPDATA/hermes/.env" | cut -d= -f2- | tr -d '\r')
+  curl -s -m 5 -H "Authorization: Bearer $KEY" http://127.0.0.1:20128/api/combos
+  ```
+  Sans en-tete, `/api/combos` rend `{"error":{"code":"AUTH_001","message":"Authentication
+  required"}}` : un 401 ne dit donc PAS que le daemon est mort — seul `netstat -ano | grep :20128`
+  (ligne `LISTENING`) le dit. La reponse live est la seule source pour l'etat COURANT du combo ; les
+  `data/omniroute/combos_backup*.json` sont des snapshots d'une autre date et peuvent diverger
+  fortement (mesure : backup a ~20 cibles, live a 3).
 - **Silent Launch Technique**: See `references/silent-launch-vbs.md`.
 - **API Tips**: See `references/api-tips.md`.
 - **Adding a new upstream provider (e.g. Minimax)**: See `references/minimax-provider.md`.
@@ -550,6 +580,17 @@ Ne jamais scraper de tokens communautaires — violation ToS et meme pool deja e
   gratuit : 3 tirs + un prompt de taille reelle (~45-57 K car.), en lisant `model` et `call_logs`.
   Si la mesure contredit la demande (cout, timeouts), la remonter et laisser trancher — ne pas
   inscrire un primaire payant en silence, ne pas non plus substituer un autre modele sans le dire.
+- **Livrer le DIFF avant d'appliquer, en le SIMULANT hors du fichier live.** L'operateur demande « le
+  diff exact que tu appliquerais » avant tout feu vert, et un diff retape a la main derive de ce qui
+  sera ecrit. Le produire en appliquant le remplacement a une COPIE (`cache/scratch/`), puis
+  `difflib.unified_diff(original.splitlines(keepends=True), new.splitlines(keepends=True))` sur un
+  contenu lu en `newline=""` : la sortie est exactement ce que l'ecriture produira, fins de ligne
+  comprises. Meme methode pour `cron/jobs.json`, avec un `json.loads(new)` de controle avant
+  d'afficher. Ne pas appliquer tant que l'accord n'est pas donne.
+- **`config.yaml` et `cron/jobs.json` portent souvent des modifications NON COMMITEES anterieures**
+  (reformatage des `personalities`, skills, compteurs de cron) : `git status --short` +
+  `git diff --stat` AVANT d'editer, et le dire a l'operateur plutot que de committer en bloc avec sa
+  propre modification — sinon un commit « propre » embarque des changements qui ne sont pas les votres.
 
 ## Tuer le daemon par un appel cloudflare-ai (mesure 2026-09-22)
 

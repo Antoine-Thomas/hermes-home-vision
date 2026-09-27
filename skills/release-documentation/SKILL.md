@@ -41,7 +41,15 @@ l'edition du corps de la release GitHub avec le meme fichier.
    Ne JAMAIS relancer une compilation LLM pour un ajout redige a la main.
 4. **Note SiYuan** dans le notebook du domaine (`createDocWithMd`, puis preuve de
    lecture) — recette dans la meme reference.
-5. **UN SEUL commit `docs:`** avec tout le lot, pousse sur `main`, puis
+5. **UN SEUL commit `docs:`** avec tout le lot, puis push sur `main` — **apres avoir compte les commits
+   en attente** (`git rev-list --count origin/main..HEAD`) : un push publie tout ce qui est en
+   attente, pas seulement le lot. Si cette avance est faite de commits hors sujet, s'arreter au commit
+   local et le dire (`push: non`, N commits d'avance). Puis les trois controles bloquants du guide du
+   depot (recette, sorties attendues et pieges : `references/publication-push-gate.md`) — le
+   troisieme, **arbre figé** (`git status --porcelain` vide), est rouge en permanence ici parce que le
+   runtime se reecrit tout seul (`config.yaml`, `cron/jobs.json`, `skills/.usage.json`) : figer cette
+   derive est un commit dedie qui met `config.yaml` sous version, donc une decision de l'utilisateur,
+   jamais une initiative d'agent. Enfin
    `gh release edit <tag> --notes-file docs/CHANGELOG-<v>.md`.
 
 ## Rendre la version visible sur la page d'accueil (README)
@@ -128,10 +136,17 @@ et laisse une trace d'historique.
 - **Relire le diff du bloc** : les lignes du schema deja presentes doivent en sortir inchangees ;
   seules les bordures touchees et les lignes ajoutees apparaissent.
 
-**Localiser le clone avant tout `git`** : les consignes qui font `cd $env:LOCALAPPDATA\hermes` visent le
-runtime Hermes, pas le clone du depot (qui vit sous `C:\Users\<user>\Projets\<repo>`). Retrouver le clone
-(`find /c/Users/<user> -type d -name <repo>`) et confirmer par
-`git -C <chemin> rev-parse --show-toplevel` avant d'ecrire : `gh` fonctionne de n'importe ou, `git` non.
+**Identifier le checkout vivant avant tout `git`** : plusieurs clones du meme `origin` peuvent
+coexister, dont un perime. Ne jamais deduire l'emplacement du depot d'une consigne ou d'une session
+precedente : dans chaque candidat, `git rev-parse HEAD` + `git status -sb` + `git log --oneline -1`,
+puis `git merge-base --is-ancestor <sha> HEAD` — un HEAD qui est **ancetre** de l'autre est un clone
+en retard, y ecrire ne publie rien et fait diverger l'historique. Confirmer par la fraicheur d'un
+fichier connu (comparer la page wiki du meme concept entre les deux copies).
+**Verifie sur cette machine** : le checkout a jour est le **runtime lui-meme**
+(`%LOCALAPPDATA%\hermes`, racine = runtime + `docs/` + `wiki/`, remote `hermes-home-vision`) ; un
+clone sous `C:\Users\<user>\Projets\<repo>` existe et etait en **retard** — ne pas y ecrire sans
+avoir verifie son HEAD, et le signaler si l'utilisateur croit publier depuis lui. `gh` fonctionne de
+n'importe ou, `git` non : toujours `cd` dans le checkout retenu avant de committer.
 
 ## Retoucher un lot deja publie
 
@@ -165,14 +180,21 @@ l'edition laisse la version fausse en ligne, et c'est la release que le monde li
 - **Gate anti-secret avant tout push** : scanner le diff INDEXE, pas le working
   tree —
   `git diff --cached -U0 | grep -nE "sk-[A-Za-z0-9]{20,}|AIza[A-Za-z0-9_-]{30,}|nvapi-[A-Za-z0-9_-]{20,}|xoxb-|ghp_[A-Za-z0-9]{20,}|-----BEGIN.*PRIVATE KEY"`.
-  Aucune correspondance (`|| echo ok`) = seule condition pour pousser.
+  Aucune correspondance (`|| echo ok`) = condition pour pousser. Le guide du depot
+  (`docs/scripts/push-to-github.md`) exige en plus le scan d'**HISTORIQUE**
+  (`python docs/scripts/scan_secrets_history.py --repo .`, attendu : aucune valeur reelle) : le depot
+  est public, un secret deja pousse est compromis et se retire par `git filter-repo`, pas par un
+  `git rm`.
 - **`git add -A` ramasse l'etat d'execution du runtime** (compteurs
   `skills/.usage.json`, caches suivis). Lire `git status --porcelain` **avant**
   d'indexer : si un fichier hors sujet apparait, le signaler dans le rapport (ou
   indexer explicitement les chemins du lot). Ne pas laisser croire que le commit
   est purement documentaire s'il porte autre chose.
 - **`config.yaml` n'entre pas dans un commit `docs:`** : s'il apparait modifie,
-  s'arreter et demander.
+  ne jamais l'indexer, et distinguer l'origine : reecriture chronique par le runtime
+  (`cron/jobs.json`, `skills/.usage.json` derivent de meme) => la seule presence dans `git status`
+  n'est pas un signal d'arret, la rapporter comme **preexistante** ; modification venue de la session
+  (`hermes config set`) => s'arreter et demander.
 - **Ne jamais toucher au tag** : `gh release edit` change le corps, pas le tag. Ne
   pas creer, supprimer ni repointer de tag, ni ceux des versions precedentes.
   Verifier apres coup `git ls-remote --tags origin` (anciens tags inchanges).
@@ -233,6 +255,6 @@ tableau — c'est la que l'utilisateur decide.
 
 - Skill `github` (authentification, releases, `gh`), skill `llm-wiki` (compilation
   non-agentique du wiki). La recette locale du wiki et de SiYuan est dans
-  `references/wiki-l1-et-siyuan.md`, le verificateur dans `scripts/verify_wiki.py`. Le skill
+  `references/wiki-l1-et-siyuan.md`, le verificateur dans `scripts/verify_wiki.py`. Les trois controles bloquants de publication, la mesure de ce qui part reellement dans un push et le rafraichissement d'un clone en retard sont dans `references/publication-push-gate.md`. Le skill
   `github` est un bundle (non modifiable) : les recettes GitHub propres a ce depot vivent donc ici,
   section « Rendre la version visible sur la page d'accueil ».

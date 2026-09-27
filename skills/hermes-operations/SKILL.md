@@ -65,6 +65,15 @@ ne rend PAS une primitive automatiquement disponible dans le backend, quel que s
 `hermes plugins list` ne dit que l'état activé/désactivé, jamais la surface d'intégration : chercher
 (`search`) → lire (`info`) → présenter la fiche, puis attendre l'accord avant d'installer.
 
+**Installer n'active pas.** `hermes plugins install <nom>` sort « Plugin installed but not enabled »
+et le plugin reste inerte : c'est **`hermes plugins enable <nom>`** qui branche reellement les hooks —
+il resout et installe les dependances Python, puis recharge le gateway a chaud (« Gateway reloaded
+plugins — active in the running gateway now: hooks »). Preuve a rapporter, dans cet ordre : la ligne
+`enabled` de `hermes plugins list`, puis le hook lu dans la SOURCE installee (`grep -n 'HOOK'
+plugins/<nom>/*.py`, `plugin.yaml: provides_hooks`) — ni la sortie d'`install` ni `plugins list` ne
+disent quel hook est branche. Le plugin reste modifiable dans l'arbre git du home
+(`plugins/<nom>/`) : c'est cette copie qu'on committe.
+
 **`hermes config set` n'écrit que des scalaires.** Sur une clé *liste* il **remplace la liste entière
 par la valeur scalaire** — `hermes config set platform_toolsets.cli a2a` transforme les 17 toolsets
 en la chaîne `a2a`, et l'avertissement n'arrive qu'*après* l'écriture. Pour toute clé liste : édition
@@ -309,7 +318,7 @@ Voir `references/update-preflight.md` pour la séquence complète : précaution 
 
 **Editing config.yaml: use `hermes config set KEY value`, never patch/write_file.** `patch` and `write_file` refuse `config.yaml` as security-sensitive ("Agent cannot modify security-sensitive configuration"). `hermes config set gateway.multiplex_profiles false` is the sanctioned path; verify placement with `hermes config get KEY` and by grepping the section (a dotted key can land under a sibling heading — confirm it is under the right section, not just that it resolves).
 
-**Post-update gateway dies on Windows (Job Object #91675): recover with `schtasks /Run /TN Hermes_Gateway`, not `hermes gateway start`.** The cold-start gateway spawned inside `hermes update`'s shell is killed when that shell exits because it sits in a Windows Job Object. `schtasks /Run /TN <task>` starts the task-scheduler task OUTSIDE any Job Object, so it survives. The task name is `Hermes_Gateway` for default, `Hermes_Gateway_watch` for the watch profile (check `schtasks /Query /FO CSV /TN <task>` if a run says the task is missing or disabled). Verify with `hermes gateway status` → look for `✓ Gateway process running (PID: …)`.
+**Post-update gateway dies on Windows (Job Object #91675): recover with `schtasks /Run /TN Hermes_Gateway`, not `hermes gateway start`.** The cold-start gateway spawned inside `hermes update`'s shell is killed when that shell exits because it sits in a Windows Job Object. `schtasks /Run /TN <task>` starts the task-scheduler task OUTSIDE any Job Object, so it survives. The task name is `Hermes_Gateway` for the default profile. **Ne pas supposer qu'une tache par profil existe** : avec `gateway.multiplex_profiles: true`, le gateway `default` sert TOUS les profils (`hermes gateway list` → « veille — served by the default multiplexer ») et les taches `Hermes_Gateway_watch` / `Hermes_Gateway_veille` n'existent legitimement pas — il n'existe pas non plus de VBS par profil (`gateway-service/` ne contient que `Hermes_Gateway.vbs`, qui lance `gateway run` sans argument de profil). Lire `hermes gateway list` avant de conclure qu'une tache manque, et ne recourir a `schtasks /Query /FO CSV /TN <task>` que pour une tache censee exister. Verify with `hermes gateway status` → look for `✓ Gateway process running (PID: …)`.
 
 The correct sequence:
 
@@ -546,7 +555,39 @@ token. Diagnostic sans divulguer les jetons : comparer les empreintes `sha256` d
 `getMe` (curl) pour le nom du bot ; `getUpdates?timeout=5` (curl) — s'il rend `{"ok":true}` alors
 que le gateway est DOWN, le conflit est intermittent (instances concurrentes), pas un poller externe.
 
-**Trouver le process d'un profil : lire `gateway_state.json`, pas grepper la ligne de commande.** Le VBS du profil `veille` lance `gateway run` avec `HERMES_HOME` (variable d'env) et SANS `--profile veille` — donc `Get-CimInstance … -match 'profile veille'` ne trouve rien et fait conclure à tort « gateway down » alors qu'il tourne (PID vivant). Lire le PID dans `profiles/<nom>/gateway_state.json` (autoritatif), pas le flag `--profile`.
+**Le test qui separe un conflit INTERNE d'un poller EXTERNE : gateway ARRETE, sonder les trois jetons a
+la suite.** `hermes gateway stop`, laisser expirer le long-poll en cours (~1 min), puis `getUpdates`
+sur `default`, `veille` puis `watch` : le jeton contendu rend **409** quand les deux autres rendent
+**200** — donc un poller HORS de ce poste detient ce bot. Ecarter d'abord un residu local : un seul
+process `gateway run` (`Get-CimInstance Win32_Process` filtre sur la ligne de commande) et une seule
+connexion sortante vers Telegram (`Get-NetTCPConnection -State Established`, adresse du gateway). Un
+409 reproductible sur plusieurs minutes, gateway arrete, n'est pas une session perimee qui expire.
+
+**Un jeton présent dans un seul fichier du parc n'exclut PAS un second consommateur : l'inventaire porte
+sur les processus et les sidecars, pas sur les `.env`.** Le concurrent peut être un script local
+NON-Hermes rangé sous `data/` (boucle `getUpdates` PowerShell ou Python, jeton dans un `token.sec`
+sidecar) avec sa propre tâche planifiée qui le relance — et deux fichiers peuvent porter le MÊME bot id
+avec des secrets différents (l'un révoqué, l'autre vivant). Trois axes, à croiser : (a) les processus
+dont la ligne de commande cite le script (`Get-CimInstance Win32_Process | Where-Object { $_.CommandLine
+-like '*<script>*' }`), (b) leurs tâches (`Get-ScheduledTask` + `Get-ScheduledTaskInfo` — une répétition
+courte relance un poller muet toutes les quelques minutes), (c) chaque fichier portant ce bot id,
+`token.sec` et copies de rotation compris, trié par `getMe` (200 = vivant, 401 = révoqué). Le tell de ce
+montage dans les logs du gateway est `Unrecognized slash command <cmd> from telegram` : le gateway a bien
+mangé la mise à jour, et la commande appartient en réalité à l'autre consommateur — donc répondre
+« encore utile ou vestige » pour cet autre consommateur est un choix à présenter à l'opérateur, pas une
+réparation à faire seul.
+
+**`hermes gateway restart` ne repare PAS un 409 dont la source est externe.** L'adaptateur du profil
+retente 5 fois sur ~200 s (`Telegram polling conflict (n/5)` dans `logs/gateway-stdio.log`, adapter
+`platforms__telegram__home_<hash>.adapter`), puis passe `fatal` ; entre deux echecs `gateway_state.json`
+peut repasser a `connected`, donc **un `connected` qui flappe n'est pas un etat sain** — relire l'etat
+plus de 200 s apres le demarrage et croiser avec les lignes de conflit avant d'annoncer « les 3 profils
+UP ». Issue a proposer : retrouver l'autre consommateur du bot, ou revoquer le jeton (BotFather) et en
+poser un neuf dans le `.env` du profil ; un `restart` supplementaire ne fait que rejouer le cycle.
+Rapporter l'etat par plateforme (`default:telegram` OK / `watch:telegram` en conflit) plutot qu'un
+« les 3 profils UP » global : `hermes gateway list` les annonce servis meme quand un adaptateur est mort.
+
+**Trouver le process d'un profil : lire `gateway_state.json`, pas grepper la ligne de commande.** Le VBS du profil `veille` lance `gateway run` avec `HERMES_HOME` (variable d'env) et SANS `--profile veille` — donc `Get-CimInstance … -match 'profile veille'` ne trouve rien et fait conclure à tort « gateway down » alors qu'il tourne (PID vivant). Lire le PID dans le `gateway_state.json` du profil, pas le flag `--profile`. **Sous multiplexage, le fichier PAR PROFIL MENT** : seul le `gateway_state.json` RACINE fait foi — il porte le PID du process unique, `served_profiles` et une entree par profil et par plateforme (`default:telegram`, `veille:telegram`, `watch:telegram`) avec leur etat et leur `error_code`. `profiles/<nom>/gateway_state.json` reste figé sur le dernier etat standalone (`gateway_state: "stopped"`, adaptateurs `fatal`) et fait conclure a tort « le profil est mort » alors que `hermes gateway list` le rend « served by the default multiplexer ». Lire le racine d'abord ; l'autre ne sert qu'a dater l'epoque ou le profil tournait seul.
 
 **Battement horaire** (ajouté le 17/09) : une ligne `[battement] <heures>h : N/M gateways up, X alerte(s) | default=up …`
 est écrite **une fois par heure même quand tout va bien**, pour donner un historique de disponibilité
@@ -690,6 +731,21 @@ hermes -p <profil> cron run <job_id>  # test immédiat, part au tick suivant (< 
   contexte de session, donc il doit être auto-portant.
 - `--deliver telegram` = canal home du profil (`TELEGRAM_HOME_CHANNEL`). Sans gateway vivant, pas de
   ticker : `cron status` le dit.
+- **Attribuer l'echec d'un job : lire son `model`, `provider` et `last_error` dans `cron/jobs.json`.**
+  Le champ `model` dit quel combo/alias le job fait tourner (un job pose sur `eco` herite de la
+  fragilite du combo) et `last_error` porte l'erreur amont telle quelle — p. ex.
+  `[openai/nvidia/nemotron-…] [503]: ResourceExhausted: Worker local total request limit reached
+  (16/16)` est un plafond du fournisseur, pas une panne locale a reparer. Le job porte aussi
+  `provider`, `base_url`, `script` (`no_agent: true` = pre-run script seul) et `repeat.completed`.
+- **Changer le modele d'un job = editer ses deux champs `model` + `provider` dans `cron/jobs.json`**
+  (l'override par job prime sur `model.default` du profil) puis revalider le JSON. C'est le geste juste
+  pour sortir UN job d'une chaine fragile sans toucher au primaire de tout le parc. Verifier la cible
+  avant de l'inscrire : le provider est-il natif (`plugins/model-providers/<nom>/`, alias compris —
+  `gemini` a pour alias `google`, env `GOOGLE_API_KEY`) et le modele est-il servi par l'amont
+  (`GET .../v1beta/models` cote Gemini, `GET /v1/models` cote routeur) ? Un modele absent de
+  `providers.<p>.models` dans `config.yaml` reste utilisable, mais l'y ajouter evite de le croire
+  indisponible. Montrer le diff avant d'appliquer, et NOMMER les autres jobs qui partagent le meme
+  modele avant de n'en corriger qu'un seul a la demande.
 - **`execute_code` est refusé dans un job cron** : « BLOCKED: execute_code runs arbitrary local Python
   … Cron jobs run without a user present to approve it ». Le job doit passer par `terminal` (+ `write_file`
   pour un payload), pas par Python — un run qui compte sur `execute_code` échoue une fois sur deux.
@@ -784,9 +840,14 @@ la ligne du scheduler dans `agent.log`.
 - **Un message qui recite un ancien secret le remet dans `.hermes_history` et `state.db`** : refaire la
   passe après un tel collage. Et ne jamais dumper la section secrets d'un fichier de config
   (`conf.json` → `api.token`) : l'aperçu en sortie d'outil recrée la fuite.
-- **Un secret partagé entre plusieurs `.env`/configs casse les autres consommateurs à la rotation** : les
-  contrôler un par un et nommer la casse ; la réparer est une action distincte, soumise à l'accord de
-  l'utilisateur.
+- **Un secret partagé entre plusieurs fichiers casse les autres consommateurs à la rotation — et un
+  consommateur n'est pas forcément un `.env`.** Après une rotation de jeton de bot, re-chercher TOUS les
+  porteurs du même bot id (`.env` de profils, sidecars de scripts non-Hermes type `token.sec`, copies
+  `.env.avant_rotation_*`, snapshots) et les trier par `getMe` : 200 = vivant, 401 = révoqué. Un sidecar
+  resté sur le secret révoqué laisse son process **vivant mais sourd** (401 en boucle) et sa tâche
+  planifiée le relance indéfiniment : le symptôme se lit à tort « le bot est connecté mais /X ne répond
+  plus ». Nommer chaque casse dans le même tour ; la réparer est une action distincte, soumise à
+  l'accord de l'utilisateur.
 - **Un dépôt git du home est une surface de fuite de plus, pas un rangement.** Il se crée avec un
   scan pré-commit par empreinte et une liste d'exclusion explicite (jetons tiers, sessions, binaires) :
   recette et motifs dans `references/hermes-home-git-baseline.md`. Un motif oublié se rattrape
@@ -817,6 +878,35 @@ impact/effort, résultats des contrôles de sécurité, actions prioritaires, et
 « points à trancher » (les questions à poser avant toute action). Le rapport se montre **section par
 section** au fur et à mesure, et se termine par l'envoi en pièce jointe sur Telegram.
 
+**Compter les taches attendues contre la REALITE du multiplexage avant d'annoncer des manquantes.**
+Un README qui liste N taches (dont `Hermes_Gateway_watch` / `_veille`) decrit un parc a gateways
+separes ; avec `multiplex_profiles: true` ces taches n'ont pas lieu d'etre et leur absence n'est PAS
+un ecart. Le controle qui tranche est `hermes gateway list`, pas la liste du README. Et
+`scripts/creer_tache_gateway.ps1` **refuse** de creer une tache inexistante sans `-TemplateTask` ET
+`-VbsPath` — sous multiplexage il n'existe pas de VBS par profil, donc « recreer les taches
+manquantes » n'est pas un correctif applicable : le correctif est de mettre a jour le README. Un
+`-DryRun` sur une tache absente doit montrer cette erreur, pas un diff plausible.
+
+**Cette liste de taches vit en TROIS endroits, et n'en corriger qu'un recree la derive.** Sous
+multiplexage : `README.md` (§ Installation : « N taches », la variante manuelle, la table des scripts),
+`docs/ARCHITECTURE_HERMES.md` (le tableau des taches planifiees, qui porte encore les taches par profil
+et les vestiges) et `docs/scripts/bootstrap.ps1` (le generateur — ses listes `$generateurs` /
+`$recreables` **creent encore** une tache gateway par profil, donc rejouent le conflit de pollers au
+premier redeploiement). Decompte reel : **12 taches** (1 gateway multiplexe + healthcheck + 10
+recreables), la ou un parc a gateways separes en comptait 14. Quand la demande ne porte que sur le
+README, le dire et proposer l'alignement des deux autres — un README « honnete » que le bootstrap
+contredit reste faux.
+
+**Un changement machine qui ne touche AUCUN fichier du depot se versionne dans le tableau des taches de
+`docs/ARCHITECTURE_HERMES.md`.** Supprimer ou desactiver une tache planifiee ne produit par nature
+aucun `git diff` : la seule trace durable est la ligne du tableau (avec la raison — vestige, doublon,
+code de sortie — et son etat) mise a jour puis commitee. Sans ca, le depot reste faux et le prochain
+audit re-signale une tache « manquante » volontairement retiree. Un commit par action
+(`chore(tasks): supprime la tache vestige <nom>` / `chore(tasks): desactive la tache stale <nom>`),
+avec la verification dans le meme tour (`Get-ScheduledTask -TaskName <nom>` -> 0 resultat, ou
+`State = Disabled`) : la desactivation se fait par `Disable-ScheduledTask`, jamais `Unregister-`, quand
+la tache est un doublon fonctionnel d'une autre.
+
 **Une consigne de nettoyage qui melange des fichiers precis et une regle de retention (« supprime
 agent.log.1 et process-results, garde les 7 derniers jours ») se tranche en LISTANT les candidats,
 jamais en choisissant en silence une des deux regles.** Mesurer l'age reel
@@ -834,6 +924,19 @@ critères de vérification, et chaque écart se dit dans le même tour : un brie
 fichier contient le secret » ou « le dépôt existe » oriente vers une action partielle ou impossible.
 Les gates explicites demandés par l'opérateur (« attends ma validation avant X ») se respectent à la
 lettre : exécuter la phase préparatoire, s'arrêter à la phase nommée, et rapporter ce qui bloque.
+
+**Une provenance annoncée se MESURE avant d'être reprise : « c'est un skill Hermes », « c'est une
+instance externe », « c'est un service » sont des hypothèses, pas des prémisses.** Une correction de
+l'opérateur qui nomme la nature d'un composant se vérifie comme n'importe quelle affirmation de brief :
+chercher le handler de la commande citée (`grep -rn 'CommandDef("<nom>"' hermes-agent/hermes_cli/`,
+`grep -rl '^name: <nom>$' --include=SKILL.md skills/ profiles/*/skills/`), puis chercher le script ou le
+processus qui traite réellement l'entrée (`grep -rn '"/<nom>"'`, `Get-CimInstance Win32_Process`). Un nom
+de commande cité dans une doc de skill ne prouve pas une implémentation : un skill de documentation peut
+lister `/com` et `/video` sans les implémenter, `hermes_cli/commands.py` donne `/com` = alias de
+`/commands`, et les vraies commandes de capture sont les skills `photo` et `record`. Construire une
+mission sur la provenance annoncée coûte le tour entier (tester `/com` comme une prise de vue alors que
+c'est un index de commandes) : mesurer d'abord, puis nommer la nature réelle du composant dans le même
+tour que le résultat.
 
 **Chantier explicitement reporté à une session dédiée** : ne pas le relancer depuis une session
 multi-chantiers, ne pas en rejouer les tests. Relever seulement son état — `git status` sur
@@ -889,7 +992,8 @@ procédure : une tentative de patch upstream échouée sur du code frais se rejo
   (clone de travail puis `--ff-only`, collisions précalculées, rangement sous `docs/`).
 - `references/jev-primitives.md` — JEV (TypeSafe System One) : ou il vit, signatures et pieges
   (`choice` prend un dict d'options, `score` plafonne a 10 niveaux), latence/cout mesures, cout reel
-  via `/api/v1/auth/key`, et pourquoi il n'est PAS cable dans le backend par defaut.
+  via `/api/v1/auth/key`, pourquoi il n'est PAS cable dans le backend par defaut, et le verdict des
+  candidats de fallback local (Laya Core ML ecarte : Apple Silicon only).
 - `scripts/scan_history_secrets.py` — scanner rejouable de **tout l'historique** d'un dépôt
   (`rev-list --objects --all` + `cat-file --batch`), qui rend blob / chemin / taille / occurrences /
   `sha256[:16]`, propose la liste `--purge-cmds` et sort en 1 si un motif matche (gate utilisable).

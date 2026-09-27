@@ -66,7 +66,7 @@ skills:
     - spike
     - weekly-review-planning
     - youtube-content
-_config_version: 45
+_config_version: 46
 agent: {}
 fallback_model:
   # Repli 1 = modele gratuit CONCRET et autorise par la cle hermes_veille

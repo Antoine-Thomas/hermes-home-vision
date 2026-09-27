@@ -45,6 +45,11 @@ hermes config unset providers.exemple    # retire le provider
 hermes config unset EXEMPLE_API_KEY      # retire la cle de .env (un commentaire "# --- EXEMPLE_API_KEY ---" reste comme trace)
 ```
 
+`hermes config set` ne valide pas les cles : une cle inconnue est ecrite avec un simple
+avertissement (`'x.y' is not a recognized config key — it was saved anyway`). Une faute de frappe
+persiste donc en silence dans `config.yaml` — relire avec `hermes config get <cle>` apres chaque
+`set`, c'est la seule relecture qui vaut.
+
 Cles de provider custom reconnues : `api` / `base_url` / `url` (equivalentes),
 `key_env` ou `api_key_env`, `transport` ou `api_mode` (`chat_completions`),
 `default_model`, `models`. NE PAS ecrire `type: openai` (ignore) ni
@@ -120,6 +125,16 @@ d'un dossier a l'autre, signe un probleme provider, pas de chemin. Obtenir
 l'erreur brute du provider avant toute correction (triage en 3 sondes :
 `references/custom-openai-provider.md`).
 
+**`<modele> via custom unavailable` : `custom` est l'etiquette du provider a `base_url` locale, pas
+un service distinct.** Dans un avertissement de repli (`eco via custom unavailable (rate limit)`),
+la partie apres `via` est le nom que la resolution a donne au provider de l'etage : un endpoint
+local declare par sa seule `base_url` s'affiche `custom` meme quand `providers.<id>.name` vaut
+`OmniRoute` (et `state.db` porte alors `billing_provider = custom`). Ne pas partir diagnostiquer le
+provider `custom` de `auxiliary.vision` : c'est le meme routeur local qui est rate-limite, et la
+suite de la chaine le confirme (`... using nvidia-stack via omniroute`). Corollaire :
+`hermes usage` sur un provider local rend « No account usage available for provider 'omniroute' »
+(aucun endpoint de conso) — ce n'est pas une preuve que le provider est en panne.
+
 **Entrees gatees par OAuth.** Une entree vers un provider OAuth non connecte
 (`nous`, `minimax-oauth`) ne resout pas : controler
 `hermes auth status <provider>` (`logged out` = entree inutile).
@@ -139,6 +154,27 @@ balance` sur chacun des 9 modeles. L'etage reste alors inutile en repli : il cou
 un appel perdu a chaque bascule. Le dire, et proposer soit de recharger le compte,
 soit de retirer l'etage (un 402 est classe facturation, donc la chaine avance —
 mais elle avance moins vite).
+
+**Inversement : un solde a zero et un drapeau `billing` ne prouvent PAS que l'endpoint refuse.** Avant
+de basculer un premier ou de rebrancher un service sur un diagnostic « le fournisseur X est en 402 »,
+reproduire la panne : deux routes du meme fournisseur peuvent avoir deux politiques (route `alpha`
+experimentale vs route stable), et un endpoint hors `/v1/chat/completions` (decisions, embeddings)
+peut repondre 200 alors que le solde du compte vaut 0. Sondes, dans cet ordre :
+
+```bash
+# 1. solde reel cote fournisseur (OpenRouter) — pas le drapeau interne
+curl -s -H "Authorization: Bearer $OPENROUTER_API_KEY" https://openrouter.ai/api/v1/credits
+curl -s -H "Authorization: Bearer $OPENROUTER_API_KEY" https://openrouter.ai/api/v1/key
+# 2. l'endpoint REELLEMENT appele, avec la vraie cle (chaque route se teste separement)
+```
+
+Un `failure_reason: "billing"` dans `auth.json` est un **marquage d'Hermes**, pas une mesure du
+fournisseur : il persiste apres la reprise du service. Mesure : `total_credits: 0`,
+`is_free_tier: true`, et pourtant 5 appels de decisions reussis (200, cout annonce ~1,2e-5 $) sur les
+deux routes. Rapporter ce constat meme s'il contredit la demande de bascule : appliquer la bascule sur
+une premisse fausse degrade l'installation pour rien. Et chercher la trace avant de conclure : un
+`grep` sur « 402 » dans `logs/*.log` ramene aussi des numeros de ligne et des horodatages — lire les
+lignes entieres.
 
 **Le nom marketing n'est pas l'ID API.** Interroger `/v1/models` du provider
 avant de figer la config (ex. « Nemotron 3 Ultra » ->
@@ -294,6 +330,15 @@ restore en bloc — restaurer cle par cle, via `hermes config set`, jamais `git 
 Un `yaml.safe_dump` global est a exclure deux fois : les tools refusent d'ecrire `config.yaml`, et le
 dump perd commentaires + ordre.
 
+**Ce clone vit avec du bruit permanent : un commit « isole » se joue au staging, pas au message.**
+`git status` montre en permanence des fichiers modifies hors sujet (`skills/.usage.json`,
+`.curator_state`, `plugin-update-checks/`, `*.bundled_manifest`, `cron/usage_audit.jsonl`) et des
+reformatages de `config.yaml` (listes repliees puis derepliees par les outils Hermes). Un
+`git add config.yaml && git commit` apres un `hermes config set` embarque donc tout ce bruit : lire
+`git diff --stat`, puis stager au hunk (`git add -p`, ou un `git diff -- config.yaml` filtre sur les
+seules lignes `model.default` / `model.provider` / `fallback_providers`). Quand l'utilisateur demande
+un commit isole, c'est le contenu du commit qui le rend isole, pas son message.
+
 **Apres `config set model.provider <x>`, `model.base_url` disparait — c'est normal.** La resolution
 retombe alors sur `providers.<x>.api` : verifier le base_url reellement utilise dans `state.db`
 (`session_model_usage.billing_base_url`), pas dans `config.yaml`. Ne pas le reecrire « pour etre
@@ -362,3 +407,9 @@ Mesure : 0,36 s, 337 tokens in / 47 out, `usage.cost` 0,000014154 $ la question 
 appels, ~1,4 $ / 100 000) — negligeable devant un tour de chat paye, mais pas nul : ne l'appeler
 qu'aux points de decision. Proposer un tel modele pour un role auxiliaire (pre-filtre, routage)
 reste une decision de l'utilisateur : l'annoncer comme tel, ne rien installer sans son accord.
+
+**Repli local d'un primitif de decision** : un modele type (oui/non, choix, note) exporte en ONNX
+tourne sur le CPU sans PyTorch, hors ligne et a cout nul (~190 ms par decision) — il peut remplacer un
+service de decisions payant dans du code, jamais un tour de chat ni un job d'agent qui doit REDIGER
+(voir la skill `laya-onnx-windows`). Un modele local ne s'ajoute pas non plus a la chaine :
+`fallback_providers` n'attend que des completions.

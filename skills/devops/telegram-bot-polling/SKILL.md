@@ -53,6 +53,43 @@ re-delivering the same update forever.
   only belong to one profile" when two profiles carry the same token. Then stop the rogue gateway and disable its
   `Hermes_Gateway_<name>` scheduled task. Full procedure in
   `references/windows-surveillance-bot.md`.
+- **Un 409 qui survit a ~200 s de retries n'est pas forcement un second poller — verifier le
+  MULTIPLEXAGE avant de chercher un process rogue.** Avec `gateway.multiplex_profiles: true`, UN
+  gateway sert tous les profils : `hermes gateway list` affiche `veille — served by the default
+  multiplexer` / `watch — …`, et les taches `Hermes_Gateway_<nom>` n'existent legitimement pas — donc
+  `Get-CimInstance … -match 'profile <nom>'` ne trouve rien et la these du doublon est sans objet.
+  Prouver d'abord que les jetons sont distincts (`getMe` sur le `.env` de CHAQUE profil -> `@username`
+  et id differents), puis lire `profiles/<nom>/logs/gateway.log` : l'adaptateur integre retente 5 fois
+  etalees sur ~200 s (`Telegram polling conflict (n/5) — previous session still held open`) puis
+  **abandonne ce profil pour de bon** (`Fatal telegram adapter error for multiplexed profile <nom>
+  (telegram_polling_conflict)`) alors que les autres profils continuent de servir. La reprise est
+  `hermes gateway restart`, qui re-etablit l'adaptateur — **valable seulement si le concurrent est
+  le gateway lui-meme** (tache `Hermes_Gateway_<nom>` oubliee). Si le concurrent est externe au
+  poste, le restart ne fait que rejouer le conflit : le diagnostiquer comme ci-dessous. Deux process `gateway run` portant la meme
+  `CreationDate` dont l'enfant a pour PPID le parent sont un couple lanceur/enfant, pas deux pollers.
+
+- **Trancher « concurrent local » vs « concurrent externe » : arreter le gateway, puis sonder chaque
+  jeton.** Une fois le multiplexage ecarte, l'ordre des operations decide du verdict :
+  `hermes gateway stop`, attendre >10 s (le long-poll d'un process tue reste tenu cote Telegram
+  quelques secondes — sonder trop tot rend un 409 trompeur), puis
+  `curl -s -o /dev/null -w '%{http_code}' "https://api.telegram.org/bot<TOKEN>/getUpdates?timeout=25&limit=1"`
+  sur le `.env` de CHAQUE profil — probe LONG (25 s), jamais 3 s : un probe court peut se glisser
+  entre deux long-polls du concurrent et rendre un faux 200. 200 = jeton libre ; 409 = un poller le
+  tient encore. Un 409 qui
+  survit plusieurs minutes gateway eteint n'est pas un residu, c'est un autre consommateur. Localiser
+  ensuite : `Get-NetTCPConnection -State Established | Where-Object { $_.RemoteAddress -like
+  '149.154.*' }` (plage API Telegram) puis mapper le PID au process. Si seul le PID du gateway
+  apparait, et qu'une recherche hors du home Hermes (`search_files`) ne trouve aucun fichier, le concurrent est
+  EXTERNE (autre machine, service, deploiement oublie) : rien de local ne peut le corriger, la
+  seule issue est la rotation du jeton (BotFather -> Revoke) + bot neuf, valeur posee UNIQUEMENT
+  dans `profiles/<nom>/.env`. `getWebhookInfo` (url vide) elimine le cas webhook en une requete.
+- **Le compteur de conflit dit si le concurrent est persistant.** `Telegram polling conflict (n/5)`
+  qui repart a `(1/5)` apres chaque reconnexion = l'adaptateur se reconnecte avec succes puis se fait
+  tuer a nouveau -> concurrent persistant ; une session perimee, elle, escalade 1->5 une seule fois
+  sans jamais repartir de 1. Corollaire : `gateway_state.json` peut afficher
+  `"watch:telegram": {"state": "connected"}` alors que le log conflicte encore — l'etat alterne
+  `connected` / `retrying`, donc un `connected` lu une fois ne prouve pas un profil sain : lire le
+  log de l'adaptateur avant de declarer le profil UP.
 
 ## Validating a bot without printing secrets
 

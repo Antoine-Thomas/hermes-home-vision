@@ -204,6 +204,15 @@ foreach ($p in $Profils) {
 
     $gwPid = Get-PidDepuisState $p.StateFile
     $vivant = Test-GatewayVivant $gwPid
+    if (-not $vivant) {
+        # Hermes v0.21.5+ re-execute le gateway via runpy : le pid du state file
+        # est un process enfant dont la CommandLine ne contient plus 'gateway run'.
+        # Secours : retrouver le superviseur reel (python -m hermes_cli.main gateway run).
+        $superviseur = Get-CimInstance Win32_Process |
+            Where-Object { $_.CommandLine -match 'gateway\s+run' } |
+            Select-Object -First 1
+        if ($superviseur) { $vivant = $true; $gwPid = [int]$superviseur.ProcessId }
+    }
     $etat = if ($vivant) { 'up' } else { 'down' }
     $nouvelEtat[$p.Nom] = $etat
 
