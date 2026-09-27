@@ -9,7 +9,7 @@ auth.json
 *.key
 
 # ── Dépôt imbriqué / volumes externes ────────────────────────────────────────
-hermes-agent/
+/hermes-agent/
 data/
 bin/
 
