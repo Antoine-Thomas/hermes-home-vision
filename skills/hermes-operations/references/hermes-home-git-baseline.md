@@ -9,7 +9,15 @@ volumineuses ou sensibles, donc c'est le `.gitignore` qui porte la politique.
 - `git init` a la **racine du home** (`%LOCALAPPDATA%\hermes`), pas dans `skills/` : `profiles/` doit
   etre versionne dans le meme depot, sinon un rollback de profil reste impossible.
 - `hermes-agent/` est un depot git **imbrique** (et un venv) : l'ignorer, sinon l'index avale
-  l'historique upstream.
+  l'historique upstream — mais **ancrer le motif** (`/hermes-agent/`, jamais `hermes-agent/`). Un motif
+  de dossier non ancre matche a **n'importe quelle profondeur** : `hermes-agent/` avale aussi le skill
+  bundled `skills/<categorie>/hermes-agent/` (et ses copies de profil), qui reste alors **hors du depot,
+  donc absent du point de restauration** — silencieusement, puisque le dossier existe bien sur le disque.
+  Le symptome est un `git status` qui ne voit JAMAIS ce skill, meme apres l'avoir edite ou y avoir
+  ajoute des fichiers. Diagnostic en deux commandes : `git check-ignore -v <chemin>` (nomme le motif et
+  sa ligne) et `git ls-files <dossier>` (**vide = non suivi**). Appliquer ce controle a tout skill dont
+  le nom est aussi celui d'un dossier ignore (checkout, vendor, dossier d'outil) avant d'affirmer qu'un
+  skill est sauvegarde — et le dire a l'operateur plutot que de presenter la copie locale comme versionnee.
 - `data/` contient d'autres depots imbriques (`data/nim-clients/.git`) et des venv : ignorer `data/`
   en bloc.
 
@@ -36,6 +44,14 @@ volumineuses ou sensibles, donc c'est le `.gitignore` qui porte la politique.
   dans le `.gitignore` est re-indexe par le `git add -A` suivant (le fichier est toujours sur le
   disque) : retrait + motif + commit en un seul geste, puis `git check-ignore -v <f>` pour le prouver.
   Un dossier retire du suivi pendant une fusion est revenu exactement comme ca.
+- **Un motif littéral ne matche que le DEBUT du nom.** `.bak_` (ni `**/.bak_`) ne matche jamais
+  `cron/jobs.json.bak_nemotron_<ts>` : le motif est un suffixe du nom, pas un prefixe, donc l'ecrire
+  `*.bak_*` / `**/*.bak_*` (alignes sur le bloc `*.bak` / `*.bak.*` deja present). Prouver par
+  `git check-ignore --no-index -v <chemin>` sur un chemin **relatif a la racine du depot** : depuis
+  l'interieur d'un dossier deja ignore (`cache/`, `logs/`), `git check-ignore` matche la regle du
+  PARENT et rend un « ignore » trompeur alors que le motif de fichier ne matche rien. Ajouter une
+  sonde synthetique (`probe.bak_2026`) au test : elle seule distingue « mon motif marche » de
+  « le dossier parent est ignore ».
 - **Un home accumule des residus volatils** : stamps de build, `.update_check`, `install_id`,
   `*.bak_<horodatage>`, copies du runtime Node/LSP, sorties de sondes. Nettoyage :
   `git ls-files > liste_avant.txt` (le seul retour arriere reellement utile), puis `git rm --cached` —

@@ -322,6 +322,36 @@ et `snapshot/config.yaml.redacted` n'a **aucun régénérateur** (le scanner de 
 seul, sans mode export) — le rafraîchir signifierait inventer un format : le laisser tel quel et le
 signaler.
 
+**Une liste de décisions numérotée (D1…Dn) fournie par l'opérateur s'applique à la lettre, item par
+item, et s'arrête à ses propres gates.**
+
+- **Une consigne littérale qui n'atteint pas son but se SIGNALE, elle ne se corrige pas en silence.**
+  Un motif `.gitignore` sans joker (`.bak_`) ne matche que le fichier nommé exactement `.bak_` : le
+  prouver avec `git check-ignore --no-index -v <chemin réel>` sur les vrais fichiers ET une sonde
+  (`probe.bak_2026`), puis proposer le motif qui couvre (`*.bak_*`) et attendre le GO. Un fichier déjà
+  SUIVI n'est de toute façon jamais concerné par `.gitignore` : `git rm --cached` le fait réapparaître
+  en non suivi si aucun motif ne le couvre — c'est le seul cas encore attrapable par un `git add -A`,
+  donc celui à nommer dans le rapport.
+- **Un item hors dépôt (sous `data/`, chemin ignoré) ou sans fichier se traite et se rapporte, mais ne
+  se committe pas** : l'annoncer par item (« hors dépôt, non committable ») sans inventer de chemin de
+  remplacement. Un item dont la cible a disparu change de NATURE, pas seulement de valeur —
+  « réparer un fichier tronqué » devient « réassembler un livrable absent » — et se réécrit ainsi.
+- **Un item de code se prouve par ses DEUX branches, exécutées sans réseau** (monkeypatch de la
+  primitive externe) : branche nominale ET branche dégradée, en comparant clé par clé les valeurs
+  exactes exigées par la décision, plus le code de sortie CLI dans les deux modes (`--json` et texte).
+- **Les gates de l'opérateur s'exécutent dans l'ordre annoncé** : `git diff --cached` complet, puis le
+  scan de secrets SUR LE DIFF indexé, motif par motif (`for m in sk- gh_ AKIA AIza xox hf_ nvapi- JWT;
+  do git diff --cached | grep -cE "$m"; done`), puis le contrôle nommé (ACLs, config). **Un gate ROUGE
+  arrête le commit** : nommer l'item fautif et sa commande de correction, laisser l'index prêt, et
+  proposer des options numérotées (« GO tel quel » / « GO correction d'abord » / « GO motif corrigé »)
+  plutôt que de committer presque ou de pousser pour finir.
+- **Un fichier réécrit par un outil se mesure avant d'être accusé de reformatage** : un patch qui
+  affiche tout le fichier en +/- peut n'avoir changé que 2 lignes. Trancher par `git diff --numstat`
+  (2/0 attendu), `git diff --stat` et `grep -c $'\r' <fichier>` (0 CRLF attendu) — `.gitattributes`
+  (`* text=auto eol=lf`) normalise à l'index, donc l'avertissement CRLF de git n'est pas un écart.
+- **« Ne pas pousser avant mon go » est absolu** : commit seulement, jamais `git push`, et l'état de
+  l'index se rapporte tel quel (prêt, rien perdu) entre deux tours.
+
 ## Multi-bot Telegram (deux bots = deux profils)
 
 Voir `references/multi-telegram-bots.md` : 1 `TELEGRAM_BOT_TOKEN` = 1 bot ; plusieurs bots simultanés exigent plusieurs profils (`hermes profile create watch --clone`, `hermes -p <profil> gateway start` + `hermes gateway start`). Parc actuel : `default`=@Hermes_assistante_2026_bot (chat principal), `veille`=@Hermesveille1_veille_bot (**bot de veille de l'utilisateur**), `watch`=@Omaths2_watch_bot (bot distinct — PAS le bot de veille, ne pas confondre). Ne pas injecter `channel_directory.json` à la main — l'appairage se fait au premier `/ping` Telegram.
@@ -906,6 +936,21 @@ la ligne du scheduler dans `agent.log`.
   scan pré-commit par empreinte et une liste d'exclusion explicite (jetons tiers, sessions, binaires) :
   recette et motifs dans `references/hermes-home-git-baseline.md`. Un motif oublié se rattrape
   (`git rm --cached`) tant que le commit n'est pas poussé — après, la rotation est la seule sortie.
+- **Les permissions du système de fichiers font partie de la surface de fuite : un `.env` qui hérite
+  d'un groupe sandbox/outil reste lisible par lui.** Cible : Système(F), Administrateurs(F), utilisateur
+  courant(F), héritage coupé. Geste insensible à la locale (Windows FR affiche « Système »,
+  « Administrateurs »), donc par SID : `icacls <fichier> /inheritance:r /grant:r '*S-1-5-18:(F)'
+  '*S-1-5-32-544:(F)' '*S-1-5-21-<…>-1001:(F)'` ; vérifier ensuite fichier par fichier :
+  `(Get-Acl <f>).Access | % { $_.IdentityReference + '|' + $_.FileSystemRights + '|' + $_.IsInherited }`.
+  Sur un DOSSIER, `/T` étend l'opération aux enfants, et un déplacement INTRA-VOLUME **conserve** les
+  ACEs d'origine du fichier : (re)poser l'ACL APRÈS le déplacement, jamais avant. Contrôler aussi les
+  fichiers que la liste d'audit ne nommait pas : un `.env` créé APRÈS l'audit garde l'héritage et fait
+  échouer le contrôle « les N .env sont propres » — c'est un gate rouge, donc pas de commit.
+- **Une sauvegarde de secret (`.env.bak_*`) se DÉPLACE hors du home, elle ne se supprime pas.**
+  Destination dédiée hors du dépôt (`%USERPROFILE%\<dossier>`), avec **structure miroir par profil** :
+  trois `.env.bak_<horodatage>` homonymes de profils différents s'écraseraient dans un dossier plat.
+  Preuve à rapporter : `sha256` avant/après sur chacun + absence de la source, puis ACL restreinte
+  (point précédent).
 - Carte des fuites, nettoyage (CRLF, blocs de `.hermes_history`, longueur constante, reconstruction FTS),
   vérification par empreinte quand la valeur n'existe plus, risque selon le type de jeton, séquence de
   rotation : `references/token-leak-audit.md`.

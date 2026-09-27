@@ -134,3 +134,31 @@ d'une application locale, `token.sec` d'un sidecar. Le reposer dans un seul cass
   valeur de restauration est nulle une fois les jetons révoqués.
 - Un jeton d'application locale se rotte côté application (l'app réécrit son `conf.json`), puis se
   répercute sur les `.env` qui le portaient : vérifier les deux sens avant d'annoncer la rotation finie.
+
+## 9. Confinement : ACL des `.env` et sauvegardes hors du dépôt
+
+Un motif dans le `.gitignore` empêche de **publier** un `.env`, pas de le **lire** : un `.env` ou une de
+ses copies posé dans l'arbre du dépôt reste une surface (copie de dossier, zip, indexation, sauvegarde).
+Deux gestes de confinement, à faire dans cet ordre :
+
+1. **Sortir les copies du dépôt.** Destination par défaut : `%USERPROFILE%\hermes-secrets-backup\` avec
+   une **arborescence miroir par profil** (`default`, `veille`, `watch`, `docs-writer`…) — sans elle, les
+   `.env` homonymes s'écrasent entre eux. Prouver la copie avant de considérer le déplacement fait :
+   `sha256` de chaque fichier identique avant/après.
+2. **Restreindre les ACL**, sur place **et** sur la destination.
+
+```powershell
+# SIDs intégrés, pas de noms de comptes : la commande reste valable sur un Windows localisé
+icacls "<fichier>" /inheritance:r /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" "<SID-utilisateur>:(F)"
+icacls "<dossier>" /inheritance:r /grant:r "*S-1-5-18:(F)" "*S-1-5-32-544:(F)" "<SID-utilisateur>:(F)" /T /C
+```
+
+- **Un déplacement conserve l'ACL d'origine** : le fichier arrive avec ses héritages (ici un groupe de
+  sandbox en `(I)(RX)`) → réappliquer au **dossier de destination** avec `/T /C`, pas seulement aux
+  fichiers un par un.
+- **Vérifier en MESURANT, pas en relisant la commande** : compter les ACEs (attendu : 3, aucune héritée)
+  et prouver l'**absence** du groupe indésirable sur *chaque* fichier ; un `CodexSandboxUsers:(I)(RX)`
+  résiduel sur un seul des quatre `.env` suffit à faire échouer le contrôle.
+- **La liste d'audit se périme** : un `.env` de profil créé APRÈS l'audit porte l'ACL héritée d'origine et
+  rouvre le trou. Balayer tous les profils existants au moment du contrôle (pas la liste citée dans le
+  brief) et refaire la mesure avant chaque commit de sécurité.
