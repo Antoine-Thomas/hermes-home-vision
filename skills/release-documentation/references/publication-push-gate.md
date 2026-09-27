@@ -64,6 +64,15 @@ visibles et partent avec le commit (1 Ko chacun) — l'annoncer au lieu de croir
 Faire relire le fichier apres ecriture, puis **recompter** `git status --porcelain` : le compte reel
 apres exclusions n'est pas celui annonce avant.
 
+**Avant d'ajouter une ligne, verifier ce qui est DEJA couvert** : `git check-ignore -v <chemin>` nomme
+la regle qui matche (fichier + numero de ligne). Sur un repertoire de profil, `.gitignore` couvre deja
+`state.db*`, `sessions/`, `cache/`, `logs/`, `workspace/` et `.env` ; seuls `plans/` et `locks/` ne le
+sont pas. Donc pour un **profil de travail** qui n'a rien a publier : **une seule ligne de dossier**
+(`/profiles/<nom>/`, ancree a la racine), precedee d'une ligne de commentaire qui dit pourquoi il n'est
+pas versionne — jamais une ligne par fichier, et jamais une ligne redondante avec une regle existante
+(elle se relit comme un oubli et noie le fichier). Preuve a rapporter : `git status --porcelain
+profiles/<nom>/` vide **et** le profil absent du porcelain global.
+
 Bonus : un chemin exclu n'est plus indexable par accident — `git add <chemin>` echoue sans `-f` (git
 le liste comme ignore). L'exclusion sert donc aussi de garde-fou contre un `git add` lance trop
 large.
@@ -119,6 +128,16 @@ appliques :
 Identiques = contenu identique ; `git update-index --refresh -- <fichier>` (metadonnees de stat
 seulement, aucun contenu) fait disparaitre le `M`. Ne pas annoncer « diff restant » sur la seule
 colonne de `git status`.
+
+**Un `sha256sum` brut ne se compare JAMAIS avec un sha256 d'index, de blob ou de ledger.** Le fichier
+sur disque est en CRLF, `.gitattributes` (`* text=auto eol=lf`) le normalise en LF a l'index : les
+empreintes different toujours (mesure : trois valeurs distinctes pour un fichier d'aplomb — disque,
+blob indexe, sha256 du ledger). Comparer des **blobs** (`git hash-object --path`), pas des sha256
+bruts, et le dire plutot que de partir chasser un drift de contenu inexistant.
+
+La preuve la plus courte que le commit contient exactement l'etat du disque, **et** que le clone a le
+meme contenu : `git hash-object --path=<f> <f>` == `git rev-parse HEAD:<f>` cote depot canonique **et**
+cote clone — meme blob = meme contenu normalise, quelle que soit la fin de ligne locale.
 
 ### Verifier le tip distant sans ambiguite
 
@@ -176,6 +195,14 @@ cree a 12:36, section documentaire ecrite par la revue a 12:37:19.
 session a l'origine de la revue), `evidence.file_path`, et les sha256 `before`/`after` ; les contenus
 sont archives dans `.curator_backups/blobs/`.
 
+**Angle mort du ledger : il ne journalise que les ecritures passees par l'outillage de skill**
+(`skill_manage` / patch). Une ecriture **directe** du fichier — script Python, `write_file`,
+redirection shell — n'y laisse **aucune** entree, ni cote `curator` ni cote `agent`. Consequence a
+double sens : « pas d'entree curator apres mon ecriture » ne prouve pas qu'aucun tiers n'a ecrit ; et
+une ecriture faite par script est invisible dans l'historique du fichier. Le ledger sert donc a
+**attribuer** une ecriture a son auteur, jamais a **enumerer** les ecritures — la preuve d'immobilite
+reste `stat -c '%y'` + `wc -l` releves deux fois.
+
 Mesure par horodatage, avant tout commit d'un fichier de cette famille :
 
     stat -c '%y  %n' <fichiers> ; wc -l <fichiers>
@@ -208,3 +235,12 @@ Prouver qu'une proposition est **appliquee** par la **FIN** du texte propose, ja
 quand seule la tete de l'entree change (`v0.21.3` -> `v0.21.5`), les 70 premiers caracteres sont
 identiques et la comparaison conclut a tort « applique ». Confirmer par un controle direct du fait
 introduit (`grep -c "v0.21.5" memories/MEMORY.md`).
+
+### 6. L'angle mort du ledger
+
+Le ledger ne journalise que les ecritures passant par `skill_manage` ou `patch`. Une ecriture **directe**
+(script Python, redirection shell, edition manuelle) y est **invisible** : la derniere entree pour ce
+fichier peut donc etre **plus ancienne que le fichier lui-meme** (mesure : fusion ecrite a 12:44:18,
+derniere entree du ledger 12:40:06 — ecart non journalise). Consequence pratique : la date du ledger
+n'est **pas** une preuve suffisante pour affirmer « personne n'a touche ce fichier depuis X ». La
+preuve, c'est le **mtime du fichier**, releve deux fois a 30 s d'ecart (regle du point 3).
