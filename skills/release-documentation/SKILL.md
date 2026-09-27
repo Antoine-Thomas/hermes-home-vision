@@ -48,8 +48,10 @@ l'edition du corps de la release GitHub avec le meme fichier.
    depot (recette, sorties attendues et pieges : `references/publication-push-gate.md`) — le
    troisieme, **arbre figé** (`git status --porcelain` vide), est rouge en permanence ici parce que le
    runtime se reecrit tout seul (`config.yaml`, `cron/jobs.json`, `skills/.usage.json`) : figer cette
-   derive est un commit dedie qui met `config.yaml` sous version, donc une decision de l'utilisateur,
-   jamais une initiative d'agent. Enfin
+   derive est un commit dedie : **decision de l'utilisateur, jamais une initiative d'agent**, et il ne
+   se fait qu'apres avoir ecarte les artefacts d'outillage (`installs/`, `tools/`) et remis a HEAD un
+   eventuel bloc de test laisse dans `config.yaml` — recette complete, exclusions locales et pieges de
+   comptage dans `references/publication-push-gate.md`. Enfin
    `gh release edit <tag> --notes-file docs/CHANGELOG-<v>.md`.
 
 ## Rendre la version visible sur la page d'accueil (README)
@@ -255,6 +257,8 @@ tableau — c'est la que l'utilisateur decide.
 
 - Skill `github` (authentification, releases, `gh`), skill `llm-wiki` (compilation
   non-agentique du wiki). La recette locale du wiki et de SiYuan est dans
-  `references/wiki-l1-et-siyuan.md`, le verificateur dans `scripts/verify_wiki.py`. Les trois controles bloquants de publication, la mesure de ce qui part reellement dans un push et le rafraichissement d'un clone en retard sont dans `references/publication-push-gate.md`. Le skill
+  `references/wiki-l1-et-siyuan.md`, le verificateur dans `scripts/verify_wiki.py`. Les trois controles bloquants de publication, la mesure de ce qui part reellement dans un push, la recette de figeage de la derive (exclusions
+locales, lecture des colonnes de `git status --porcelain`, preuve du tip distant) et le
+rafraichissement d'un clone en retard sont dans `references/publication-push-gate.md`. Le skill
   `github` est un bundle (non modifiable) : les recettes GitHub propres a ce depot vivent donc ici,
   section « Rendre la version visible sur la page d'accueil ».
