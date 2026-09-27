@@ -1,7 +1,7 @@
 RTX 3070 Ti 8 Go: SDXL LoRA non viable (spill WDDM, 207 s/pas @1024, 37 @512). Validé = SD 1.5 512px: 1,8 s/pas, 3,5 Go VRAM, 0 spill, 1800 pas/53 min sans reset. Plus de resets GPU depuis 16/09.
 §
 ## Hermes
-Hermes v0.21.3 (config v45). Gateway default+watch (schtasks), multiplex_profiles=false, backend 9119. Toolsets: hermes-cli, web, fichiers, terminal, browser. Mémoire native %LOCALAPPDATA%\hermes\memories\ (MEMORY.md+USER.md). Skills %LOCALAPPDATA%\hermes\skills\ (+.archive/). WP-CLI C:\wp-cli\wp.bat (PHP Local 10.1.2, 8.2.29/MySQL 8.4). Cron: reindex RAG 03h, check memory 08h, désaturer mémoire dim 04h.
+Hermes v0.21.5+2729.gcdcd53c (config v46). Gateway = tache planifiee Hermes_Gateway (+ Hermes_Gateway_HealthCheck), multiplex_profiles=true, 4 canaux en polling, aucun port d'ecoute. Backend 9119 (Hermes - serve backend) et RAG 8200 definis mais a l'arret. Toolsets: hermes-cli, web, fichiers, terminal, browser. Mémoire native %LOCALAPPDATA%\hermes\memories\ (MEMORY.md+USER.md). Skills %LOCALAPPDATA%\hermes\skills\ (+.archive/). WP-CLI C:\wp-cli\wp.bat (PHP Local 10.1.2, 8.2.29/MySQL 8.4). Cron: reindex RAG 03h, check memory 08h, désaturer mémoire dim 04h.
 §
 ## Second cerveau
 SiYuan 3.8.2 (6806), workspace C:\Users\searc\SiYuan\hermes-projects, 6 notebooks. RAG data\rag: chercher, indexer, router_memoire, audit_rag, scan_secrets, serveur_rag (8200); e5-base, cache.db TTL 24h, ~2300 frag. Routeur: hiérarchie 1→4, budget tokens, fraîcheur, contradictions.
