@@ -64,6 +64,14 @@ visibles et partent avec le commit (1 Ko chacun) — l'annoncer au lieu de croir
 Faire relire le fichier apres ecriture, puis **recompter** `git status --porcelain` : le compte reel
 apres exclusions n'est pas celui annonce avant.
 
+**Un `??` se classe par son EMPLACEMENT, pas par son statut git.** Les deux familles ci-dessus sont des
+artefacts a exclure ; a l'inverse la revue d'arriere-plan cree de vrais fichiers non suivis
+(`?? skills/<skill>/scripts/<outil>.py`) qui sont du **contenu** a committer. Lire le chemin avant de
+trancher : arbre d'installation ou de runtime (`installs/`, `tools/`, `plugin-update-checks/`,
+`source-checks/`) = exclure ; `skills/**` = committer. Un `??` laisse en derive d'un tour sur l'autre
+sans traitement nomme est le signe qu'aucune des deux decisions n'a ete prise — le dire dans le rapport
+plutot que le laisser pour compte.
+
 **Avant d'ajouter une ligne, verifier ce qui est DEJA couvert** : `git check-ignore -v <chemin>` nomme
 la regle qui matche (fichier + numero de ligne). Sur un repertoire de profil, `.gitignore` couvre deja
 `state.db*`, `sessions/`, `cache/`, `logs/`, `workspace/` et `.env` ; seuls `plans/` et `locks/` ne le
@@ -76,6 +84,30 @@ profiles/<nom>/` vide **et** le profil absent du porcelain global.
 Bonus : un chemin exclu n'est plus indexable par accident — `git add <chemin>` echoue sans `-f` (git
 le liste comme ignore). L'exclusion sert donc aussi de garde-fou contre un `git add` lance trop
 large.
+
+### `cron/jobs.json` : modifie en permanence par le planificateur
+
+Ce fichier porte les **definitions** de jobs (contenu utile) ET l'**etat de runtime** (`last_run_at`,
+`next_run_at`, `completed`, `lateness_seconds`). Le planificateur le reecrit a chaque tir de job : il est
+donc **TOUJOURS** sale. C'est un etat normal, pas une derive.
+
+Ne le committer que quand une **definition** change. Garde-fou, a lancer avant le `git add` :
+
+    git diff -U0 cron/jobs.json | grep -E '^[+-]' \
+      | grep -vE '"(completed|next_run_at|last_run_at|updated_at|scheduled_at|dispatched_at|lateness_seconds)"'
+
+Sortie **vide** = 100 % de bruit de runtime = on ne committe pas. Sortie **non vide** = une definition a
+bouge = on committe (le diff est alors petit et lisible, donc utile).
+
+Mesure (27/09/2026) : 24 lignes de diff (12 ajouts, 12 suppressions), dont **0** touchant une definition —
+les 24 se repartissent sur `completed` (4), `next_run_at` (4), `last_run_at` (4), `scheduled_at` (4),
+`dispatched_at` (4), `lateness_seconds` (2), `updated_at` (2), produites par 2 jobs sur 14. Le nombre de
+lignes varie donc avec le nombre de jobs qui tirent, pas avec le contenu : un seuil du type « moins de
+10 lignes = bruit, plus de 20 = contenu » classe a tort un diff de 24 lignes comme du contenu. Le fichier
+fait 697 lignes dont 87 (12,5 %) d'etat de runtime, et l'historique ne le committe que par figeage.
+
+Corollaire : dans tout releve de porcelain, la ligne ` M cron/jobs.json` **ne compte pas** comme une
+entree de derive. Un porcelain de 10 entrees dont 1 est `cron/jobs.json` = 9 vraies entrees.
 
 ### Les deux colonnes de `git status --porcelain` apres un `git add`
 
@@ -202,6 +234,14 @@ Mesure sur cette machine : skill patche a 12:22:41, memoire ecrite a 12:22:43, f
 **dans les 2 minutes** autour des ecritures de la session. Elle suit la session de tres pres : profil
 cree a 12:36, section documentaire ecrite par la revue a 12:37:19.
 
+**Elle repasse PENDANT une longue session, pas seulement apres.** Sur un seul tour de travail : deux
+passes a ~35 min d'intervalle, la seconde reecrivant 4 fichiers que la session venait de committer
+~40 min plus tot — la derive est ainsi repassee de 1 a 10 entrees sans que la session ait touche a une
+seule skill. Trois consequences a tenir : un arbre propre juste apres un commit est un etat
+**transitoire**, pas un acquis ; ne pas recommitter sa derive a chaque cycle (c'est un commit par passe)
+mais la **grouper** dans un gel dedie ; et ne pas lire sa reapparition comme un echec du commit
+precedent.
+
 ### 2. Comment le detecter
 
 `skills/.curator_ledger.jsonl` est la source de verite : une ligne JSON par ecriture, avec
@@ -230,6 +270,13 @@ la comparer a la seconde photo — une seule commande couvre les N fichiers et u
 
 `diff` muet = md5, mtime **et** taille inchanges sur tout le lot. Refaire la photo **juste avant le
 `git add`** : la fenetre de 3 min prouve le passe, pas l'instant de l'indexation.
+
+**Prouver qu'aucune nouvelle passe n'a eu lieu PENDANT la fenetre** : relever `wc -l
+skills/.curator_ledger.jsonl` et le `ts` de sa derniere ligne avant et apres le `sleep`. Compte et
+horodatage inchanges = la revue n'est pas repassee pendant la mesure ; un `ts` plus recent = elle est
+revenue et la stabilite des fichiers est a reprendre. Les deux controles sont complementaires : la photo
+des fichiers prouve l'immobilite, le ledger dit **par qui** et **quand** — et il est la seule source qui
+permette d'attribuer a la revue une derive que la session n'a pas produite.
 
 Le reste de l'identification (inventaire des processus reellement actifs, propositions en attente) est
 dans la section « revue d'arriere-plan » du skill `hermes-operations`.
