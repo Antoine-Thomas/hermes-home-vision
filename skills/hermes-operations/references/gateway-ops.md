@@ -24,3 +24,17 @@ Get-CimInstance Win32_Process -Filter "Name='python.exe'" | Where-Object {$_.Com
 ## Mémoire quasi pleine
 
 Limite 2200 chars. Avant d'ajouter photo/record/com, compacter le bloc Telegram en abrégeant (PID, NIM off, chemins courts), viser <2120. Runbook porte le détail (10750 chars après ajout surveillance).
+
+## Le libellé « running » de `hermes profile list` est trompeur
+
+`hermes profile list` affiche un statut Gateway par profil. Ce statut ne reflète **pas** la réalité du
+gateway : un profil peut apparaître `running` sans qu'aucun canal ne le serve.
+
+Mesure (27/09/2026) : `docs-writer` (profil créé à 12:36) affiche `running`, alors que
+`logs/gateway-health.state.json` ne le liste dans **aucun** battement — 12:00:04 et 13:00:05, canaux
+relevés : default, watch, surveillance_bot, veille. Aucun canal de messagerie n'est déclaré dans sa
+config : aucun bot ne peut lui parler.
+
+Ce que le libellé signifie réellement : le profil existe dans l'inventaire. Ce qu'il ne dit pas : le
+gateway le sert. Pour savoir si un canal est servi, la source est `logs/gateway-health.state.json`,
+jamais `hermes profile list`.
