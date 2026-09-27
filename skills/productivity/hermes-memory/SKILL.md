@@ -24,6 +24,21 @@ python "%LOCALAPPDATA%\hermes\data\rag\router_memoire.py" "question"
 - **Anti-accumulation**: Run `audit_rag.py` monthly to detect never-cited, obsolete, or redundant fragments.
 - **Secret Protection**: `indexer.py` automatically filters secrets (tokens, API keys) based on `SECRET_PATTERNS`.
 - **Memory Limits**: `check_memory.ps1` alerts when `MEMORY.md` > **2100** chars or `USER.md` > **1300** (older notes say 1375 for USER — 1300 is current). MEMORY's hard injection cap is 2200; 2100 is the early-warning line, so aim under the alert threshold, not merely under the cap. The script measures raw CRLF, so a Python `len(open(f).read())` on universal newlines reads ~2 chars/line LOWER and is not authoritative for the alert.
+  - **Which number actually gates the freeze.** The enforced caps are `memory_char_limit: 2200` and
+  `user_char_limit: 1375` in `config.yaml` (`write_approval` sits beside them). The memory *tool's*
+  own counter counts characters **excluding newlines** — a 23-line store measured 2303 raw chars
+  while the tool reported 2281 (= raw − newlines) — and it is that count which refuses an `add`. So
+  three numbers disagree on the same file (`wc -c` bytes > raw chars > the tool's count), and
+  accented French is what makes bytes exceed chars. Quote the limit in its own unit, and take the
+  authoritative figure from the tool's usage line (`79% — 1,751/2,200 chars`), never from `wc -c`.
+  - **The tool rewrites the store in CRLF.** A file you just wrote in LF gains bytes after the next
+  `add`/`remove` with an identical character count (git normalizes it, so `git status` stays clean):
+  a byte delta that comes with no character delta is not a failed write.
+  - **Prove the write path is unblocked without spending a model call.** Land a throwaway entry with
+  the memory tool, confirm the `add` is accepted (the response carries the usage line), then `remove`
+  it and confirm the entry list and the size return to their pre-test values. `hermes -z "..."`
+  exercises the same path but costs a model call — use the tool round-trip when the only goal is to
+  prove the freeze lifted.
 - **Desaturation**: When MEMORY.md or USER.md approaches saturation, archive old entries to SiYuan and rewrite to regain margin. Since 2026-09-17 this is scripted: `%LOCALAPPDATA%\hermes\scripts\desaturer_memoire.py` (`--dry-run` default, `--auto` only above the alert thresholds) + scheduled task « Hermes - desaturer memoire », Sunday 04:00, log `scripts/desaturation.log`. It requires SiYuan up (otherwise it changes nothing, exit 1), archives the whole file into `journal / Archive <FICHIER> - <date>` before rewriting, keeps a `.bak`, rolls back if the size is still over the threshold, and refuses to touch protected sections. Full decision rules in `references/desaturation.md`.
 - **Correcting a factual claim — measure first.** A memory line is a note, not a source: it has
   already carried a stale version and a stale config number. Measure before rewriting —

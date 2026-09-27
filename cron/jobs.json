@@ -208,19 +208,19 @@
       "schedule_display": "every 720m",
       "repeat": {
         "times": null,
-        "completed": 41
+        "completed": 42
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-09-01T22:16:25.696473+02:00",
-      "next_run_at": "2026-09-27T19:54:56.044734+02:00",
-      "last_run_at": "2026-09-27T07:54:56.044734+02:00",
-      "last_status": "ok",
-      "last_error": null,
+      "next_run_at": "2026-09-28T07:57:20.059604+02:00",
+      "last_run_at": "2026-09-27T19:57:20.059604+02:00",
+      "last_status": "error",
+      "last_error": "RuntimeError: openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning: provider — [openai/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning] [503]: ResourceExhausted: Worker local total request limit reached (16/16) (reset after 1s) (HTTP 503) (reset after 41s)",
       "last_delivery_error": null,
-      "failure_streak": 0,
+      "failure_streak": 1,
       "deliver": "local",
       "origin": {
         "platform": "telegram",
@@ -236,9 +236,9 @@
       "workdir": null,
       "fire_claim": null,
       "last_dispatch": {
-        "scheduled_at": "2026-09-27T07:54:23.670190+02:00",
-        "dispatched_at": "2026-09-27T07:54:52.273340+02:00",
-        "lateness_seconds": 28.6,
+        "scheduled_at": "2026-09-27T19:54:56.044734+02:00",
+        "dispatched_at": "2026-09-27T19:55:52.458495+02:00",
+        "lateness_seconds": 56.4,
         "kind": "on_time"
       }
     },
@@ -317,15 +317,15 @@
       "schedule_display": "every 60m",
       "repeat": {
         "times": null,
-        "completed": 319
+        "completed": 328
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-09-08T19:15:38.730681+02:00",
-      "next_run_at": "2026-09-27T13:10:47.171637+02:00",
-      "last_run_at": "2026-09-27T12:10:47.171637+02:00",
+      "next_run_at": "2026-09-27T22:19:13.347529+02:00",
+      "last_run_at": "2026-09-27T21:19:13.347529+02:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -336,9 +336,9 @@
       "enabled_toolsets": null,
       "workdir": null,
       "last_dispatch": {
-        "scheduled_at": "2026-09-27T12:09:27.970320+02:00",
-        "dispatched_at": "2026-09-27T12:09:52.282172+02:00",
-        "lateness_seconds": 24.3,
+        "scheduled_at": "2026-09-27T21:18:13.614007+02:00",
+        "dispatched_at": "2026-09-27T21:18:28.748478+02:00",
+        "lateness_seconds": 15.1,
         "kind": "on_time"
       },
       "fire_claim": null
@@ -412,15 +412,15 @@
       "schedule_display": "0 * * * *",
       "repeat": {
         "times": null,
-        "completed": 267
+        "completed": 276
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-09-11T19:50:30.184712+02:00",
-      "next_run_at": "2026-09-27T13:00:00+02:00",
-      "last_run_at": "2026-09-27T12:00:56.730801+02:00",
+      "next_run_at": "2026-09-27T22:00:00+02:00",
+      "last_run_at": "2026-09-27T21:01:04.602585+02:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -432,9 +432,9 @@
       "workdir": null,
       "fire_claim": null,
       "last_dispatch": {
-        "scheduled_at": "2026-09-27T12:00:00+02:00",
-        "dispatched_at": "2026-09-27T12:00:52.268197+02:00",
-        "lateness_seconds": 52.3,
+        "scheduled_at": "2026-09-27T21:00:00+02:00",
+        "dispatched_at": "2026-09-27T21:00:28.764361+02:00",
+        "lateness_seconds": 28.8,
         "kind": "on_time"
       }
     },
@@ -512,15 +512,15 @@
       "schedule_display": "0 */6 * * *",
       "repeat": {
         "times": null,
-        "completed": 8
+        "completed": 9
       },
       "enabled": true,
       "state": "scheduled",
       "paused_at": null,
       "paused_reason": null,
       "created_at": "2026-09-22T17:51:18.557409+02:00",
-      "next_run_at": "2026-09-27T18:00:00+02:00",
-      "last_run_at": "2026-09-27T12:00:52.829517+02:00",
+      "next_run_at": "2026-09-28T00:00:00+02:00",
+      "last_run_at": "2026-09-27T18:02:56.789898+02:00",
       "last_status": "ok",
       "last_error": null,
       "last_delivery_error": null,
@@ -532,8 +532,8 @@
       "workdir": null,
       "failure_deliver": "telegram",
       "last_dispatch": {
-        "scheduled_at": "2026-09-27T12:00:00+02:00",
-        "dispatched_at": "2026-09-27T12:00:52.268197+02:00",
+        "scheduled_at": "2026-09-27T18:00:00+02:00",
+        "dispatched_at": "2026-09-27T18:00:52.346515+02:00",
         "lateness_seconds": 52.3,
         "kind": "on_time"
       },
@@ -693,5 +693,5 @@
       "fire_claim": null
     }
   ],
-  "updated_at": "2026-09-27T12:10:47.187531+02:00"
+  "updated_at": "2026-09-27T21:19:13.348919+02:00"
 }

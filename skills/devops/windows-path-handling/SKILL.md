@@ -213,6 +213,13 @@ jamais contenu different. Deux parades, dans cet ordre :
 Corollaire pour une suppression : une comparaison suspecte (hash vide, moitie des fichiers
 « differents ») interdit de supprimer. Refaire la comparaison au bon chemin d'abord.
 
+Corollaire pour les empreintes : **un prefixe `\` sur la deuxieme valeur n'est PAS un ecart**. Sous
+MSYS, `md5sum` prefixe d'un antislash la sortie d'un chemin qui contient lui-meme des antislashs
+(octet d'echappement du format d'affichage). Comparer brutalement deux sorties ainsi produites rend
+« ECART » sur des fichiers identiques et fait douter d'une copie saine. Retirer le prefixe avant de
+comparer, ou trancher par une comparaison structurelle : `diff -r <neuf> <ancien>` (« arborescences
+identiques ») plus l'egalite des tailles fichier par fichier.
+
 Corollaire pour les artefacts de travail : une **sortie en chemin relatif atterrit dans le dernier
 `cd` de la session**, pas dans le dossier de l'outil qu'on croit. Un `curl -o resultat.json` et le
 `__pycache__` d'un script lance depuis son propre dossier se sont ainsi retrouves dans le dossier

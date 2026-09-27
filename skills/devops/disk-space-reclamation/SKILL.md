@@ -76,7 +76,17 @@ MISSING), ce qui donne directement le tableau du rapport. Garder `du -sh` pour u
 des enfants. C'est un signal d'ACTIVITE, a confirmer en regardant le mtime des sous-dossiers avant d'en
 conclure qu'une cible est morte.
 - **Toujours sortir une ligne MISSING / retypee** pour une cible introuvable ou d'une autre nature, au
-lieu de sauter la ligne : une cible absente du rapport passe pour inexistante.
+lieu de sauter la ligne : une cible absente du rapport passe pour inexistante. **Piege : c'est le
+constructeur de liste qui tue la ligne MISSING.** La boucle canonique
+`for d in <base>/* ; do [ -e "$d" ] && echo "$d" >> "$L" ; done` ecarte les chemins absents AVANT que
+le script ne les voie : le garde `[ -e ]` rend la ligne MISSING **structurellement impossible**, et une
+cible disparue n'apparait nulle part — ni mesuree, ni manquante. Ne pas mettre le filtre d'existence
+dans le constructeur : ecrire tous les chemins sans condition (le script les marque MISSING), ou
+verifier l'existence dans une passe separee et lister explicitement les absents dans le rapport.
+  Corollaire : les fichiers de travail de l'audit lui-meme (TSV, CSV, listes de cibles) vivent dans
+  `cache/scratch` et **comptent dans la cible mesuree** — un dossier de cache parait gros parce qu'il
+  contient le travail d'audit, pas parce qu'il est plein. Le dire plutot que de le proposer a la
+  suppression.
 - Ne pas lancer une lecture de contenu sur un fichier de nature inconnue : `read_file` sur un `.exe`
 deverse des pages d'octets illisibles et pollue la session. Etablir d'abord le type (extension, `file`,
 `stat -c %s`) et ne garder `read_file` que pour un fichier texte.
@@ -134,6 +144,17 @@ donnees gitignores : ce n'est pas un doublon.
 6. **Le cout de regeneration n'est pas le prix du telechargement.** Un artefact produit par un run long
 non reproductible en une commande (export/conversion de poids, index) se garde meme s'il est
 techniquement regenerable.
+
+7. **Un remplacement annonce n'est pas un remplacement verifie — et une migration d'API n'est pas un
+changement de configuration.** Un consommateur ecrit contre l'API NATIVE de son runtime (corps `prompt`,
+endpoint `/api/generate`, reponse lue dans `response`) ne se repointe PAS vers un routeur compatible OpenAI
+avec une URL et un nom de modele : c'est une reecriture du code d'appel du service. Quand une suppression de
+modeles locaux est justifiee par « on bascule sur autre chose », exiger que la bascule soit d'abord validee
+par des appels reels et garder les modeles locaux comme repli : sinon on supprime le seul chemin qui
+fonctionne, sur la foi d'un plan qui ne peut pas marcher tel quel. Corollaire de mesure : l'absence de trace
+d'usage n'est pas une preuve de non-usage — pour un runtime de modeles local, le mtime d'un poids est sa date
+de telechargement et le log du serveur tourne. Le dire comme une LIMITE de la mesure et decider avec
+l'utilisateur, jamais conclure « jamais appele » depuis un log vide.
 
 Et un controle de propriete : avant de proposer la suppression du dossier de travail d'un skill, verifier
 si ce skill est actif dans `config.yaml` (liste `skills.disabled`) — s'il est actif, la cible n'est pas
@@ -195,11 +216,33 @@ renomme (`$R<code>.<ext>`, metadonnees `$I*`) avant de le ranger dans `C:\$Recyc
 recherche par le nom d'origine ne trouve RIEN et fait conclure a tort « deja supprime » alors que les
 octets sont toujours occupes. Proposer de vider la corbeille — c'est une action de l'utilisateur, pas
 une initiative d'agent.
+- **Re-mesurer le chemin EXACT qui va etre supprime, pas le sous-chemin chiffre a l'audit.** Un audit qui
+a mesure `X/models` suivi d'une phase B qui supprime `X` rend plus que l'annonce, et l'ecart n'est plus
+explicable une fois les octets partis : mesure `X/localai/models` 19,02 Go contre `X/localai` 20,99 Go
+supprime = 1,97 Go sans explication. Chiffrer la cible telle qu'elle sera supprimee, et si un ecart
+apparait quand meme, enumerer les enfants du dossier AVANT de le supprimer pour pouvoir nommer les
+octets en trop.
+- **Ordonner les retraits AVANT l'arret du service quand les deux figurent dans le meme lot.** `ollama rm`
+exige le serveur vivant, et le CLI `ollama` RELANCE le serveur — et son auto-update — s'il est arrete :
+executer une consigne « arreter le service, puis retirer les modeles » annule l'arret. Faire les retraits
+d'abord, l'arret en dernier, et signaler la permutation dans le rapport quand la consigne donnait
+l'ordre inverse.
 
 ## Rapport — pieges
 
 - Ecrire la taille MESUREE, pas la taille annoncee : sur une meme session les chiffres d'audit differaient
 des mesures d'un facteur 2,5 a 6. Un tableau qui recopie l'inventaire d'origine propage l'erreur.
+- **La premisse de l'utilisateur se mesure comme le reste.** Quand un cadrage designe un responsable
+  (« ~200 Go occupes par tel outil »), mesurer son ou ses dossiers reels AVANT de batir le rapport
+dessus : un outil peut n'etre qu'un **squelette** (un depot de modele jamais telecharge pese quelques
+dizaines d'octets, un paquet pip vit hors de l'interpreteur de la session). Annoncer le chiffre mesure
+et rediriger vers ce qui occupe reellement le disque : citer « X Go » sur la foi d'un nom, c'est
+inventer un chiffre — et l'ecart peut se compter en ordres de grandeur, pas en pourcentage.
+- **Un affichage tronque n'est pas une mesure.** `ls -la <dossier> | head -4` coupe le listing apres
+  `.gitignore` : un dossier de 866 Mo se lit alors comme vide. Quand une observation contredit une
+  mesure deja faite, suspecter l'OBSERVATION (troncature, `head`, glob sans `-a`) avant de corriger le
+  chiffre — et recontroler par le compteur d'octets, jamais par une ligne de listing. Le dire si
+  l'ecart a ete vu par l'utilisateur : c'est le rapport qui a semble faux, pas la mesure.
 - Une cible vide (0 Mo) et une sauvegarde partielle sont deux ANOMALIES a signaler, pas a taire.
 - Un artefact durable range dans un dossier temporaire elague automatiquement (cache/scratch) est un
 risque de perte silencieuse, pas un fichier a supprimer : le dire et proposer l'emplacement durable.
@@ -209,6 +252,10 @@ plus vide.
 ## Fichiers
 
 - `scripts/measure-targets.ps1` — mesure taille + mtime d'une liste de cibles (enumeration .NET, TSV trie).
+- `scripts/delete-targets.py` — phase B : pour chaque cible, mesure -> suppression (retire l'attribut
+  lecture seule) -> verification d'absence -> cumul, plus `--dry-run` et refus des chemins racine. C'est le
+  pendant executable de `measure-targets.ps1` ; une cible encore presente est signalee RESTE et n'entre
+  pas dans le cumul.
 - `references/target-verdicts.md` — grille par categorie (cache d'outillage, cache de modeles,
   node_modules, archive d'installation, sauvegarde, snapshot d'etat, venv retire, runtime navigateur,
   dossier de travail de skill) : quoi verifier, verdict par defaut.

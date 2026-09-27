@@ -152,3 +152,18 @@ suivant ne remonte plus d'erreur.
    traité comme prioritaire — « it never beats an explicit YAML disable »), puis
    `hermes gateway restart`. Vérifier que le log ne re-tente plus
    `Reconnecting whatsapp`.
+11. **`common.get_recent_alerts()` renvoie 0 SANS erreur quand le manager Wazuh est
+   injoignable.** La fonction lit `alerts.json` via `docker exec` et ignore le code
+   retour : démon Docker arrêté ou conteneur absent ⇒ liste vide ⇒ la chaîne annonce
+   « aucune alertes » alors que la surveillance est morte. Un 0 en sortie n'est PAS une
+   preuve de calme : contrôler `docker ps` (les conteneurs `single-node-wazuh.*`
+   tournent ?) et `netstat -ano | grep -E ":(1514|1515|55000)"` avant toute conclusion.
+   Signature du manager absent côté agent Windows : boucle de
+   `ERROR (1216) Unable to connect to '[127.0.0.1]:1514/tcp'` + `ERROR (1208)` sur 1515.
+12. **`telegram.hermes_python` doit pointer sur un venv qui existe encore.** Après tout
+   changement de venv Hermes, vérifier le chemin de `config.json` : s'il est absent,
+   `send_telegram()` bascule en silence sur le `hermes` du PATH — les alertes partent
+   quand même, mais le diagnostic se perd. Contrôle : `ls <chemin>`. Et ne pas régler
+   `min_level` / `max_alerts_per_run` / les timeouts tant que la chaîne est coupée en
+   amont : accorder un seuil sur un flux mort ne prouve rien (et `window_minutes` est
+   ignoré par le code, la fenêtre réelle = les 1000 dernières lignes lues).
