@@ -233,7 +233,15 @@ l'edition laisse la version fausse en ligne, et c'est la release que le monde li
   la meme regle vit deux fois se contredit a la premiere correction.
 - **Un diff se montre AVANT d'ecrire** : `scripts/dryrun_edit.py` reconstruit le contenu en memoire,
   imprime le diff unifie et les comptes lignes/caracteres, et n'ecrit qu'avec `--write` — c'est ce diff
-  que l'operateur relit, et la preuve que le reste du fichier est intact.
+  que l'operateur relit, et la preuve que le reste du fichier est intact. Trois modes couvrent les cas
+  reels : `--mode replace` (defaut, `--avant`/`--apres`), `--mode append` (bloc en fin de fichier) et
+  `--mode insert-before --ancre '<ligne exacte>'` (bloc a un emplacement precis, ancre conservee). Le
+  nouveau texte passe par **`--text-file`**, jamais par la ligne de commande : un bloc de plusieurs
+  lignes ne traverse pas un guillemet bash quand le fichier cible est en CRLF, et les antislashs y sont
+  manges — ecrire le bloc dans `cache/scratch/` puis le passer par fichier. Les fins de ligne du fichier
+  cible sont detectees et preservees (un fichier CRLF edite en LF devient mixte, et le diff affiche
+  alors chaque ligne comme modifiee) ; l'ancre doit matcher exactement une fois, sinon refus sans
+  ecriture.
 - **Un compte attendu n'est pas un critere d'arret** : les writers de runtime reviennent en quelques
   minutes (`cron/jobs.json` : `completed` +1, `last_run_at`/`next_run_at`) et l'ecriture en cours de la
   session reste visible dans le porcelain. Le critere porte sur le **contenu du commit** : indexer par

@@ -164,6 +164,14 @@ a change sur 3 lignes.
   restaurer, puis substituer en OCTETS (`data.replace(b'agent\\.venv', b'agent\\venv')`) et relire les
   lignes touchees pour les afficher. Idem `re.sub` avec une chaine de remplacement (Regle 5).
 
+- **Un `\r\r` en fin de ligne dans une SORTIE CAPTUREE n'est pas un fichier corrompu.** `print()` en
+  mode texte traduit son `\n` en `\r\n` : une ligne qui se termine deja par un CR ressort donc
+  `...\r\r\n`, et un diff unifie parait porter deux retours chariot par ligne ajoutee. C'est un
+  artefact d'affichage, pas un contenu — le lire comme une corruption fait perdre le tour a chercher un
+  fichier mixte qui n'existe pas. Ne pas conclure depuis la sortie d'un outil : relire les octets en
+  Python (`"\r\r" in io.open(p, encoding="utf-8", newline="").read()` doit rendre `False`) et
+  comparer les compteurs (`wc -l`, caracteres, octets) — eux distinguent un CR de trop.
+
 ## Regle 8 — comparer un chemin imbrique : un hash vide signifie « absent », pas « different »
 
 Le repertoire courant **persiste entre les appels** d'une meme session de terminal. Sur un dossier
