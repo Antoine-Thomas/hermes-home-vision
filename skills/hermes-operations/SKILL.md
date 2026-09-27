@@ -35,6 +35,34 @@ touchés, **les archives sont récupérables et la suppression automatique n'exi
 `archive` plutôt qu'un `rm`. C'est aussi la commande à retrouver quand on cherche « où ai-je rangé ce
 skill » : `list-archived`, puis `restore`.
 
+### La revue d'arrière-plan écrit dans tes fichiers pendant ta session
+
+Un fichier de skill, `skills/.usage.json` ou `memories/MEMORY.md` qui change **sans action de ta part**
+vient presque toujours de la revue d'arrière-plan de la session en cours (fork du curateur), pas d'une
+seconde instance. Avant de conclure à un agent concurrent, inventorier les **piles réelles** :
+`Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'python|hermes' }` trié par
+`CreationDate` — les PID vont par chaînes (lanceur `hermes.exe`/venv + python `.hermes-runtime` +
+`tools/python-*`), donc un parc sain = **1 pile gateway + 1 pile chat**. Une écriture sans PID
+supplémentaire est un fork interne.
+
+Attribuer l'écriture à son auteur, dans cet ordre :
+
+- `skills/.curator_ledger.jsonl` : chaque entrée porte `actor` (`"curator"` = revue d'arrière-plan,
+  `"agent"` = tes propres `skill_manage`), `skill`, `before`/`after` en `sha256` et surtout
+  `evidence.session_id` — c'est lui qui désigne le writer.
+- `.curator_backups/blobs/<sha256>` : les états avant/après en clair, avec leur mtime (le `sha256` de
+  l'entrée de ledger s'y retrouve, ce qui donne la chronologie exacte).
+- `pending/memory/*.json` : `origin: "background_review"` = **propositions**, pas écritures — comparer
+  au contenu réel du fichier avant de dire qu'une entrée a été appliquée.
+- `logs/agent.log` : grepper l'id de session entre crochets (`[20260927_…]`). Les refus
+  `Refusing background curator patch for skill <X>: … not curator-managed` prouvent à la fois le fork
+  interne et sa borne (il ne touche jamais les skills bundled ni user-owned).
+
+**Ne jamais committer un fichier dont le writer est encore actif** : `stat -c '%y %n' <fichiers>` +
+`wc -l`, pause ~30 s, re-mesure — identiques = stable, on peut committer ; sinon on fige un état à
+moitié écrit et le diff audité n'est plus celui qui part. Et **un diff qui porte des lignes qu'on n'a
+pas écrites se NOMME** (message de commit, rapport) au lieu d'être absorbé en silence.
+
 ## ESTOP — what it does
 
 - Sentinel file: `%LOCALAPPDATA%/hermes/ESTOP` (written by `agent/estop.py`). Checked via `check_paused(component, logger)`.
@@ -964,8 +992,10 @@ procédure : une tentative de patch upstream échouée sur du code frais se rejo
 - `references/profile-provisioning.md` — provisionner un 2ᵉ profil isolé : section `providers:`
   obligatoire (sinon `Unknown provider`), clé dédiée posée par script, chaîne `fallback_model`,
   **ordre réel du repli (fusion `fallback_providers` + `fallback_model`, gratuit avant payant) et sa
-  preuve par défaillance forcée**, `skills.disabled`, SOUL qui nomme les interdits, et la preuve
-  d'inférence `hermes -p <profil> -z`.
+  preuve par défaillance forcée**, `skills.disabled`, SOUL qui nomme les interdits, preuve d'inférence
+  `hermes -p <profil> -z`, et **isolation d'une passe documentaire** (§6 bis) : worktree git dédié
+  (`-b <branche>` quand `main` est déjà cochée) + `terminal.cwd` du profil, profil de travail non
+  versionné par une seule ligne dans `.git/info/exclude`, `setup --non-interactive` sans effet.
 - `references/local-service-triage.md` — un port local ne répond plus : trancher « encore utile ou
   vestige » en lisant la base du routeur (`~/.omniroute/storage.sqlite` : `provider_connections`,
   `combos`, `call_logs`/`proxy_logs`), dater la panne, et retirer des deux côtés ou pas du tout.

@@ -179,6 +179,12 @@ l'edition laisse la version fausse en ligne, et c'est la release que le monde li
 
 - **UN commit pour tout le lot**, jamais un commit par livrable. Le message dit ce
   qui est documente.
+- **Sauf cycles separes demandes** : quand l'operateur nomme plusieurs decisions distinctes (figer la
+  derive, un lot documentaire, la memoire), chacune a son **propre cycle commit + push**, clos et
+  rapporte (hash complet + ligne de push) avant que le suivant soit engage — rien ne se glisse d'un
+  cycle dans l'autre. Dans ce mode le message porte le **compte reel** des entrees figees, et toute
+  ligne que la session n'a pas ecrite (passe concurrente) se **nomme** dans le message et dans le
+  rapport : un diff absorbe en silence n'est plus auditable.
 - **Gate anti-secret avant tout push** : scanner le diff INDEXE, pas le working
   tree —
   `git diff --cached -U0 | grep -nE "sk-[A-Za-z0-9]{20,}|AIza[A-Za-z0-9_-]{30,}|nvapi-[A-Za-z0-9_-]{20,}|xoxb-|ghp_[A-Za-z0-9]{20,}|-----BEGIN.*PRIVATE KEY"`.
@@ -259,6 +265,9 @@ tableau — c'est la que l'utilisateur decide.
   non-agentique du wiki). La recette locale du wiki et de SiYuan est dans
   `references/wiki-l1-et-siyuan.md`, le verificateur dans `scripts/verify_wiki.py`. Les trois controles bloquants de publication, la mesure de ce qui part reellement dans un push, la recette de figeage de la derive (exclusions
 locales, lecture des colonnes de `git status --porcelain`, preuve du tip distant) et le
-rafraichissement d'un clone en retard sont dans `references/publication-push-gate.md`. Le skill
+rafraichissement d'un clone en retard, et l'**ecriture concurrente de la revue d'arriere-plan** (elle
+  ecrit dans les 2 min qui suivent une ecriture de session : attendre ~3 min, prouver la stabilite par
+  mtime + `wc -l`, s'orienter dans `skills/.curator_ledger.jsonl`, ne pas confondre
+  `pending/memory/*.json` avec une ecriture) sont dans `references/publication-push-gate.md`. Le skill
   `github` est un bundle (non modifiable) : les recettes GitHub propres a ce depot vivent donc ici,
   section « Rendre la version visible sur la page d'accueil ».

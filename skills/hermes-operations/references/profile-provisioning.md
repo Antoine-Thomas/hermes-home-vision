@@ -9,6 +9,17 @@ façon trompeuse (voir plus bas).
 
 Ordre de travail : fournisseur → clé → modèle → repli → skills → SOUL → **preuve d'inférence**.
 
+`hermes profile create <nom>` (sans `--clone`) suffit pour partir d'un profil nu, et **ne touche pas au
+`config.yaml` principal** — le prouver par `sha256sum config.yaml` avant/après (empreinte identique),
+c'est le contrôle qu'attend un opérateur qui a interdit d'y toucher. Ce que la commande produit :
+`profiles/<nom>/` avec un `config.yaml` minimal (`model: {default, provider}` + `_config_version`),
+un `.env` sans clé, SOUL.md, **les skills bundled synchronisées** (« N bundled skills synced » —
+compter et le dire, l'opérateur croit souvent qu'on lui copie ses skills), et un lanceur
+`~/.local/bin/<nom>.bat`. `state.db` n'apparaît qu'au premier `hermes -p <nom> …`. Un nom avec tiret
+est accepté (`docs-writer`), et `--no-skills` évite même les bundled si le profil doit rester vide.
+Le modèle du profil neuf est recopié du profil principal (`deepseek-flash` ici) : les clés manquent,
+donc `hermes -p <nom> setup` (ou héritage des clés du shell) avant toute inférence.
+
 ## 1. La section `providers:` est obligatoire
 
 `model.provider` ne suffit pas. Un profil dont le `config.yaml` ne contient que
@@ -127,6 +138,48 @@ Le `.env` par profil isole les **clés**, pas tout : `auth.json` reste à la rac
 profils — c'est lui qui fournit la recherche web. Un profil « isolé » a donc accès à des credentials
 qu'on n'a pas mis dans son `.env`. Le documenter dans le SOUL **et** dans le rapport, plutôt que de
 laisser croire à une isolation totale.
+
+**L'isolation ne couvre pas l'arbre de travail git.** Le profil a ses propres `skills/`, `memories/`,
+`config.yaml` et `state.db` — c'est ce qui empêche ses passes de doc de salir les fichiers du profil
+principal — mais un `terminal.cwd` pointé sur le dépôt canonique
+(`hermes -p <nom> config set terminal.cwd <chemin>`, clé **scalaire** réelle, section `terminal:`,
+relue par `config get terminal.cwd`) fait écrire la session dans le **même working tree**. Un profil
+« dédié » ne protège donc pas l'arbre git de la dérive : le dire, et pour séparer vraiment pointer le
+cwd sur un second clone ou un worktree — décision distincte, à demander.
+
+### 6 bis. Séparer vraiment : worktree dédié + profil non versionné (recette vérifiée)
+
+```bash
+git worktree add C:/Users/<user>/<nom-projet-doc> -b <branche-doc>
+hermes -p <nom> config set terminal.cwd C:/Users/<user>/<nom-projet-doc>
+```
+
+- **`git worktree add <chemin> main` échoue** si `main` est déjà cochée ailleurs :
+  `fatal: 'main' is already used by worktree at '<chemin du canonique>'`. L'échec est propre (aucun
+  résidu) ; l'option qui marche sans toucher au canonique est `-b <branche-doc>` — branche **neuve et
+  locale**, non poussée, à laisser telle quelle.
+- Vérifier les trois côtés, dans cet ordre : `git worktree list` (deux entrées : canonique sur `main`,
+  worktree sur `<branche-doc>`), `git -C <chemin> status` (propre, sur la branche attendue), et le
+  `git status` du dépôt canonique (toujours sur `main`, inchangé).
+- **Un worktree ne contient que les fichiers suivis** : c'est exactement ce qui empêche une session
+  documentaire d'écrire dans les dossiers de runtime du home (`cache/`, `logs/`, `sessions/`,
+  `pending/`) — l'argument à donner, au-delà du simple rangement.
+- Le worktree **ne se met pas à jour tout seul** : il voit les nouveaux commits quand on y travaille.
+  Ne pas le fast-forwarder « pour aligner » si l'opérateur ne l'a pas demandé.
+- **Le profil de travail ne se versionne pas** : une seule ligne `/profiles/<nom>/` dans
+  `.git/info/exclude`, avec un commentaire au-dessus — `.gitignore` couvre déjà `state.db*`,
+  `sessions/`, `cache/`, `logs/`, `workspace/` et `.env` d'un profil. Vérifier par
+  `git check-ignore -v <chemin>` **avant** d'écrire la moindre ligne, préférer une ligne de dossier à N
+  lignes de fichiers, et prouver par `git status --porcelain profiles/<nom>/` vide +
+  absence du profil dans le porcelain global.
+- **`hermes -p <nom> setup --non-interactive` ne configure RIEN** : le CLI répond « Running in a
+  non-interactive environment (no TTY detected)… » et sort sans écrire de clé — un agent ne peut donc
+  pas provisionner les credentials. Livrer à l'opérateur la commande exacte à lancer dans SON
+  terminal (`<nom> setup`, via le lanceur de `~/.local/bin`) et le dire comme tel.
+- **Piège de lecture après le setup** : `hermes -p <nom> auth list` affiche des fournisseurs (déduits
+  des variables d'environnement) alors que `hermes -p <nom> config get providers` rend `{}` — ce sont
+  des clés **héritées du shell**, pas celles du profil. Ne pas en conclure que le profil est
+  provisionné ; la preuve d'inférence reste le tour réel (§7).
 
 ## 7. Preuve d'inférence : au niveau du profil, pas du endpoint
 
