@@ -1,6 +1,6 @@
 model:
-  default: deepseek-flash
-  provider: deepseek
+  default: free-openrouter
+  provider: omniroute
 providers:
   ollama-launch:
     api: http://127.0.0.1:11434/v1
@@ -49,9 +49,9 @@ providers:
       - gemini-3.1-pro-preview
 fallback_providers:
   - provider: omniroute
-    model: nvidia-stack
+    model: eco
   - provider: omniroute
-    model: free-openrouter
+    model: nvidia-stack
   - provider: deepseek
     model: deepseek-flash
 toolsets:
@@ -104,11 +104,7 @@ terminal:
   home_mode: auto
   shell_init_files: []
   auto_source_bashrc: true
-  docker_image: nikolaik/python-nodejs:python3.11-nodejs20
   docker_forward_env: []
-  singularity_image: docker://nikolaik/python-nodejs:python3.11-nodejs20
-  modal_image: nikolaik/python-nodejs:python3.11-nodejs20
-  daytona_image: nikolaik/python-nodejs:python3.11-nodejs20
   container_cpu: 1
   container_memory: 5120
   container_disk: 51200
@@ -209,6 +205,7 @@ auxiliary:
     base_url: ''
     api_key: ''
     timeout: 120
+    max_tokens: 16000
   skills_hub:
     provider: auto
     model: ''
@@ -674,7 +671,7 @@ paste_collapse_threshold_fallback: 5
 paste_collapse_char_threshold: 2000
 computer_use:
   cua_telemetry: false
-_config_version: 46
+_config_version: 49
 group_sessions_per_user: true
 platform_toolsets:
   cli:
@@ -767,7 +764,7 @@ model_aliases:
     provider: deepseek
     base_url: https://api.deepseek.com/v1
   free:
-    model: free-stack
+    model: eco
     provider: omniroute
     base_url: http://127.0.0.1:20128/v1
   kimi:
