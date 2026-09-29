@@ -6,6 +6,7 @@
 > Last updated: 2026-09-27 | Total pages: 18
 
 ## Concepts
+- [[anima]] — ANIMA 0.1 : couche de supervision (15 composants) et de mémoire hiérarchique (RAG/JEV) qui enveloppe Hermes.
 - [[auto-best-free]] — Le modèle `auto/best-free` était configuré comme primary, mais il ne répond jamais (400/502).
 - [[auto-best-reasoning]] — Alias payant (Anthropic via OpenRouter), ecarte de la chaine le 22/09/2026.
 - [[deepseek-flash]] — `deepseek-flash` est utilisé comme dernier étage payant de la chaîne de repli.

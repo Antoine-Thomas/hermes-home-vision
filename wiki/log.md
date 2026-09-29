@@ -100,3 +100,9 @@
   contrat du graphe, latences mesurees (190 ms par decision), comparaison avec Jev.
 - `index.md` mis a jour a la main (section Concepts, ordre alphabetique) : 18 pages.
 - Aucune page existante modifiee.
+
+## [2026-09-29] create | page concept ANIMA
+
+- Page `concepts/anima.md` creee : ANIMA 0.1 (supervision 15 composants + memoire hierarchique RAG/JEV).
+- Sources : chantier_ANIMA_0.1.log (etapes 1-10), health_anima.json, docs/ANIMA_*.md.
+- Tags : hermes, omniroute, rag, jev, cron, provider, model.

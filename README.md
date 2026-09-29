@@ -18,6 +18,20 @@ Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Win
 
 ---
 
+## ANIMA 0.1 — supervision et mémoire hiérarchique
+
+Sous-système qui enveloppe Hermes : **Hermes = le moteur, ANIMA = le système
+intégré**. ANIMA surveille 15 composants (OmniRoute, RAG, SiYuan, Ollama, jobs,
+coûts, repli) et route chaque question vers la bonne source de mémoire (SiYuan →
+RAG → mémoire native) via JEV (repli regex) et le plugin `anima-memoire-router`.
+
+- [Architecture](docs/ANIMA_ARCHITECTURE.md) — 4 couches, flux E2E, ports.
+- [Modules](docs/ANIMA_MODULES.md) — composants + health checks.
+- [Certification](docs/ANIMA_CERTIFICATION.md) — état, tests, SHA256.
+- [Crypto](docs/ANIMA_CRYPTO.md) — spécification du futur module blockchain.
+
+Flux E2E : message → profil → routeur (JEV/regex) → LLM (combo) → RAG → JEV → réponse.
+
 ## Choisir sa version
 
 | Version | Statut | Branche / Tag | Documentation |

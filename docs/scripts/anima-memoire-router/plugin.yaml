@@ -1,0 +1,41 @@
+name: anima-memoire-router
+version: 0.1.0
+description: >-
+  Route la question utilisateur vers la couche mémoire (JEV, repli regex) avant
+  l'appel LLM ; si le niveau 3 (RAG) est requis, interroge le RAG local et injecte
+  les extraits dans le contexte sous <rag_context>. Fail-open, mode off par défaut.
+  Stdlib uniquement.
+author: ANIMA 0.1
+license: MIT
+requires_hermes: ">=0.21"
+kind: standalone
+tags: [routing, memory, rag, jev, hooks]
+provides_tools: []
+provides_hooks:
+  - pre_llm_call
+provides_middleware: []
+config_schema:
+  mode:
+    type: str
+    default: "off"
+    description: "off = jamais · on = toujours"
+  rag_url:
+    type: str
+    default: "http://127.0.0.1:8200"
+    description: "Base URL du RAG local (127.0.0.1 par défaut)"
+  rag_k:
+    type: int
+    default: 3
+    description: "Nombre d'extraits injectés"
+  timeout_s:
+    type: float
+    default: 4.0
+    description: "Timeout du POST /search (secondes)"
+  max_chars:
+    type: int
+    default: 4000
+    description: "Taille max du bloc injecté (caractères) ; les messages plus longs sont ignorés"
+  log_path:
+    type: str
+    default: ""
+    description: "Default: <HERMES_HOME>/logs/anima-memoire-router.log"
