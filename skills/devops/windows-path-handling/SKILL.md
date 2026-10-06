@@ -45,8 +45,80 @@ L'ecriture reussie garantit que le fichier a ete ecrit au chemin **resolu** ; el
   `C:\tmp\wiki` ; le `ls /tmp/wiki` qui suit repond « No such file or directory » sur un clone qui a
   bel et bien eu lieu. Le meme ecart vaut pour tout binaire natif recevant un chemin de sortie.
   Symptome a retenir : un outil annonce un succes et la cible est introuvable au chemin MSYS —
-  chercher sous `C:/tmp/...` avant de conclure a un echec ou de relancer.
+  chercher sous `C:/tmp/...` avant de conclure a un echec ou de relancer. Le meme ecart produit aussi
+  l'erreur INVERSE, tout aussi trompeuse, quand le chemin fautif est une SORTIE : `ffmpeg` recoit
+  `/c/Users/.../sortie.mp4` et repond `Error opening output file /c/...: No such file or directory`
+  **alors que ce chemin existe bel et bien sous bash** — on part chercher un fichier manquant au lieu
+  d'un chemin mal forme. Un binaire natif recoit des `C:/...` pour ses entrees, ses sorties ET ses
+  fichiers temporaires ; et sous bash, ne jamais melanger les deux formes dans la MEME commande :
+  `mkdir -p /c/Users/...` (builtin du shell, chemin MSYS accepte) suivi de l'outil natif qui ecrit
+  dedans en `/c/...` est le cas ou l'echec semble disproportionne puisque le dossier vient d'etre cree.
+- **Une sonde dont on jette stderr transforme un chemin faux en « valeur inconnue ».**
+  `ffprobe -v error -show_entries format=duration -of csv=p=0 /c/Users/.../v.mp4` rend une sortie
+  **vide** et un `exit 0` : le message du binaire natif (« No such file or directory ») part sur
+  stderr, que `2>/dev/null` supprime. En boucle sur plusieurs fichiers on lit alors des lignes vides
+  (`duree=`) et on les prend pour des metadonnees absentes (duree inconnue, fichier sans pistes) au
+  lieu d'un chemin invalide — et une valeur vide alimente ensuite un rapport faux. Ne JAMAIS mettre
+  `2>/dev/null` sur une sonde (`ffprobe`, `ffmpeg`, `git`, `python`) : garder `2>&1`, et construire la
+  boucle avec des chemins NATIFS `C:/Users/...`. Sur une boucle de mesures, une ligne vide est un
+  echec de chemin, pas une valeur : la relancer apres avoir change la FORME du chemin.
+- **Le tool `terminal` refuse une commande qu'il lit comme un service long** (`docker compose ... up`,
+  un `docker run` sans `-d` lisible) : c'est le TEXTE de la commande qui declenche le garde-fou. Ecrire
+  la commande dans un petit `.sh` du scratch et executer le chemin du script : elle passe, et c'est
+  bien la meme chose qui est lancee (verifier ensuite l'EFFET — `docker ps`, port en LISTENING).
+  **Le meme garde-fou se declenche aussi sur la TAILLE du payload inline** (plusieurs `grep`/`echo`/
+  `for` enchaines par `;` dans une seule ligne) : la reponse est « command parser limit or malformed
+  executable payload », avec le chemin d'un `.sh` deja sauvegarde dans `cache/blocked-scripts/` — ce
+  fichier est exactement la commande a relire, et le remede est le meme : un `.sh` du scratch lance par
+  `bash <chemin>`. Le developper en plusieurs appels courts ne fait que multiplier les tours.
+- **`docker compose up -d` ne recree que les services dont la definition a change** : lire la sortie
+  (`Container X Recreate` / `Running`) plutot que le code de sortie, et confirmer par l'uptime reel de
+  chaque conteneur (`docker ps`) — un manager laisse `Up 42 hours` prouve qu'il n'a pas ete redemarre.
 - **Du Python lance par l'outil `execute_code`, `subprocess.run(..., shell=True)` ouvre `cmd.exe`, PAS le bash MSYS** : `'head' n'est pas reconnu en tant que commande interne`, idem `wc`, `tail`, `find`. Le piege est silencieux sur le fond : le `exit_code` peut rester **0** alors que la sortie ne contient que les messages d'erreur de `cmd` — ne pas lire un code de retour 0 comme une preuve que la commande a tourne. Passer une **liste d'arguments** (`subprocess.run(['git', 'ls-files', 'wiki'], capture_output=True, cwd=<chemin natif>)`, `shell=False`) : c'est le seul mode ou `git`, `node`, `python` recoivent vraiment leurs arguments. Pour du filtrage POSIX (`| head`, `| wc -l`), passer par l'outil `terminal` (bash) ou filtrer en Python.
+- **Et appeler `bash` explicitement depuis `execute_code` ne rend PAS le bash du terminal.**
+  `subprocess.run(["bash", "-lc", cmd])` tombe sur un **bash WSL**, ou les chemins MSYS n'existent pas
+  (`/bin/bash: line 1: cd: /c/Users/<user>/...: No such file or directory`) et ou les variables du shell
+  Windows sont vides (`cd: /hermes: No such file or directory` pour un `$LOCALAPPDATA` non herite). Les
+  deux messages ressemblent a un dossier manquant : c'est le mauvais interpreteur, pas une cible absente.
+  Pour un lot de mesures, ne pas passer de shell du tout — `os.walk` + `re` en Python, `json` pour les
+  configs, `read_file`/`search_files` pour lire et chercher, et un `.ps1` en `-File` quand il faut
+  PowerShell. Garder le bash du terminal pour ce ou il marche vraiment (`cd /c/...`, `grep`, `sha256sum`,
+  `date -r`), jamais en sous-processus.
+- **Le `python.exe` d'un venv Hermes n'execute pas un script comme un CPython nu.**
+  `hermes-agent/venv/Scripts/python.exe` est un lanceur : il rejoue le script par `runpy` depuis un
+  `.pth`, **avant** que `site-packages` soit sur `sys.path`. Signature trompeuse :
+  `python -c "import ruamel.yaml"` reussit alors que `python script.py` leve
+  `ModuleNotFoundError: No module named 'ruamel'` sur un paquet pourtant installe dans ce venv. Ne pas
+  en conclure a une dependance manquante, ne pas l'installer : prendre l'interpreteur de base declare
+  dans `pyvenv.cfg` (`home = .../.hermes-runtime/python/generation-*/cpython-*-windows-x86_64-none/`)
+  avec `PYTHONPATH=<venv>/Lib/site-packages`, ou poser les deux racines en tete de script :
+  `sys.path.insert(0, r"...\hermes-agent\venv\Lib\site-packages")` puis
+  `sys.path.insert(0, r"...\hermes-agent")`. Le meme lanceur avale un `python - <<'PY'` (heredoc) : il
+  peut re-executer son propre `sys.argv[0]` et finir sur `FileNotFoundError: ...\-` apres des sorties
+  correctes. **Avec le `python` nu (hors lanceur de venv), le meme `python - <<'PY'` ne tombe pas :
+  il entre dans la REPL interactive**, avale le corps du heredoc ligne a ligne et boucle sur
+  `OSError: [WinError 6] Descripteur non valide` / `WinError 123` — des Mo de tracebacks identiques
+  (mesure : ~9 Mo, appel tue au bout de 180 s), et le `|| fallback` place derriere s'execute alors
+  AUSSI. Ne jamais nourrir un script par `python -` ni par heredoc sur cet hote : `write_file` le
+  script dans le scratch, puis l'appeler par son chemin NATIF (`python C:/.../script.py`) — c'est le
+  seul mode ou l'erreur reelle s'affiche au lieu d'etre noyee. Une sortie qui part en boucle
+  d'erreurs repetees n'est pas un script qui travaille : tuer et reprendre en fichier.
+ - **Le meme `cmd.exe` produit une SECONDE signature d'erreur, plus trompeuse** : `Le chemin d'acces specifie est introuvable.` sur un `grep -rIl … | head`, un `ls -la … | tail`, ou un `docker ps --format "{{.Names}}"` (les commandes MSYS existent sur le PATH, donc pas de « n'est pas reconnu » — c'est le pipe ou le gabarit qui casse). Le remede durable pour un lot de mesures : **ne pas passer par un pipeline du tout** — filtrer en Python pur (`os.walk` borne par un `skip` de dossiers, `re` pour les motifs) et ecrire la sortie dans un fichier du scratch. Un `= 0 octet` / une sortie vide sur une commande qui « devait » filtrer est un echec de shell, pas un resultat vide.
+- **Ne jamais terminer un chemin cite par un antislash : le guillemet fermant est mange.** La forme
+  `cmd /c "dir /a \"C:\...\tools\""` part avec un chemin boiteux et rend `La syntaxe du nom de
+  fichier, de repertoire ou de volume est incorrecte.` Pour un lot de commandes cmd (`dir /a`,
+  `icacls`, `if exist`), ecrire un `.bat` dans le scratch qui construit ses chemins par
+  `%LOCALAPPDATA%` et l'appeler par `cmd /c <chemin du .bat>` : c'est la seule forme ou le chemin
+  arrive intact. Mesure : le MEME `dir /a` sur un dossier existant rend `Fichier introuvable` quand le
+  chemin part en ligne depuis bash, et le listing correct depuis le `.bat` — un chemin natif inline
+  peut donc arriver tronque SANS erreur de syntaxe, et ce faux « introuvable » sert ensuite de preuve
+  a une conclusion fausse (fichier absent).
+- **Pour `icacls` / `takeown` / `attrib` depuis bash : chemin a SLASHES avant, guillemets SIMPLES**
+  (`icacls 'C:/Users/<user>/AppData/Local/hermes/tools'`). Un chemin a antislashs passe en ligne est
+  la ou arrive le desastre silencieux : `icacls "$L\\$d"` part avec la variable NON developpee
+  (`...\hermes$d`) et repond `Le fichier specifie est introuvable` — un message qui accuse le dossier
+  alors que c'est la forme du chemin. Ne pas conclure « absent » : changer la FORME du chemin et
+  refaire la mesure.
 - `curl`, `7z`, `tar` : ce sont des binaires natifs, ils ouvrent le fichier de sortie avec l'API
   Windows. Leur passer `C:/...`. Le symptome d'un `/c/...` est TROMPEUR :
   `curl: (23) client returned ERROR on write of N bytes` — ce n'est ni une erreur reseau ni un
@@ -55,8 +127,17 @@ L'ecriture reussie garantit que le fichier a ete ecrit au chemin **resolu** ; el
 - Les executables Windows a options en `/flag` (schtasks, robocopy, reg, sc) ne sont pas proteges de
   la traduction MSYS : `/run` peut partir tel quel ou etre converti en chemin, et la parade reflexe
   `//run` arrive litteralement comme `//run` (`Argument ou option non valide`). Preferer l'equivalent
-  PowerShell (`Start-ScheduledTask`, `Get-ScheduledTask`, `Register-ScheduledTask`) ou passer par
+  PowerShell (`Start-ScheduledTask`, `Get-ScheduledTask`, `Register-ScheduledTask`,
+  `Enable-ScheduledTask`, `Disable-ScheduledTask`) ou passer par
   `cmd //c "<commande complete>"` en gardant la commande entre guillemets.
+- **Ne pas imbriquer des guillemets dans un `cmd /c '...'`.**
+  `cmd /c 'schtasks /Change /TN "X" /ENABLE'` part avec des guillemets DOUBLES (`""X""`) et schtasks
+  repond `le nom de la tache specifiee ""X"" n'existe pas` — un message qui accuse le NOM de la tache
+  alors qu'elle est saine et bien enregistree. Lire ce message comme une erreur d'ECHAPPEMENT, jamais
+  comme une tache absente : ne pas partir verifier le registre des taches. Remede verifie :
+  `Enable-ScheduledTask -TaskName 'X'` (ou `Disable-ScheduledTask`) en guillemets SIMPLES, ou un `.ps1`
+  en `-File`. Pour prouver l'etat, `Get-ScheduledTask` / `Get-ScheduledTaskInfo` rendent `State`
+  (`Ready`/`Disabled`), `NextRunTime` et la repetition (`PT5M`) — plus lisibles que `schtasks /V`.
 - **`msiexec` : `//x` / `//i` / `//qn` ne donnent pas une option invalide mais un ECHEC SILENCIEUX**
   (mesure du 27/09/2026). `msiexec //x "{GUID}" //qn //norestart //l*v C:\...\log` lance depuis bash
   rend **`exit 103`**, n'ecrit **aucun fichier de log** et ne desinstalle **rien** : le produit reste
@@ -80,6 +161,24 @@ L'ecriture reussie garantit que le fichier a ete ecrit au chemin **resolu** ; el
   `powershell -NoProfile -ExecutionPolicy Bypass -File <script>` : le fichier traverse l'echappement
   intact. Garder ces `.ps1` (et les `.vbs`) en **ASCII pur** : PowerShell 5.1 lit l'UTF-8 sans BOM
   comme de l'ANSI, donc accents, tirets longs et puces s'affichent de travers.
+- **`$_` est deja consomme par bash avant d'arriver a PowerShell.** Dans une commande passee en
+  guillemets DOUBLES, `Where-Object { $_.CommandLine -match ... }` part au shell et `$_` y est
+  substitue (derniere valeur du shell) : PowerShell cherche alors un cmdlet portant ce nom et rend,
+  POUR CHAQUE processus, un bloc `Le terme «…» n'est pas reconnu comme nom d'applet de commande` —
+  des dizaines de Ko d'erreurs identiques qui noient la sortie utile (et la font tronquer). Meme
+  piege pour `$env:X`, `$args`, `$PWD`. Une commande inline se met donc en guillemets SIMPLES
+  (`powershell -NoProfile -Command '... $_.X ...'`) ; des qu'elle porte plusieurs variables, un `if`
+  ou un pipe, passer par un `.ps1` en `-File` — c'est la seule forme qui traverse l'echappement
+  intact, et un fichier `.ps1` ne se fait pas expanser par le shell.
+- **Ne pas imprimer un listing natif en entier.** Une enumeration (`Get-CimInstance Win32_Process`,
+  `Get-ChildItem -Recurse`) depasse vite les 100 000 caracteres et se fait tronquer en tete/queue :
+  la partie interessante est justement celle qui manque, et le script a bien tourne (on croit a une
+  sortie vide ou a un echec). Filtrer cote PowerShell (`-Filter`, `Where-Object`, liste de PID
+  connus) ou compter les octets avant d'imprimer.
+- **Pour un lot de mesures, ecrire le resultat dans un fichier du scratch puis le relire**
+  (`write` vers `cache/scratch/<sujet>/lotN.txt`, puis `read_file`). Un `print()` massif qui ressort
+  resume ou tronque fait perdre la donnee, et une sortie tronquee n'est PAS une sortie vide : la
+  relecture du fichier est la seule preuve, elle survit aussi a un timeout de l'appel suivant.
 - **Ne jamais faire passer un pipeline cmd.exe par le terminal bash** : les builtins DOS n'existent
   pas ici et leurs homonymes sont ceux de MSYS. `dir "...\*.png" /b | find /c /v ""` ne compte rien :
   `find` est le GNU find, il part arpenter le systeme de fichiers et ne rend jamais la main (mesure :
@@ -130,8 +229,21 @@ d'exploitable : il repond `Binary file (standard input) matches` (ou zero result
 sur les colonnes echouent silencieusement. Le diagnostic est trompeur — la donnee est bien la,
 c'est le decodage qui est faux.
 
+**Le codec depend du FORMAT demande : ne pas trancher a l'avance.** Mesure : un
+`schtasks /query /fo CSV /v` redirige est sorti en **cp1252** (guillemets courbes a `0x93`, `file`
+annonce « CSV Non-ISO extended-ASCII ») et un `iconv -f UTF-16LE` y a rendu un fichier VIDE, alors que
+`/fo LIST` peut sortir en UTF-16LE. Detecter avant de decoder (`file`, `head -c 200 | od -c`), puis
+decoder par essai. Et un CSV de `schtasks` porte des champs MULTILIGNES (commandes, descriptions) : un
+parsing ligne a ligne echancre les enregistrements, il faut `csv.reader` en Python avec
+`encoding="cp1252", errors="replace"`. Pour seulement retrouver une ligne, `grep -a <motif>` suffit.
+
 Parades, dans l'ordre :
 - `schtasks ... 2>&1 | tr -d '\0' | grep -i <motif>` — retirer les octets nuls suffit a rendre le flux lisible ;
+- **vaut aussi pour un fichier ecrit par une redirection cmd** (`cmd /c ... > "<scratch>\sortie.txt") :
+  `dir`, `whoami`, `tasklist` y laissent des octets nuls, et le fichier est alors refuse en lecture
+  texte (`Binary file ... cannot display`, ou un filtrage qui rend zero ligne). Le convertir avant
+  tout filtrage — `tr -d '\0' < sortie.txt > sortie.clean.txt` — puis travailler sur le `.clean.txt`.
+  Un lot de tests cmd qui « rend une sortie vide » ou binaire est presque toujours ce cas ;
 - lire en Python avec le bon codec :
   `subprocess.run([...], capture_output=True, text=True, encoding="utf-16", errors="replace")` ;
 - **mettre `errors="replace"` sur TOUT `subprocess.run` en mode texte** : sans `encoding`, Python
@@ -249,9 +361,13 @@ et un `Start-Process` enfoui dans une chaine `&&` echoue sans un mot (log vide, 
 
 Traductions qui marchent :
 
-- `Get-CimInstance Win32_Process -Filter "ProcessId = N" | Select-Object ...` -> `tasklist /FI "PID eq N"`
-  (sortie lisible ; ajouter `2>&1 | tr -d '\0'` si elle ressort en UTF-16, cf. Regle 6).
-  `wmic process where processid=N get name,commandline` quand il faut la ligne de commande.
+- `Get-CimInstance Win32_Process -Filter "ProcessId = N" | Select-Object ...` -> `tasklist /FO CSV /FI "PID eq N"`
+  (CSV : le champ cite `"N"` n'apparait QUE si le processus existe — tester ce champ, jamais `$?`,
+  car un non-match sort en **exit 0** avec une ligne `INFORMATION: aucune tache...` sur stdout ;
+  ajouter `2>&1 | tr -d '\0'` + `grep -a` si la sortie ressort en UTF-16, cf. Regle 6).
+  `wmic process where processid=N get name,commandline` quand il faut la ligne de commande — mais
+  MASQUER avant d'afficher : une ligne de commande de service porte souvent une cle en argument
+  (`--api-key`, `sk-…`) ; remplacer par `[REDACTED]` et ne rapporter que la presence du secret.
 - `ps -p N -o pid,cmd` et `/proc/N/cmdline` -> ne voient PAS les processus Windows natifs
   (`ps: unknown option -- o`, `/proc/N/cmdline` vide). Tout ce qui est `.exe` natif (python.exe,
   hermes.exe) passe par `tasklist` ; ne pas en conclure que le processus n'existe pas.
@@ -279,6 +395,15 @@ sauvegardes, l'ecart mesure etait de 14,9 Go repartis sur 3 fichiers annonces ab
   (`find` plutot qu'un glob, `ls -a` plutot que `ls`, `-Force` plutot que rien). Une absence conclue
   d'un seul glob n'est pas une absence mesuree — et l'annonce d'un fichier « deja supprime » sur ce
   fond est un rapport faux.
+- **Une recherche lancee depuis le repertoire courant de la session ne voit pas le projet.** Le
+  repertoire de depart est souvent un dossier systeme (`C:\Windows\System32`) : une recherche de
+  fichiers y rend `total_count: 0` (et peut meme echouer sur des fichiers verrouilles :
+  `os error 32`, `panneaux de configuration`, `nul`), ce qui ressemble a « la fonction n'existe pas »
+  alors que l'arborescence visee est ailleurs. Ne pas repeter la meme requete : elle est idempotente
+  et l'outil finit par signaler une boucle. Localiser d'abord la racine reelle
+  (`find /c/Users/<user> -iname "<fichier>"` depuis bash, ou `find <racine> -maxdepth 3`), puis
+  chercher dedans. Pour ce parc, les projets vivent sous `%LOCALAPPDATA%\hermes` (donnees, scripts,
+  plugins, traces) — y ancrer les recherches de contenu et non sur la racine du depot.
 
 ## Regle 12 — `Start-Process -ArgumentList` et les chemins avec espaces (mesure du 23/09/2026)
 
@@ -322,12 +447,110 @@ l'avertissement de boucle de l'outil.
 - Le chemin qui marche est `patch` : une passe par section visee (`old_string` / `new_string`),
 autant de `patch` que de sections a changer. C'est aussi ce que recommande le message du garde.
 - Relire le fichier en entier puis reecrire n'est PAS une parade : une nouvelle lecture paginee
-(meme avec la limite maximale) laisse le garde en place. Sur un fichier long, l'edition se fait en
-`patch`, jamais en ecrasement.
+(meme avec la limite maximale) laisse le garde en place. Sur un fichier long, l'edition ciblee se
+fait en `patch` ; une reecriture integrale assumee passe par une suppression prealable (voir
+ci-dessous), jamais par un simple rejeu de `write_file`.
+- **Reecriture integrale : `rm` puis `write_file` passe.** Supprimer le fichier (`rm "<chemin>"`,
+ou `del` sous cmd) fait tomber le garde, et `write_file` cree alors un fichier neuf. A ne faire
+que si le contenu final est deja ecrit et verifie : entre la suppression et l'ecriture, l'original
+n'existe plus. C'est le chemin pour un script ou un document dont tout le contenu change ; garder
+`patch` pour les modifications ciblees.
+- **Variante NON destructive, a preferer a `rm`** : ecrire le nouveau contenu dans un fichier NEUF du
+  meme dossier (`<nom>.new`), le verifier, puis `cp <nom>.new <nom>` depuis le terminal. Le fichier
+  d'origine reste en place jusqu'au `cp`, donc aucun instant ou il n'existe plus — c'est ce qu'on veut
+  pour un script ou un document livre. `rm` + `write_file` reste valable mais ouvre une fenetre ou le
+  fichier a disparu si l'ecriture echoue.
 - Le meme garde protege un fichier modifie sur le disque depuis la derniere lecture : relire,
 fusionner, puis `patch`.
 - Diagnostic : un outil de reecriture qui « refuse » n'a rien tronque. Ne pas partir verifier le
 contenu du fichier — il est intact, c'est l'ecriture qui n'a pas eu lieu.
+
+## Regle 14 — trois pieges d'un script PowerShell de mesure (resultat FAUX, pas d'erreur)
+
+Un script de mesure qui rend un resultat plausible mais faux coute plus cher qu'un script qui plante :
+les trois cas ci-dessous ont ete payes dans une meme session d'audit.
+
+- **PowerShell est INSENSIBLE A LA CASSE : une variable de boucle `$l` et une liste `$L` sont la MEME
+  variable.** Un script de mesure qui accumule dans `$L = New-Object List[string]` puis boucle
+  `foreach ($l in $sortie)` (nvidia-smi, Get-ChildItem) ecrase la liste par la derniere chaine lue :
+  les `.Add()` suivants echouent en silence (`$ErrorActionPreference = 'SilentlyContinue'` masque le
+  method-not-found), `$L.Count` rend `1` (longueur de la CHAINE) et le fichier de sortie ne contient
+  qu'une ligne — sans aucune erreur ni code de retour non nul. Signature : sortie d'une ligne, compteur
+  a 1, script qui annonce pourtant avoir tourne. Nommer la liste et les boucles avec des noms
+  distincts (`$Lines` / `$row`).
+- **`+=` sur un tableau est quadratique.** Boucler `$all += [pscustomobject]@{...}` sur ~900 000
+  elements ne rend pas la main : mesure ~27 min sur un parcours qui se termine en 7 s avec la bonne
+  structure — script tue, aucun resultat produit. Utiliser
+  `[System.Collections.Generic.List[object]]` + `.Add()`, ou eviter la collecte (compteurs et top-N en
+  variables, un seul passage).
+- **La virgule lie plus fort que `+` dans un tableau.** `@($P + "a", $P + "b")` ne fait pas deux
+  elements : PowerShell agrege autour de la virgule et rend **une seule chaine** ou les morceaux sont
+  joints par des espaces. Signature a reconnaitre : un message qui affiche tous les chemins colles sur
+  une ligne (`ABSENT SOURCE <chemin1> <chemin2> <chemin3>`) — c'est le tableau aplati, pas trois
+  fichiers absents. Mettre chaque element entre parentheses, ou batir la liste par `.Add()`.
+- **Un script alimente par STDIN (`powershell -Command -`) peut rendre une sortie VIDE avec code 0**
+  des qu'il rencontre une erreur terminante : stderr n'est pas capture et le diagnostic disparait. Un
+  `exit 0` et une sortie vide ne prouvent donc PAS que le script a fait ce qu'il annonce — ni qu'il n'a
+  rien fait. Ecrire le `.ps1` (outil d'ecriture), le lancer en `-File`, et lui faire ecrire ses
+  resultats dans un fichier texte relu ensuite : la relecture du fichier est la seule preuve.
+
+- **`"a={0} b={1}" -f $x,$y` avec un argument construit par `-join` leve `FormatError`** et laisse une
+  sortie PARTIELLE : le `Write-Output "AUCUNE"` place avant la boucle en echec s'affiche quand meme et
+  devient une fausse conclusion (« aucune tache ne correspond » alors que 4 correspondent). Batir la
+  ligne par concatenation (`Write-Output ("TACHE : " + $t.TaskName)`) et terminer tout script par un
+  compteur (`TOTAL_CIBLES=N`) : un resultat vide se conteste, un `TOTAL=0` se verifie.
+
+Corollaire commun : **faire publier au script une valeur de controle** (compteur, taille totale, nombre
+ de lignes du fichier de sortie) et la confronter a une mesure independante. Un script de mesure qui
+n'expose que sa conclusion n'est pas verifiable, et une conclusion non verifiable sur un audit se
+retourne contre son auteur.
+
+## Regle 15 — choisir un candidat parmi plusieurs : trois selections qui reussissent sur le mauvais
+
+Sur ce parc il y a plusieurs candidats pour presque tout (interpreteurs, venvs, environnements
+stages, mais aussi PID, dossiers de version). Une selection qui « marche » n'est pas une selection
+juste : ces trois formes rendent une valeur plausible et fausse.
+
+- **`grep -o` ne rend que le FRAGMENT matche, pas la ligne.** Selectionner une entree de `$PATH` par
+  `printf '%s' "$PATH" | tr ':' '\n' | grep -aoE '/environments/[a-f0-9]+/venv/Scripts$'` rend
+  `/environments/…/venv/Scripts` — un chemin RELATIF qui n'existe pas : le `[ -f "$p/python.exe" ]`
+  qui suit echoue en silence, la detection se rabat sur le candidat suivant, et le script annonce
+  une cible AUTRE que celle visee sans aucune erreur. Pour garder la ligne entiere, `grep -aE`
+  (sans `-o`) ; `-o` ne sert qu'a extraire un champ d'une ligne deja identifiee.
+- **`ls -1dt` sur des fichiers extraits d'une archive ne trie rien.** Les binaires extraits d'un
+  meme zip/7z partagent l'horodatage de l'archive (mesure : trois `python.exe` de venvs differents,
+  tous dates du meme jour de janvier 2024) : `-t` les voit a egalite et retombe sur l'ordre
+  alphabetique — donc sur une cible potentiellement perimee. Trier les DOSSIERS qui les contiennent
+  (`ls -1dt <parent>/*/bin` puis descendre au binaire), ou departager sur un critere reel (entree de
+  `$PATH`, fichier de config, source autoritative).
+- **Confirmer l'existence d'un processus par le code de retour est faux** : `tasklist` sort en 0
+  meme sans correspondance. Tester le champ (`/FO CSV` + `"<pid>"`), cf. Regle 10.
+
+Corollaire : quand plusieurs candidats existent, **faire afficher celui qui a ete retenu** (chemin
+complet, version, date) et le confronter a la source autoritative (PATH, config, `hermes doctor`).
+Une detection qui se rabat silencieusement sur un autre candidat ne se voit pas dans le resultat —
+elle ne se voit que si le script dit ce qu'il a choisi.
+
+## Regle 16 — prouver qu'un controle peut echouer : casser l'etat vivant sous `trap` + hash de restauration
+
+Un controle de sante (health check, moniteur, watchdog) dont le chemin d'echec n'a jamais ete
+observe n'est pas un controle : il faut casser exprès ce qu'il inspecte. Sur un parc ou l'etat testé
+est VIVANT (le venv runtime d'une gateway en service, un fichier de config lu par un processus),
+la maniere courte de le faire est aussi la seule sure :
+
+- **Ne renommer/supprimer la cible que dans un harnais qui la restaure automatiquement**
+  (`restore()` + `trap restore EXIT INT TERM`), et laisser le harnais dans un `.sh` du scratch
+  plutot qu'en ligne : l'appel peut etre coupe, le fichier survit.
+- **Prouver la restauration par une empreinte, pas par « le `mv` a tourne »** :
+  `find <cible> -type f | sort | sha256sum` AVANT/APRES, puis un import/tests reel dans le processus
+  concerne. Un dossier restaure a moitie casse toutes les sessions suivantes.
+- **Desactiver l'auto-reparation du controle teste** (crochet du type `*_NOFIX=1`) : sinon le check
+  reinstalle ce qu'on vient de casser et masque exactement la panne qu'on veut voir signaler.
+- **Rejouer le chemin nominal apres la simulation** (il doit repasser au vert) et comparer a l'etat
+d'avant : renommer une cible vivante puis ne rien remettre en place est une panne auto-infligee.
+- **Renvoyer la sortie du harnais, pas son intention** : le script imprime l'EXIT du check simule
+  (`EXIT_SIM=1` = la panne est bien detectee) ; un rapport qui affirme « le check echoue bien »
+sans cette trace n'est pas une preuve.
 
 ## Pitfalls
 

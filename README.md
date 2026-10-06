@@ -13,7 +13,7 @@ runtime Hermes (configuration, profils, skills, scripts) **et** sa documentation
 Un seul `git clone` restaure l'ensemble. L'historique a été audité le 21/09/2026 par
 `docs/scripts/scan_secrets_history.py` : aucune valeur de secret réelle. Détail en §8.
 
-Version de référence : **Hermes Agent v0.21.5+3779.g8f897d2**, config version 46, upstream `8f897d2d23`.
+Version de référence : **Hermes Agent v0.21.5+7519.ga928a95**, config version 49, upstream `a928a959e3`.
 Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Windows natif, pas WSL).
 
 ---
@@ -132,9 +132,9 @@ Détail complet, fichiers concernés et notes de migration : [`docs/CHANGELOG-v1
 ║ COUCHE 3 — CERVEAU (mémoire)                                                              ║
 ║                                                                                           ║
 ║   ┌───────────────┐   ┌───────────────┐   ┌───────────────┐                               ║
-║   │   RAG   8200  │   │ Backend  9119 │   │ SiYuan   6806 │                               ║
-║   │  index 2ᵉ     │   │  cœur Hermes  │   │  base de      │                               ║
-║   │  cerveau      │   │  API/dashboard│   │  connaissances│                               ║
+║   │   RAG   8200  │   │ Hermes  CLI   │   │ SiYuan   6806 │                               ║
+║   │  index 2ᵉ     │   │  dashboard    │   │  base de      │                               ║
+║   │  cerveau      │   │  (sans 9119)  │   │  connaissances│                               ║
 ║   └───────┬───────┘   └───────────────┘   └───────────────┘                               ║
 ║           │                                                                               ║
 ║   ┌───────▼────────────────────────────┐   ┌────────────────────────────────────────┐     ║
@@ -160,7 +160,7 @@ Détail complet, fichiers concernés et notes de migration : [`docs/CHANGELOG-v1
 **Les quatre couches.** ① **Profils** — quatre environnements isolés (`default`, `watch`, `veille`,
 `docs-writer`), chacun son `config.yaml`, son `.env` et ses credentials. ② **Routage** — OmniRoute
 (20128) et le proxy NIM (20200) : gratuit d'abord, payant en dernier, bascules tracées. ③ **Cerveau** —
-RAG (8200), backend (9119), SiYuan (6806), JEV (décision typée via OpenRouter) et Laya (accélérateur
+RAG (8200), SiYuan (6806), JEV (décision typée via OpenRouter) et Laya (accélérateur
 ONNX local). ④ **Sécurité** — ACL minimales, secrets hors git, Wazuh, plages de ports Windows.
 
 Détail complet, limites mesurées et commandes de vérification :
@@ -178,7 +178,7 @@ code **2** — la dégradation est visible, jamais silencieuse. Voir `wiki/conce
 **Services communs** aux profils : **OmniRoute** (20128, routeur LLM, combos `eco` / `nvidia-stack` /
 `free-openrouter` / `deepseek`), **proxy NIM** (20200, normalise les appels NVIDIA NIM : préfixes de
 modèles et paramètres rejetés), **RAG** (8200, index vectoriel du second cerveau ; santé sur `/sante`,
-2 314 fragments au 27/09/2026), **backend** (9119, API/dashboard), **SiYuan** (6806, base de
+2 934 fragments au 06/10/2026), **SiYuan** (6806, base de
 connaissances, **7 notebooks**, local seulement). **Wazuh** complète la pile côté sécurité : API
 manager `127.0.0.1:55085` (remap du 55000, cf. §8) et indexer `0.0.0.0:9200`.
 
@@ -255,7 +255,7 @@ Non versionné volontairement : `.env`, `auth.json`, `state.db*`, `sessions/`, `
    Git Bash embarqué et les outils :
    ```powershell
    iex (irm https://hermes-agent.nousresearch.com/install.ps1)
-   hermes --version        # attendu : Hermes Agent v0.21.5+3779.g8f897d2
+   hermes --version        # attendu : Hermes Agent v0.21.5+7519.ga928a95
    ```
 
 2. **Poser la configuration de ce dépôt** par-dessus le runtime. `git clone` refuse un dossier non
@@ -301,8 +301,7 @@ Non versionné volontairement : `.env`, `auth.json`, `state.db*`, `sessions/`, `
    ```
    puis **SiYuan** → **OmniRoute** (`omniroute-launch.vbs`) → **proxy NIM**
    (tâche `Hermes_NVIDIA_NIM_Proxy`) → **RAG** (`data\rag\serveur_rag.py` — attention : aucun lanceur
-   n'existe pour celui-ci, cf. `ARCHITECTURE_HERMES.md` §7.9) → **backend**
-   (`gateway-service\Hermes_Serve.vbs`) → gateway multiplexé (`default` + `watch` + `veille`).
+   n'existe pour celui-ci, cf. `ARCHITECTURE_HERMES.md` §7.9) → gateway multiplexé (`default` + `watch` + `veille`).
 
 5. **Vérifier** :
    ```powershell

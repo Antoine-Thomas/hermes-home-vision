@@ -50,6 +50,9 @@ Grep sweeps over the hermes home must exclude what is huge: `--exclude-dir=skill
 - Before updating, copy with timestamp: config.yaml, state.db, memories/ (`cp <x> <x>.bak.update_$(date +%Y%m%d_%H%M%S)`).
 - OmniRoute combos can't be backed up via `curl http://127.0.0.1:20128/api/combos` — it requires auth (AUTH_001); combos live on the OmniRoute server, unaffected by a Hermes update.
 - Post-update checks for this user: `hermes --version` advanced, `fallback_providers: []` still empty in config.yaml, OmniRoute launcher (omniroute-launch.vbs) still serves combos.
+  - **Lire la version et l'etat du service dans `gateway_state.json` (RACINE), pas dans un PID annonce.** Un PID de gateway cite par l'utilisateur ou par une etape precedente est perime des que le service a redemarre une seconde fois (frequent juste apres un update) : `gateway.pid` / `gateway_state.json` donnent le PID courant, `code_version`, `code_sha` et l'etat par plateforme. `hermes_agent.egg-info/PKG-INFO` et `pip show` restent sur l'ancienne valeur — ne pas les citer comme preuve de version.
+  - **Un hash « attendu » pour un fichier local identifie presque toujours une revision INTERMEDIAIRE.** Avant de declarer qu'un patch local a ete ecrase par l'update, hasher AUSSI les `.bak.<horodatage>` voisins : l'attendu egale en general le backup pris a l'etape citee, et le fichier en service a legitimement avance depuis (une etape validee plus tard a reecrit le meme fichier). L'ecart de SHA n'est une regression qu'apres cette verification — et il se RAPPORTE, il ne se « corrige » pas.
+  - **Verifier qu'un fichier livre est intact par ses marqueurs, pas seulement par son SHA** : `grep` des traits distinctifs ajoutes (nom de la cle d'etat, commentaire du correctif) prouve la presence du changement la ou le hash ne dit que « different ».
 - **Revoir les skills bundled « user-modified » sans noyer le contexte.** L'update annonce les skills conserves ; `hermes skills diff <nom>` imprime stock vs yours. Rediriger vers `cache/scratch/diff_<nom>.txt` (15 a 60 ko par skill) et n'en extraire que : l'en-tete (compte de fichiers divergents), les paires `--- stock/…` / `+++ yours/…`, et les listes `only in stock:` / `only in your copy:`. Lecture qui tranche : une liste `only in stock` VIDE = la copie locale n'a rien perdu de l'amont (elle a juste ete decoupee autrement) → garder ; des fichiers presents seulement en stock = matiere amont AJOUTEE depuis le fork de l'utilisateur → copier ces fichiers precis, **pas** de `reset`, qui detruirait le decoupage et les references maison. La source « stock » est le bundle du checkout lui-meme : `hermes-agent/skills/<categorie>/<nom>/references/` — **aucune sous-commande `sync-reference` n'existe** (liste reelle : `trust, untrust, browse, search, install, inspect, list, check, update, audit, uninstall, reset, list-modified, diff, opt-out, opt-in, repair-official, publish, snapshot`) : on `cp` le fichier manquant puis on prouve la copie par `sha256sum` identique stock/local. **Verifier ensuite que la copie est COMMITTABLE avant d'annoncer un commit** : un dossier de skill bundled peut etre invisible pour git (cf. motif non ancre dans `hermes-home-git-baseline.md`) — `git check-ignore -v <chemin>` et `git ls-files <dossier>` tranchent.
 - **Le constat npm de `hermes doctor` n'est pas corrigeable localement.** `_check_npm_audit` ignore son argument `should_fix` (aucune commande mutante n'est prescrite) et chaque `hermes update` relance un `npm ci` deterministe depuis le lockfile committe : un `npm audit fix` local ne persiste pas. Rapporter paquet + version de/vers + si le correctif est semver-major (dans `hermes-agent/package.json` et `package-lock.json`) et renvoyer a un bump de lockfile en amont ; ne pas lancer `--fix` en croyant le resoudre. Les arbres npm PREEMBALLES (`tools/<outil>-<ver>-<arch>/`) n'ont ni `node_modules` ni lockfile et ne sont pas audites : une vuln des deps racine du checkout ne touche pas les outils correspondants. **Avant de promettre une issue amont, chercher si elle existe deja** (`gh search issues "<paquet>" --repo NousResearch/hermes-agent`) : ce constat est suivi en amont en plusieurs exemplaires, une issue de plus est un doublon — la note dans `docs/` suffit alors.
 - **Le report du rafraichissement `cua-driver` sous Windows est inconditionnel ; l'UAC n'est exige que si l'autostart a ete active.** L'update s'arrete sur `Windows cua-driver refresh deferred (autostart registration requires UAC)` et renvoie a `hermes computer-use install --upgrade`, mais la branche Windows de `_refresh_cua_driver_after_update()` ne teste PAS l'opt-in : le message est generique. Ce que la commande fait reellement : reconcilier le pin PM (`pm.ensure("cua-driver", explicit=True)` — **install reseau**, elle peut telecharger un binaire versionne), valider le runtime contract, puis, **seulement si `computer_use.autostart: true`**, inscrire la tache planifiee de logon `cua-driver-serve` via PowerShell eleve (`Start-Process -Verb RunAs` → `cua-driver autostart enable`). Aucun service Windows, aucune cle `Run` de registre. Donc sur un host a `autostart: false` (le defaut), la commande aboutit depuis un terminal NON eleve et n'inscrit rien : le dire avant de reclamer un shell admin, et ne pas modifier `computer_use.autostart` sans demande explicite. Verifications : `hermes computer-use status`, `hermes computer-use doctor`, `schtasks /Query /TN cua-driver-serve` (attendu : tache introuvable tant que l'opt-in est absent).
@@ -73,6 +76,30 @@ Do this before touching anything. Batch these reads:
   `Hermes_Gateway`**, not a service. Get its PID from `hermes gateway status`, then:
   `powershell.exe -NoProfile -Command "Get-CimInstance Win32_Process -Filter 'ProcessId=<PID>' | Select-Object -ExpandProperty CommandLine"`
   This shows definitively which `python.exe -m hermes_cli.main` the background agent uses.
+
+### Resoudre l'interpreteur runtime actif (sans chemin code en dur)
+
+`hermes --version` cite le python du CLI (`Python: 3.11.16` = venv du checkout), PAS celui du
+runtime : la ligne peut rester identique alors que le venv stage a bouge, et les deux pythons
+diffёrent. Aucune sous-commande ne l'imprime (`--which-python` n'existe pas) ; les sources reelles,
+dans l'ordre qui marche :
+
+1. le venv runtime present sur le PATH (`...\installs\<id>\environments\<hash>\venv\Scripts`) —
+   l'interpreteur que `hermes` utilise lui-meme, la source autoritative ;
+2. le venv runtime annonce par `hermes doctor` (« Runtime venv staged (...) (active in this
+   process) ») — recoupement de 1, a afficher quand les deux divergent ;
+3. le venv runtime le plus recent sous `installs\*\environments\*\venv` (trier les DOSSIERS) ;
+4. le venv du checkout (`hermes-agent\venv\Scripts\python.exe`) ;
+5. le CPython nu `tools\python-<ver>-<arch>\python.exe` — AUCUN paquet tiers : un controle de sante
+   qui l'accepte ne teste rien ;
+6. `python` du PATH.
+
+Trois pieges mesures, tous silencieux : plusieurs environnements stages coexistent et les perimes
+restent sur le disque (un glob nu prend le premier alphabetiquement, pas l'actif) ; `ls -1dt` sur
+les `python.exe` extraits ne trie rien (horodatage d'archive commun) ; et le python des `tools` n'a
+ni yaml ni requests. Corollaire : un controle de sante doit IMPORTER ses dependances critiques dans
+l'interpreteur resolu et echouer si l'import casse — un `--version` qui repond ne prouve rien du
+runtime.
 
 ## Pitfall — cwd shadows the install (version changes by directory)
 
@@ -292,6 +319,53 @@ adapter again: add the pattern to `EXCLUDE` in
 `updater\.stop\(\)\s+did\s+not\s+finish|Fatal\s+telegram\s+adapter\s+error\s+\(telegram_network_error\)`.
 Verify genuine errors (Traceback / Exception / out of memory) still match after.
 
+## Pitfall — `WinError 5` sur l'arbre d'install : une ACL par OBJET, presque jamais un fichier absent
+
+Signature : un run non eleve s'arrete sur `[WinError 5] Acces refuse: '<home>\tools\python-<ver>-<arch>\python.exe'>`,
+ou bien `uv venv` rend `Caused by: Could not find a suitable Python executable ... python.exe`, ou la
+preparation de la source rend `python: install failed: [WinError 5] ... .previous-python-<ver>-<arch>\DLLs\<dll>`
+— alors que le meme run lance ELEVE passe. Ces messages sont LE MEME probleme : la DACL des objets
+sous `tools\` et `plugins\`, pas le code ni le python.
+
+- **Le fichier n'est presque jamais absent.** Sur une DACL qui ne donne rien au jeton, `dir` repond
+  `Fichier introuvable` (exit 1, PAS `Acces refuse`) et `icacls`/`listdir` repondent `chemin
+  introuvable` (WinError 3). Prouver l'existence par `if exist` (cmd) ou un vrai essai d'ouverture,
+  jamais d'un `dir` seul — et ne jamais rapporter « fichier inexistant » sur cette base.
+- **Lire la DACL, pas le fichier** : `Get-Acl` -> `AreAccessRulesProtected` (heritage coupe) + les ACE
+  par SID. Forme cassee mesuree sur ce parc :
+  `D:P(A;OICI;FA;;;OW)(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)` = OWNER RIGHTS (S-1-3-4) + SYSTEM +
+  Administrateurs, **aucune ACE pour l'utilisateur**.
+- **OWNER RIGHTS profite au PROPRIETAIRE de l'objet** : c'est lui qui decide. Proprietaire
+  `BUILTIN\Administrateurs` (objet cree par un processus eleve) -> un jeton non eleve (ou
+  Administrators est `refus uniquement` sous UAC) n'a AUCUN droit -> WinError 5. Proprietaire =
+  l'utilisateur -> il garde le controle total et l'objet **marche**. D'ou des outils du meme dossier
+  qui fonctionnent et d'autres non : comparer les proprieteaires avant de conclure.
+- **Ne jamais compter `BUILTIN\Administrateurs` (S-1-5-32-544) comme un droit utilisable** en evaluant
+  une execution non elevee : SIDs utilisables = SID de l'utilisateur + Utilisateurs (545), Tout le
+  monde (S-1-1-0), Utilisateurs authentifies (S-1-5-11), INTERACTIF (S-1-5-4), OUVERTURE DE SESSION
+  DE CONSOLE (S-1-2-1).
+- **Un terminal d'agent souvent ELEVE ne voit pas le probleme** : tout ce qui est lisible en admin ne
+  dit rien du vecu non eleve. Reproduire avec un jeton restreint — `runas /trustlevel:0x20000
+  "<scratch>\probe.bat"` ou le `.bat` redirige vers un fichier (sortie en UTF-16 : `tr -d '\0'`
+  avant tout filtre), et verifier que le jeton est du bon type : `whoami /groups` doit afficher
+  `BUILTIN\Administrateurs ... Groupe utilise pour les refus uniquement`.
+- **Mesurer le PERIMETRE avant de reparer** : n'importe quel `tools\<outil>-<ver>-<arch>` et
+  `plugins\<nom>` peut etre casse, pas seulement le chemin cite par l'erreur (mesure : ~1300 objets
+  denies, dont `git` et `cua-driver`). Lancer `scripts/find-denied-tree.ps1 -Root <home>` : il liste
+  chaque objet ou aucun SID utilisable n'apparait, agrège par zone et publie `TOTAL_ANOMALIES=N`.
+- **Reparation** : `icacls "<dir>" /inheritance:e /grant "%USERNAME%:(OI)(CI)F" /T /C` — reactiver
+  l'heritage suffit quand le parent porte encore `<utilisateur>:(OI)(CI)(F)` ; le verifier d'abord
+  (`icacls "<parent>"`) et n'ajouter l'ACE que s'il ne l'a pas.
+- **Ne pas reparer avant d'avoir identifie l'ECRIVAIN de la DACL** : le meme acteur reapplique la
+  forme cassee au prochain install. Rapporter, puis attendre la validation avant tout `icacls` mutant.
+- **Un update avorte laisse des enfants vivants qui continuent de muter l'arbre.** Mesure : pendant un
+  diagnostic en lecture seule, un dossier de sauvegarde `.previous-python-*` et un `plugins\<nom>`
+  presents a l'ouverture avaient disparu quelques minutes plus tard, avec des `python.exe` encore
+  vivants issus du run avorte. Prendre un listing AVANT/APRES et re-verifier l'existence avant de
+  conclure : un objet mesure present peut ne plus l'etre.
+- Signature SDDL, table sain/casse, recette de reproduction, perimetre et pistes ELIMINEES :
+  `references/windows-acl-denied-tree.md`.
+
 ## Supporting files
 
 - `references/deferred-dependency-install.md` — finishing a deferred dependency install: the six
@@ -307,3 +381,10 @@ Verify genuine errors (Traceback / Exception / out of memory) still match after.
   **killing ELEVATED background processes (foreground shell = access denied;
   use UAC `Start-Process -Verb RunAs`)**, and the MSYS single-slash flag pitfall.
 - `templates/retire-stale-venv.ps1` — copy-and-adapt PowerShell for putting a stale venv out of service: aborts while any process still uses it, renames reversibly, then verifies `hermes --version`, the PATH shim, `doctor` and the backend port.
+ - `scripts/find-denied-tree.ps1` — scanne une racine et liste chaque objet dont la DACL ne donne aucun
+ droit a un jeton NON ELEVE (DACL protegee, aucune ACE utilisable) ; agrege par zone et publie
+ `TOTAL_ANOMALIES=N`. A lancer avant toute reparation d'un `WinError 5` sur l'arbre d'install.
+ - `references/windows-acl-denied-tree.md` — forensique ACL de l'arbre d'install : anatomie de la DACL
+ casse (`OWNER RIGHTS + SYSTEM + Administrateurs`, proprietaire = Administrateurs), regle du
+ proprietaire, SIDs utilisables par un jeton filtre, reproduction par jeton restreint, ordre de
+ reparation, et causes deja eliminees par la mesure.

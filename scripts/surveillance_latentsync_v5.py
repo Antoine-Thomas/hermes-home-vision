@@ -36,7 +36,7 @@ def gpu() -> tuple[int, int]:
         out = subprocess.run(
             ["nvidia-smi", "--query-gpu=memory.used,temperature.gpu",
              "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=20,
+            capture_output=True, text=True, timeout=20, creationflags=subprocess.CREATE_NO_WINDOW,
         ).stdout.strip().splitlines()[0]
         v, t = out.split(",")
         return int(v), int(t)

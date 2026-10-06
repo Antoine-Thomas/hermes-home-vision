@@ -62,4 +62,6 @@ python scripts/filter-contacts.py contacts.csv --output cleaned.csv
 - `references/french-business-prospecting.md` — FR candidature pipeline.
 - `references/sirene-api.md`, `references/naf-codes-creative.md`, `references/email-scraping.md` — crawl/enrich details.
 - `references/google-contacts-csv-format.md`, `references/api-response-format.md` — formats.
+- `references/brevo-csv-export.md` — export CSV vers Brevo : en-têtes, UTF-8 sans BOM/LF,
+  séparation confirmés / à vérifier, filtrage des adresses, pièges Windows-MSYS.
 - `templates/pagination-script.sh` — SIRENE pagination helper.

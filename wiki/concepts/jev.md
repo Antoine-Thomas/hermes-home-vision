@@ -1,11 +1,13 @@
 ---
 title: Jev
 created: 2026-09-22
-updated: 2026-09-26
+updated: 2026-10-06
 type: concept
 tags: [hermes]
 sources: []
 confidence: high
+contested: true
+contradictions: [laya-onnx-windows]
 ---
 
 # Jev
@@ -48,3 +50,11 @@ decision = choice(
 ```
 
 Voir [[fallback-chain]], [[primary-model]], [[hermes-agent]].
+
+## Contradiction notee le 2026-10-06 (latence)
+
+Cette page releve **0,316 s** par appel (mesure du 26/09/2026). [[laya-onnx-windows]]
+retient **0,50 s** (« aller-retour reseau », 27/09/2026). Deux valeurs differentes
+pour le meme objet ; l'ecart tient vraisemblablement au protocole (mesure locale vs
+aller-retour incluant le reseau) et reste a arbitrer. Les deux positions sont
+conservees. Registre : `contradictions.md`.

@@ -27,6 +27,29 @@ Une entrée est **candidate à l'archivage** si elle :
 - Redondance : seul le membre le plus long d'une paire survit (a longueur egale, le plus recent) — sur une chaine d'entrees quasi identiques il ne reste que la plus longue, le texte integral restant dans l'archive SiYuan.
 - Si les candidats pesent plus de 50 % du contenu du fichier, rien n'est ecrit (condensation manuelle).
 
+## Cas particulier : `0 candidate(s)` alors que l'alerte est franchie
+
+Les regles ci-dessus scorrent l'**obsolescence** (chemin mort, date > 90 j, etat clos, redondance),
+pas la **longueur accumulee** : un fichier peut depasser le seuil d'alerte avec neuf entrees toutes
+« vivantes ». Le script logue alors `0 candidate(s)` / `aucune entree candidate`, et `--auto` ne fait
+rien — c'est un angle mort de l'outil, pas une preuve que le fichier est sain. Corriger d'abord les
+faits perimes retire typiquement 30-80 caracteres, ce qui ne suffit pas forcement : mesurer apres.
+
+Condensation manuelle, dans cet ordre :
+
+1. `cp` un `.bak` horodate (dans ce cas le script n'en cree aucun).
+2. Choisir **une** entree : la note de chantier d'un projet termine est le candidat type
+   (« segment 1 fait le … », pointeurs de travail, plan d'execution). La reduire a son noyau durable
+   et remplacer le detail par un pointeur vers le skill qui le porte desormais.
+3. Editer sur les **OCTETS** : verifier que le motif survient **exactement 1 fois** (`bytes.count`)
+   avant de remplacer, et jamais via `read_text`/`write_text` — ils reecrivent toutes les fins de
+   ligne en LF et le diff passe d'une ligne a des centaines. Preserver le CRLF et compter les
+   separateurs `\r\n§\r\n` avant/apres : le nombre d'entrees ne doit pas bouger.
+4. Verifier : `check_memory.ps1` repasse sous le seuil **et** le nombre de separateurs est inchange.
+   Ne pas conclure sur un `len(open(f).read())` : universal newlines lit 2 caracteres par ligne de moins.
+5. Archiver le texte retire **a cote du `.bak`** (`archive_<FICHIER>_<entree>.txt`) quand SiYuan ne
+   doit pas etre touche ; la voie scriptee, elle, archive dans SiYuan — c'est la seule difference.
+
 ## Sécurité (ordre strict)
 1. **Toujours archiver dans SiYuan avant de modifier MEMORY.md.**
 2. Si SiYuan (6806) ne répond pas → ne rien faire, log l'erreur.

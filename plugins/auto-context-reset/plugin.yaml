@@ -1,0 +1,57 @@
+name: auto-context-reset
+version: 0.1.0
+description: >-
+  Detecte la saturation de contexte (echec ou etouffement de la compression) via les
+  hooks post_auxiliary_call / api_request_error, ecrit un handoff durable (markdown +
+  journal JSONL), et injecte au tour suivant un avis dans le contexte du modele pour
+  qu'il cloture proprement, previenne l'utilisateur et donne la commande de reprise.
+  Ne peut PAS forcer /new : aucun hook Hermes n'expose de directive de reinitialisation
+  (VALID_HOOKS verifie). Fail-open, stdlib + sqlite3 uniquement, lecture seule de state.db.
+author: ANIMA 0.1
+license: MIT
+requires_hermes: ">=0.21"
+kind: standalone
+tags: [context, compression, saturation, hooks, handoff, reset]
+provides_tools: []
+provides_hooks:
+  - post_auxiliary_call
+  - api_request_error
+  - pre_llm_call
+provides_middleware: []
+config_schema:
+  mode:
+    type: bool
+    default: true
+    description: "true = surveillance active · false = plugin inerte (YAML 1.1 : on/off == true/false)"
+  seuil_echecs:
+    type: int
+    default: 1
+    description: "Nombre d'incidents de compression avant d'ecrire le handoff et d'armer l'avis"
+  duree_suspecte_s:
+    type: float
+    default: 120.0
+    description: "Duree (s) au-dela de laquelle un appel de compression sans sortie est un etouffement"
+  notify_every_s:
+    type: float
+    default: 600.0
+    description: "Delai minimal entre deux avis injectes pour la meme session"
+  dernieres_messages:
+    type: int
+    default: 12
+    description: "Nombre de messages actifs recopies dans le handoff"
+  message_chars:
+    type: int
+    default: 400
+    description: "Troncature de chaque message recopie dans le handoff"
+  ecrire_handoff:
+    type: bool
+    default: true
+    description: "false = journaliser seulement, sans ecrire de fichier de handoff"
+  handoff_dir:
+    type: str
+    default: ""
+    description: "Default: <HERMES_HOME>/handoffs"
+  log_path:
+    type: str
+    default: ""
+    description: "Default: <HERMES_HOME>/logs/auto-reset.log"

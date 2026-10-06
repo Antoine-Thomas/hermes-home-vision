@@ -149,6 +149,19 @@ fichier connu (comparer la page wiki du meme concept entre les deux copies).
 clone sous `C:\Users\<user>\Projets\<repo>` existe et etait en **retard** — ne pas y ecrire sans
 avoir verifie son HEAD, et le signaler si l'utilisateur croit publier depuis lui. `gh` fonctionne de
 n'importe ou, `git` non : toujours `cd` dans le checkout retenu avant de committer.
+Les pages du **wiki** ne sont pas dans `docs/` : elles vivent dans le clone du wiki
+(`%LOCALAPPDATA%\hermes\wiki-github`, remote `<repo>.wiki.git`, branche `master`) — le `wiki/` du
+runtime est la base de connaissances L1, autre chose. Une demande qui nomme `docs/ANIMA-*.md` ou
+« la page wiki X » vise ce clone : `search_files` sur `ANIMA*.md` sous `%LOCALAPPDATA%\hermes` le
+confirme en une commande, et `cache/scratch/wiki_verify/` en contient des copies de verification a ne
+pas prendre pour la source.
+
+### Documenter une version PREPAREE, non publiee
+
+Bandeau avec mention de statut, ligne de tableau dont la colonne tag dit « aucun tag », section
+bloqueurs avant la licence, et **aucun tag ni release dans ce pass**. Recette complete (forme des 5
+elements, re-mesure des valeurs que le document affirme — y compris dans ses commandes — et preuve
+apres push) : `references/version-preparee-non-publiee.md`.
 
 ## Retoucher un lot deja publie
 
@@ -175,10 +188,21 @@ l'edition laisse la version fausse en ligne, et c'est la release que le monde li
    phrase du corps, pas du paragraphe retouche. Refaire tourner `verify_wiki.py`
    (EXIT=0) reste la preuve a donner.
 
+**Un document de recette / certification ne se reecrit pas** : ses mesures sont datees et font foi
+pour leur date. Tout fait posterieur s'ajoute dans une section `## Mise a jour post-recrute` datee
+(ce qui a change, ce qui est mesure, ce qui reste), la ligne de test d'origine restant en place et la
+nouvelle ligne s'ajoutant a la suite ; un ecart avec une limite certifiee s'y **signale** (« ecart avec
+la limite n° 1 — signale, non corrige ») au lieu de reecrire la phrase d'origine, meme quand la mesure
+rend la phrase fausse.
+
 ## Regles (toujours applicables)
 
 - **UN commit pour tout le lot**, jamais un commit par livrable. Le message dit ce
   qui est documente.
+- **Une demande qui nomme des FICHIERS sans nommer commit ni push reste LOCALE** : retoucher, montrer
+  les hunks (`git diff -U0` + ses lignes `@@`), et s'arreter la. « Ne rien toucher d'autre » exclut de
+  publier, et un push sur un depot public est une decision de l'operateur : le rapport se termine par
+  l'etat de publication (`local, non committe — GO ?`).
 - **Sauf cycles separes demandes** : quand l'operateur nomme plusieurs decisions distinctes (figer la
   derive, un lot documentaire, la memoire), chacune a son **propre cycle commit + push**, clos et
   rapporte (hash complet + ligne de push) avant que le suivant soit engage — rien ne se glisse d'un
@@ -188,7 +212,16 @@ l'edition laisse la version fausse en ligne, et c'est la release que le monde li
 - **Gate anti-secret avant tout push** : scanner le diff INDEXE, pas le working
   tree —
   `git diff --cached -U0 | grep -nE "sk-[A-Za-z0-9]{20,}|AIza[A-Za-z0-9_-]{30,}|nvapi-[A-Za-z0-9_-]{20,}|xoxb-|ghp_[A-Za-z0-9]{20,}|-----BEGIN.*PRIVATE KEY"`.
-  Aucune correspondance (`|| echo ok`) = condition pour pousser. Le guide du depot
+  Aucune correspondance (`|| echo ok`) = condition pour pousser.
+  **Un motif large matche aussi des NOMS de fichiers et de la PROSE — un gate rouge n'est pas encore une
+  fuite.** Avant de rapporter l'échec du gate (ou de le déclarer vert en silence), lister les lignes qui
+  matchent (`git diff --cached | grep -inE '<motifs>'`) et les classer mot pour mot : un motif court vit
+  dans un nom de skill ou de référence (le `sk-` de `<motif>` se retrouve au milieu d'un mot composé),
+  dans un sigle de jeton d'API cité par une commande de vérification, ou dans un mot anglais courant.
+  Traitement : **reformuler la doc** pour que seuls de vrais secrets puissent matcher (paraphrase du nom
+  du skill ou de la référence, « un jeton d'API (préfixe `ey`) » à la place du sigle), puis re-passer le
+  gate pour un vrai 0. Les noms exacts paraphrasés se **déclarent** dans le rapport : un gate vert
+  obtenu en changeant le texte sans le dire laisse le prochain passage croire à un fichier disparu. Le guide du depot
   (`docs/scripts/push-to-github.md`) exige en plus le scan d'**HISTORIQUE**
   (`python docs/scripts/scan_secrets_history.py --repo .`, attendu : aucune valeur reelle) : le depot
   est public, un secret deja pousse est compromis et se retire par `git filter-repo`, pas par un
@@ -242,6 +275,11 @@ l'edition laisse la version fausse en ligne, et c'est la release que le monde li
   cible sont detectees et preservees (un fichier CRLF edite en LF devient mixte, et le diff affiche
   alors chaque ligne comme modifiee) ; l'ancre doit matcher exactement une fois, sinon refus sans
   ecriture.
+- **Une ligne de tableau se remplace SANS fin de ligne finale** : le texte entrant garde son `\n`
+  terminal, qui devient une **ligne vide** — et dans un tableau Markdown cette ligne vide ferme le
+  tableau, les lignes suivantes ne sont plus rendues. Passer la ou les lignes par `$'ligne1\nligne2'`
+  (ANSI-C, aucun `\n` terminal) ou relire le diff pour verifier que la nouvelle ligne est collee a la
+  precedente ET a la suivante.
 - **Un compte attendu n'est pas un critere d'arret** : les writers de runtime reviennent en quelques
   minutes (`cron/jobs.json` : `completed` +1, `last_run_at`/`next_run_at`) et l'ecriture en cours de la
   session reste visible dans le porcelain. Le critere porte sur le **contenu du commit** : indexer par
@@ -266,6 +304,12 @@ release editee oui/non, tags intacts), suivi **en clair** des points a trancher 
 ecart entre une valeur demandee et la source, fichier inattendu embarque par
 `git add -A`, fichier existant non ecrase. Les doutes ne se noient pas dans le
 tableau — c'est la que l'utilisateur decide.
+
+Quand la demande liste ELLE-MEME les elements attendus (typiquement un « GO combine » numerote), la
+reponse suit SA numerotation et son ordre, item par item, et se termine par la liste de ce qui reste
+reellement ouvert. Un diff de document se rend en **entetes de hunk par section**
+(`git diff -U0` puis la ligne `@@` de chaque zone, rattachee au titre de section qu'elle touche), pas en
+diff integral : l'operateur veut savoir quelle section bouge, pas relire le fichier.
 
 ## Pitfalls
 
@@ -294,6 +338,11 @@ tableau — c'est la que l'utilisateur decide.
 - **Ne pas corriger en silence un ecart de fait du README** (visibilite annoncee « privee » sur un
   depot public, section d'audit plus vieille que la version courante, comptage de pages faux) :
   mesurer, ecrire la valeur mesuree, et signaler l'ecart.
+- **`git init` defaut le branche a `master`** : avant un PREMIER push (`gh repo create <nom> --source . --push`),
+  renommer en `main` (`git branch -M main`), sinon le depot se cree avec `master` comme branche par defaut
+  et le `git push -u origin main` attendu par l'operateur echoue. Confirmer ensuite le CONTENU distant complet
+  plutot que se fier au seul « new branch -> main » :
+  `gh api "repos/<owner>/<repo>/git/trees/main?recursive=1" --jq '.tree[].path' | sort`.
 
 ## Voir aussi
 

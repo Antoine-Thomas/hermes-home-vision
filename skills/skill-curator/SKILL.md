@@ -79,7 +79,29 @@ Livrable: `_analyse_redondance.md` avec tableau Avant/Après (umbrella, sources,
 Livrable: `_analyse_redondance.md` avec tableau Avant/Après: umbrella (nom, portée), skills à fusionner, à conserver (pourquoi), à archiver/supprimer (pourquoi).
 
 ### 3. Règles d'optimisation
-- Description: une phrase `Use when ...`
+- Description: une phrase `Use when ...`, **≤ 60 caracteres** — le plafond est applique par
+  `skill_manage(action='create')` et un depassement fait echouer TOUT le lot d'operations ; l'index du
+  prompt tronque a 57 car. + `...`, donc une description longue detruit le signal de routage. La
+  description longue va dans le CORPS, juste sous le titre (convention utilisateur : « le plafond 60 car.
+  s'applique a tous les skills suivants »). A la creation, le lint signale en plus l'absence de
+  `version` / `author` / `license` / `tags` et d'une section de declenchement : reprendre le frontmatter
+  d'une skill voisine de la meme categorie et ouvrir le corps par « Quand utiliser ce skill » /
+  « When to Use » avant la procedure, pour une creation lint-clean du premier coup. Un skill cree
+  sans passer par la validation ne se relit qu'avec `skill_view` (description relue, `linked_files` peuple).
+- **Reecrire une description existante = editer la ligne du frontmatter**, jamais `skill_manage`:
+  backup `<SKILL.md>.bak_desc`, remplacer la ligne, ecrire en UTF-8 sans BOM, relire et valider le
+  frontmatter. Trois consequences a traiter dans la MEME passe : (a) `skills/_index.md` duplique les
+  descriptions — sans realignement l'index annonce l'ancienne ; (b) le RAG indexe les `SKILL.md`, la
+  description reformulee y survit jusqu'au prochain reindex ; (c) le snapshot de prompt s'auto-invalide,
+  rien a purger.
+- **Toute description contenant `: ` doit etre quotee en YAML.** `description: Clone a voice: XTTS-v2`
+  est un frontmatter invalide (le `:` suivi d'un espace ouvre un mapping) — ecrire `description: "…"`
+  et relire avec `yaml.safe_load`.
+- **Rapporter l'ecart de mesure d'une longueur annoncee, jamais le resorber.** Un comptage annonce
+  inclut souvent les guillemets du frontmatter (+2 par description quotee) : annoncer la valeur mesuree,
+  nommer la convention de comptage, et signaler l'ecart plutot que de reecrire pour coller au chiffre.
+  Corollaire : verifier une liste de skills a reecrire sur l'arbre ACTIF d'abord — une entree de
+  `.archive/` est hors prompt, son impact routage est nul, la traiter est du travail perdu.
 - SKILL.md ≤200 lignes — au-delà découper vers `references/<topic>.md`
 - 1 responsabilité par fichier de référence, nom explicite par topic (pas `<date>-<incident>.md`)
 - Pas de duplication — mutualiser dans référence partagée
@@ -140,7 +162,12 @@ doublons absorbés par un umbrella.
 
 - **Ne jamais déduire l'usage d'un grep** sur `state.db` ou SiYuan : les sous-chaînes explosent en
   faux positifs (`box` → « Voicebox », `record`/`windows` partout). Le compteur `.usage.json` est
-  le seul signal fiable.
+  le seul signal fiable. **Raison de fond, pour ne pas retenter le chemin `state.db`** : l'appel d'outil
+y est coupe en DEUX lignes — `tool_name` est porte par le message de RESULTAT, `tool_calls` (avec les
+arguments) par le message ASSISTANT. Un `WHERE tool_name='skill_view'` rend donc 0 ligne, et le repli
+« parser les arguments de tool_calls » fait remonter les parametres des AUTRES outils (`name`,
+`terminal`, `read_file`) comme s'il s'agissait de skills. Ce chemin sert au plus a reperer qu'un skill
+a tourne recemment, jamais a le COMPTER.
 - **Croiser avant de désactiver** : `use_count` → `cron/jobs.json` (tâches planifiées) →
   `scripts/*.py|ps1` → SiYuan. Rester en cas de doute, et ne jamais toucher à la liste « ne jamais
   désactiver » de l'utilisateur.
@@ -181,6 +208,9 @@ committer en citant les fichiers touches.
 - Split >200l par extraction topical, pas par troncature — couper brutalement perd les procédures que le split devait préserver.
 - Un umbrella = une classe de tâche, pas un sac de sessions — un `references/` par session est un échec de forme, pas un objectif.
 - Génère les SKILL.md router par liste de lignes + `'\n'.join()`, jamais par f-string triple-quotes — un f-string qui contient backticks et triple-quotes casse à la compilation ('unmatched delimiter'), et l'échec étant atomique, un rename/move écrit plus tôt dans le même script ne s'exécute pas non plus.
+- Editer un fichier de skill en CRLF (cas Windows) : `^description:.*$` est GOURMANDE sur le `\r` — le `$` matche APRES le `\r`, donc le remplacement emporte le CR et laisse un LF isole. Utiliser `^description:[^\r\n]*`, ecrire les octets avec `\r\n`, et verrouiller par `data.count(b'\n') == data.count(b'\r\n')` + absence de BOM sur chaque fichier touche.
+- Une relecture en mode texte (`open(p, encoding='utf-8').read()`) convertit `\r\n` en `\n` et fait echouer la comparaison avec le contenu ecrit : comparer les OCTETS (`open(p,'rb').read()`), sinon on croit a une corruption inexistante.
+- Un split qui vise une taille de routeur (ex. ≤ 15 Ko) doit extraire AUSSI des sections sous le seuil de decoupage : soustraire la taille restante AVANT d'ecrire, sinon le routeur rate la cible. Les deux contraintes se paient l'une l'autre (moins de lignes = plus de fichiers signposts) — annoncer les DEUX mesures, pas seulement celle qui est atteinte.
 
 ## Adopter un skill tiers (vendor / GitHub)
 
@@ -195,5 +225,5 @@ Un skill officiel de vendor arrive distribué pour Claude Code (`claude plugin m
 
 - `references/third-party-skill-install.md` — adopter/adapter/mettre à jour un skill de vendor dans Hermes : vérif d'amont, clone en scratch, surcouche locale, emplacement des fichiers, détection, mesures à rejouer
 - `scripts/check_skills_snapshot.py` — sonde lecture seule : snapshot de prompt à jour ou non, et si un skill donné est bien vu sur disque
-- `references/consolidation-techniques.md` — techniques code-level : split verbatim par `##`, check de refs cassées sans faux positifs, génération de router SKILL.md, détection de doublons
+- `references/consolidation-techniques.md` — techniques code-level : split verbatim par `##`, split topical ≤ 15 Ko d'un fichier CRLF (pièges de regex/lecture + asserts de non-perte), check de refs cassées sans faux positifs, génération de router SKILL.md, détection de doublons
 - `scripts/scan_references.py` — balayage lecture seule des citations `references|scripts|templates/*.md` des SKILL.md actifs : tableau skill/citation/statut/correction + liste des entrees d'inventaire perimees

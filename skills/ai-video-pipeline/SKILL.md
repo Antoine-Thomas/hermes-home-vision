@@ -152,6 +152,33 @@ VRAM forces long renders to be split into segments; the JOINTS are where the def
   isolated peak above ~4x the median, and its frame numbers must be compared against the segment
   starts. Re-run after any change of segment length — a joint is easy to forgive at normal
   playback speed and the user will not.
+- **The generator's slice output is NOT the length you asked for: trim it to an exact frame count.**
+  Measured on LatentSync at 1080p, **N input frames come out as N + 2** (490 -> 492, 491 -> 493),
+  so concatenating the raw outputs overshoots the source by 2 frames per joint. Trim each slice with
+  `ffmpeg -i out.mp4 -an -c:v copy -frames:v N out2.mp4`: `-c copy` so the model's pixels are not
+  re-encoded, and **`-an` to drop each slice's own audio** when the master track is muxed once after
+  the concatenation (keeping per-slice AAC bloats the concat and fights the final mux). Then re-read
+  `nb_frames` on the trimmed file — that number, not ffmpeg's exit code, is the deliverable.
+- **A slice is resumable when its FRAME COUNT is exact, not when its file exists.** An interrupted
+  inference leaves a short but perfectly readable mp4, so "file present" resumes onto a truncated
+  slice and the total comes out short with nothing reporting an error. Key the resume on
+  `ffprobe -count_frames` against the planned count and skip only on an exact match. This complements
+  the audio-content-hash key already used for slices: the hash says the slice belongs to the right
+  audio, the frame count says it FINISHED.
+- **On 8 Go the VRAM margin on a ~20 s 1080p slice is ZERO, so gate every SLICE, not the run.**
+  Measured peak **7 955-7 994 / 8 192 Mio, i.e. 24-63 Mio free at the top**, for 19.64 s slices of a
+  1920x1080 source (230-265 s per slice, 12-13x real time; host RAM 30.7-30.9 GB of 63.9). Such a
+  slice completes, but no consumer can hold one more megabyte. Check
+  `nvidia-smi --query-gpu=memory.free` **before every slice** against a hard floor (700 Mio) and
+  abort the whole queue if it is not met: the idle desktop already accounts for ~480 Mio, so any
+  browser, video preview or overlay app IS the entire margin. Do not reuse a margin measured on a
+  shorter or higher-resolution run (a 5.48 s 4K clip left 390 Mio) — it does not transpose.
+- **The cycle-multiple rule bites only when the generator actually LOOPS the source.** A source
+  already aligned 1:1 with the narration (same frame count as the audio, and each slice's video
+  length equal to its audio length) leaves the loop nothing to repeat, so the phase reset described
+  above cannot occur in that slice. Do not carry the constraint over as an absolute — but do not
+  assume the escape either: the joint check on the RENDERED file still decides, exactly as for a
+  looping source, and it is the only measurement that settles it.
 - **Delivery naming (this user).** Never overwrite the last delivered `.mp4`: each iteration ships
   as a NEW file (`..._FINAL_v7.mp4`, `_v8.mp4`), the previous one stays untouched, and promoting a
   version to the canonical name happens only on an explicit go-ahead, after proving the old file
@@ -346,6 +373,17 @@ sampler.
     `qa_final.py` (per-stage metrics + flicker over the whole clip), `comparer_final.py` (labelled
     N-column visual sheet). Keep the 5120x2880 intermediate: re-doing only the final graft after the
     delivery cost 2 min instead of the 58.6 min restyle.
+18. **The graft mask must match the generator's REGENERATION FOOTPRINT — never reuse another model's
+    mask.** The mask is not a taste setting, it must cover exactly what the model rebuilt, and the
+    footprint differs by generator. A lip-sync model that regenerates only the LOWER face (MuseTalk)
+    leaves the upper half carrying the real source: grafting high frequencies there over-accentuates a
+    zone that lost nothing, so its mask needs a soft vertical ramp excluding the top (measured
+    optimum: exclude the upper 50 %, ramp ~12 % of the face height). A model that regenerates the
+    WHOLE face square (LatentSync re-synthesises the face at 256 px and pastes it back into the
+    original frame) has lost detail EVERYWHERE, so that same ramped mask under-restores the forehead
+    — there the mask is the face ellipse alone, and the lips factor applies only inside the lips
+    ellipse. Derive the mask from the generator in front of you; a mask lifted from the other branch
+    silently costs the zone it does not cover.
 
 ## Long Unattended Runs (multi-hour GPU)
 

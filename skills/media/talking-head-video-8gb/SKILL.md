@@ -1363,6 +1363,37 @@ du moniteur :
     libre en mode auto), le cablage de l'etape f (la commande du moniteur porte
     `--commande-json`, aucune inference n'est lancee) et le plan reel sur la boucle du volet 5.
 
+## Règle n°82  Réalignement des lèvres : c'est la CORRÉLATION qu'on mesure, jamais le décalage moyen
+
+Le recadrage des lèvres (règle 57) peut se retourner contre la greffe sans que rien ne le signale :
+l'appariement se fait sur les MODULES de gradient floutés (invariants au signe) entre la source et
+la bouche générée ; or LatentSync régénère toute la bouche (règle 62), donc les modules ne
+correspondent plus et la recherche choisit n'importe quel bord de la fenêtre ±3 px.
+
+Mesure sur 150 frames : (0,0) choisi dans **0 %** des cas, choix collé au coin dans presque tous
+(3,-3), (-3,-3), (-3,3)…, écart résiduel 33-41 (signal non apparié). Le **décalage moyen**
+annoncé (+0,07 / +0,11 px) ne le montre PAS : les coins se compensent d'une frame à l'autre. La
+texture de la bouche est donc déplacée au hasard — amplitude conservée, structure perdue.
+
+Le seul contrôle qui voie le défaut : l'**amplitude ET la corrélation** du passe-haut (règle 56)
+dans la boîte bouche (points 52-71 du modèle 106 pts, règle 69) contre la source, au même pixel.
+
+| rendu | corr. hors bouche | corr. bouche | amp. bouche |
+|---|---|---|---|
+| réalignement libre | 0,96-0,98 | **0,00** | 0,40 |
+| garde-fou (déplacement refusé) | 0,96-0,98 | **0,60** | 0,50 |
+
+Garde-fou retenu : n'appliquer le décalage que si l'écart au meilleur décalage bat celui de (0,0)
+d'au moins **5 %** (sinon garder (0,0), c'est-à-dire ne pas bouger). Sur ce contenu il refuse le
+déplacement sur **800/800** frames et la corrélation de la bouche passe de 0,00 à 0,60 — le
+mécanisme de la règle 57 reste disponible là où l'appariement est réel.
+
+Corollaire de dosage : la cible de netteté se mesure sur le **visage entier**, pas sur la bouche.
+Sur cette source, la bouche de LatentSync garde **7 %** de la variance du Laplacien de la source
+(33 contre 212) et aucune dose ≤1,0 ne l'en approche ; à alpha 2,0 le VISAGE atteint 95 % de la
+source (397 contre 419) alors que la bouche reste à 76 %. Arbitrer sur le visage — la bouche est
+la zone que le modèle a régénérée, c'est structurellement la moins récupérable.
+
 ## Checklist avant lancement GPU
 
 - nvidia-smi  VRAM < 1500 Mo
@@ -1400,3 +1431,92 @@ Segmentation : chaque segment libère la VRAM. Reste à ~5 Go au lieu de 7,7 Go.
 320p vs 512p : LivePortrait est entraîné sur des crops 256-512px. À 320px, différence après upscale 4K < 5%.
 
 Moov atom : Wav2Lip lit le fichier entier pour compter les frames. Sans moov atom  division par zéro.
+
+## 8. VERDICT VideoReTalking (OpenTalker) — NE PAS UTILISER EN 1080p
+
+Modèle testé : OpenTalker/video-retalking v0.0.1, HEAD d32e8e5.
+Testé sur 10 s de tetevideo_300s_alignee.mp4 (1920x1080, 25 fps, audio 16 kHz).
+
+Résultat mesuré (variance du Laplacien, frame 150, % de la source) :
+
+| Version          | bouche         | bande          | visage         |
+|------------------|----------------|----------------|----------------|
+| SOURCE           | 292,4 (100 %)  | 725,3 (100 %)  | 511,8 (100 %)  |
+| LatentSync A2.0  | 196,4 ( 67 %)  | 468,9 ( 65 %)  | 503,8 ( 98 %)  |
+| VR brut (512)    |  15,7 (  5 %)  |  10,6 (  1 %)  |  15,1 (  3 %)  |
+| VR test A        |  18,0 (6,2 %)  |  44,8 (6,2 %)  |  42,7 (8,3 %)  |
+| VR test B        |  24,8 (8,5 %)  |  48,2 (6,6 %)  |  49,4 (9,6 %)  |
+
+CAUSE 1 — défaut structurel du compositing :
+inference.py lignes 262-265 :
+    height, width = ff.shape[:2]           # ff = image PLEINE 1920x1080
+    restored_img, ff, full_mask = [cv2.resize(x, (512,512)) for x in (...)]
+    img = Laplacian_Pyramid_Blending_with_mask(...)
+    pp = cv2.resize(img, (width, height))  # remontée en 1080p
+Toute l'image passe par un 512x512 (agrandissement 3,75x).
+Preuve : PSNR d'invariance 512 = 50,9-51,3 dB sur la sortie VR contre
+39,7-41,5 dB sur la source et LatentSync A2.0. La sortie ne contient plus
+AUCUN détail au-delà de 512x512.
+
+CAUSE 2 — plafond intrinsèque du modèle (irréparable par réglage) :
+Visage régénéré en 256 px : utils/inference_utils.py:31 img_size=384, mais
+datagen ramène la zone visage à 256x256 pour construire la référence.
+Étalon mesuré : visage régénéré en 256 px puis remonté → 10,0 %, exactement
+ce que VR TEST B atteint (9,6 %). La limite n'est plus le compositing, c'est
+la résolution de travail.
+Bouche : volontairement LISSÉE par GFPGAN/GPEN (le masque mm canaux 10-12
+fait prendre restored_img, version lissée par conception). VR TEST B mesure
+2,1 % quand l'étalon 256 px mesure 9,5 % → la bouche est 4,5x plus douce que
+la limite du visage.
+
+TESTS DE CORRECTION EFFECTUÉS (tous insuffisants) :
+- Test A : possion_blending=False (ligne 267) → bouche 6,2 % / visage 8,3 %
+- Test B : (512,512)→(2048,2048) cumulé avec A → bouche 8,5 % / visage 9,6 %
+Verdict : LatentSync A2.0 fait 6-10x mieux. Ne pas réessayer.
+
+COÛT :
+- VR : 578 s (A) / 666 s (B) pour 10 s → 58-66x le temps réel.
+  Projection 294 s : ~5 h 25 en un passage.
+- LatentSync A2.0 : 11x le temps réel mesuré.
+
+BUG BLOQUANT (à connaître avant tout run VR) :
+inference.py:271-272 fait os.makedirs(os.path.dirname(nom_nu)).
+Si --outfile n'a pas de répertoire → dirname='' → WinError 3.
+Le crash survient APRÈS le calcul lourd (~10 min), mais le résultat brut
+est déjà dans temp/temp/result.mp4.
+Contournement : toujours passer un chemin type results/out.mp4.
+
+## 9. RÉFÉRENCE BOUCHE FIDÈLE : LatentSync alpha 2.0 + greffe HF
+
+Fichier de référence :
+C:\Users\searc\Desktop\ANIMA\_work_2c\latentsync\ANIMA_tete_latentsync_hf_a20.mp4
+
+Ce fichier est l'étalon « bouche fidèle » pour tous les tests talking-head.
+Produit par _greffe_hf.py (même dossier). NE PAS LE DÉPLACER.
+
+Scripts associés (même dossier) :
+- _greffe_hf.py          pipeline de greffe HF (fournit lire(), app_face(),
+                          plus_grand(), fenetre_levres())
+- _comparaison_alpha.py  mesure d'origine (frames 245/2500/6000)
+- RAPPORT_2c_max.json    résultats chiffrés de la session 2c
+  (attention : RAPPORT_2c_max.json est dans _work_2c\, pas dans
+   _work_2c\latentsync\)
+
+Verdict : à ce jour, LatentSync A2.0 + greffe HF reste la meilleure base
+pour « bouche fidèle » en 1080p sur RTX 3070 Ti 8 Go.
+
+## 10. MÉTHODE DE MESURE STANDARD (réutiliser à chaque test)
+
+Voir le skill video-fidelity-metrics pour la procédure complète et scripts.
+Résumé :
+- visage détecté par insightface buffalo_l sur la SOURCE
+- zone bouche = landmarks 52-71
+- zone bande basse = moitié inférieure du visage
+- zone visage = bbox entière
+- variance du Laplacien en CV_32F sur image grise
+- PSNR d'invariance 512 = PSNR(frame, resize(resize(frame,512),1920x1080))
+    ~40 dB = détail 1080p réel
+    ~51 dB = l'image ne contient rien au-delà de 512x512
+- contrôle alignement fond (3 px) : si le meilleur décalage n'est pas (0,0),
+  la comparaison n'est pas valable → signaler.
+- frames test : 60, 150, 245

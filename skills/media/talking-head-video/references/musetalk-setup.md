@@ -132,6 +132,32 @@ task_0:
 Output lands in `<result_dir>/v15/<video>_<audio>.mp4`. ffmpeg must be on PATH — the repo shells
 out to it for frame encoding and for muxing the audio back in.
 
+## Long output (a full narration): order of work
+
+Point both paths at ABSOLUTE `C:/...` locations (a space anywhere in the path breaks the repo's
+unquoted `os.system` ffmpeg calls — rule 21 of `talking-head-video-8gb`) and name the result:
+
+```yaml
+task_0:
+ video_path: "C:/Users/searc/Desktop/ANIMA/tetevideo_etendue_300s.mp4"
+ audio_path: "C:/Users/searc/Desktop/ANIMA/ANIMA_narration_chatterbox_complete_16k.wav"
+ result_name: "ANIMA_tete_parlante_musetalk.mp4"
+```
+
+1. **Smoke test before the long run, always.** 1 s of the source stretched exactly the way the
+   real driving video is (~6 s at 25 fps, 146 frames) plus the first 6 s of the audio, in its own
+   `--result_dir` and under its own file names — the crop-coordinate pickle is keyed on the input
+   basename, so a leftover one can be picked up by the real run. A 6 s pass answers "does the
+   config / fps / temp-dir chain work" in ~2 min instead of an hour into a doomed render.
+2. Give the engine a driving video at least as long as the audio (see the ping-pong bullet in
+   SKILL.md): the output is then `ceil(duration_audio * fps)` frames consumed in order, with no
+   wrap and no ping-pong.
+3. Frame extraction writes one PNG per driving-video frame into `<result_dir>` — ~2.6 MB each at
+   1080p, ~20 GB for 7 500 frames — and deletes them at the end. Check free space before starting.
+4. The final mux re-encodes the video and deletes the temp file; keep the temp if output
+   sharpness matters (see the double-encoding bullet in SKILL.md).
+5. Close with `scripts/qa_tete_parlante.py` (duration, frozen frames, audio slip, lip sync).
+
 ## Verifying the install (validated)
 
 Loading all models without rendering anything catches mmcv, mmpose AND the hub pin in one shot:

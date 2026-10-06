@@ -312,6 +312,7 @@ Common `type` values in SQL queries:
 - **Error responses**: always check `code != 0` in responses before processing `data`.
 - **Large documents**: block content and export results can be very large. Use `LIMIT` in SQL and pipe through `jq` to extract only what you need.
 - **Notebook IDs**: when working with a specific notebook, get its ID first via `lsNotebooks`.
+- **`/api/query/sql` a un retard de commit ~1 s après écriture** (createDocWithMd / removeDocByID) : un document tout juste créé n'est PAS immédiatement visible via SQL `WHERE box='...'` (résultat vide), alors que `listDocsByPath`, `getHPathByID` et `getBlockAttrs` (filetree) le voient instantanément. Pour un contrôle d'existence immédiat (anti-doublon/TOCTOU), utiliser `listDocsByPath` (comparer `files[].name` au dernier segment du hpath), pas le SQL. Mesuré sur 3.8.2 : SQL vide juste après création, rempli après ~1 s ; même retard côté suppression dans le filetree (un `removeDocByID` peut laisser le nom visible ~0,5 s).
 
 ## Alternative: MCP Server
 

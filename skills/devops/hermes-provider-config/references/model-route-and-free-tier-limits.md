@@ -92,3 +92,27 @@ reduction du prompt (moins de toolsets / skills charges, `max_tokens` bas).
 - Tester le tool-calling, pas seulement le texte : un appel
   `chat/completions` avec `tools` + `tool_choice: auto` doit rendre un
   `tool_calls` non vide.
+
+## 5. Raccorder / choisir un etage LOCAL (Ollama)
+
+Banc d'essai pour chaque modele deja installe, dans cet ordre :
+
+1. `ollama stop <modele>` puis `GET /api/ps` : vider la VRAM et prouver qu'on mesure bien un froid.
+2. **COLD, avec outils** : `POST /v1/chat/completions` avec un `tools` minimal et `max_tokens` court.
+   Relever la duree totale, le `finish_reason` et la presence d'un `tool_calls`.
+3. **WARM** : 3 tirs courts (`POST /api/generate`, `num_predict` ~60) ; garder la mediane et
+   `eval_count / eval_duration` (tok/s).
+4. `GET /api/ps` apres les tirs : `size_vram` doit approcher la taille du modele (sinon inference CPU).
+5. Lire la reponse WARM : langue, coherence. Un modele peut deriver de langue sur une question francaise.
+
+Mesures de reference (RTX 3070 Ti 8 Go, Q4_K_M, modeles deja installes) :
+
+| modele | cold (avec outils) | warm (mediane) | tok/s | size_vram | tool_call | francais |
+| llama3.2:3b | 2,9 s | 0,19 s | ~180 | 4,06 Go | oui | correct |
+| qwen2.5:7b | 41,2 s | 0,34 s | ~101 | 7,0 Go | oui | derive (chinois) |
+
+Decision : le petit modele est le bon candidat pour un DERNIER recours (14x plus rapide a froid, ~3 Go de
+VRAM en moins — la marge compte sur 8 Go) ; un 7B sature la memoire GPU et coute 41 s de chargement. Un
+modele local rend un tour COURT de facon fiable et un tour d'agent COMPLET de facon intermittente : le
+declarer comme dernier recours et l'ecrire dans le rapport. Fin de banc d'essai : `ollama stop <modele>`
+ou choisir le modele qu'on veut laisser chaud, puis verifier `/api/ps` et `nvidia-smi` (VRAM rendue).

@@ -59,6 +59,14 @@ Verdicts : SUR (supprimable) / A VERIFIER (a valider en phase B) / A GARDER.
   redundante parce que le depot git est propre est faux.
 - Un dossier de sauvegarde voisin plus recent mais vide (0 Mo) est un ECHEC de sauvegarde : le signaler
   comme anomalie. Il ne remplace rien.
+- **Une sauvegarde se DEPLACE avant de se supprimer.** Quand le rapport doit classer en SUPPRIMABLE /
+  DEPLAÇABLE / A CONSERVER, une sauvegarde entiere va en DEPLAÇABLE vers un volume secondaire : risque
+  nul, archive intacte, volume systeme libere. Seul son payload strictement identique au live (meme chemin
+  relatif ET meme taille, puis `fsutil hardlink list` a 1 seul lien) est SUPPRIMABLE.
+- **Comparer les SOUS-ARBRES, pas le total.** Une sauvegarde peut etre plus GROSSE que le live (mesure :
+  `data/` 213 Go en sauvegarde vs 156 Go en production) : ses sous-arbres en surnombre contiennent alors
+  des fichiers qui n'existent nulle part ailleurs (variantes de poids, sorties anciennes). Les lister
+  fichier par fichier (chemin relatif + taille) avant de proposer quoi que ce soit, et les garder.
 
 ## Snapshot d'etat (<horodatage>-pre-update)
 
@@ -121,3 +129,40 @@ Verdicts : SUR (supprimable) / A VERIFIER (a valider en phase B) / A GARDER.
   a re-telecharger (chiffrer le re-telechargement avant de proposer).
 - Lire les MANIFESTES du store (JSON de type ollama/localai) avant de traiter un blob comme orphelin :
   un blob reference par un manifeste est une dependance de l'app, pas un residu.
+
+## VHDX d'une machine virtuelle (WSL, Docker Desktop)
+
+- Controle : mapper chaque fichier a son proprietaire AVANT tout verdict — registre Lxss
+  (`DistributionName` + `BasePath`) pour WSL, `wsl --list -v` pour l'etat, `docker ps -a` + `docker info`
+  pour Docker. Un vhdx dont le mtime avance pendant l'audit est en cours d'ecriture.
+- Verdict : **A GARDER** si la distro ou les conteneurs sont `Running` (mesure : 47,4 Go de
+  `docker_data.vhdx` portant un SIEM actif) ; **A VERIFIER** si la distro est `Stopped` depuis des
+  semaines — verifier son contenu avant de la declarer morte ; **A GARDER** pour le template non monte de
+  `C:\Program Files\Docker\Docker\resources\wsl\ext4.vhdx` (~0,1 Go).
+- Un vhdx ne se reduit pas tout seul : `docker system df` peut annoncer des Go recuperables a l'interieur
+  du fichier sans que le vhdx hote diminue (purge + compactage). Ne pas compter ces Go dans le gain.
+- Alternative au demantelement : `wsl --export` / `wsl --import` vers un second volume — conserver la
+  distro et liberer le volume systeme. A proposer avant toute suppression.
+
+## Fichiers systeme de la racine d'un volume (pagefile.sys, hiberfil.sys, swapfile.sys)
+
+- Controle : `Get-ChildItem -LiteralPath C:\ -File -Force | Where Length -gt 100MB`, `powercfg /a`
+  (hibernation / demarrage rapide actifs ?), RAM totale (`Win32_ComputerSystem.TotalPhysicalMemory`).
+- Verdict : **SUR** pour `hiberfil.sys` — mais jamais par effacement : `powercfg /h off` desactive
+  hibernation ET demarrage rapide (decision utilisateur, gain ~40-43 % de la RAM). **A GARDER** pour
+  `pagefile.sys` : un redimensionnement est une decision mesuree, pas un gain gratuit. `swapfile.sys` suit
+  le pagefile.
+- Sans extension, ces fichiers arrivent en tete de toute categorie « fichiers sans extension >100 Mo » et
+  faussent la lecture si on y cherche des artefacts applicatifs.
+
+## Dumps de crash (.dmp)
+
+- Emplacements a sonder : `C:\Windows\LiveKernelReports\` ET son sous-dossier `WATCHDOG\`,
+  `C:\Windows\MEMORY.DMP`, `C:\Windows\Minidump`, `%LOCALAPPDATA%\CrashDumps`,
+  `C:\ProgramData\Microsoft\Windows\WER`, et les `Crashpad\reports\` des applications Electron
+  (VS Code, IDE tiers).
+- Verdict : **SUR** — un dump est un artefact de diagnostic, pas une donnee. Exception : conserver (ou
+  deplacer) le dump d'un incident RECURRENT non instruit (plusieurs dumps de la meme source etalees sur des
+  semaines = incident a instruire, le dire dans le rapport).
+- Le poids se concentre dans UN fichier noye parmi des petits : un `LiveKernelReports\WATCHDOG-<date>.dmp`
+  peut peser plusieurs Go quand ses jumeaux du sous-dossier pesent 2 Mo. Trier par taille, pas par dossier.

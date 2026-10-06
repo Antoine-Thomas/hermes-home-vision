@@ -1,11 +1,13 @@
 ---
 title: Laya ONNX Windows CPU
 created: 2026-09-27
-updated: 2026-09-27
+updated: 2026-10-06
 type: concept
 tags: [jev, model, windows, decision, cout]
 sources: []
 confidence: high
+contested: true
+contradictions: [jev]
 ---
 
 # Laya ONNX Windows CPU
@@ -68,3 +70,10 @@ doit rester à 6-10 : au-delà des 12 threads logiques la latence s'effondre (2 
 
 Voir [[jev]] (la primitive payante dont Laya est le repli gratuit), [[hermes-agent]] et
 [[omniroute]].
+
+## Contradiction notee le 2026-10-06
+
+La ligne « Jev — 0,50 s (aller-retour reseau) » du tableau contredit [[jev]], qui
+mesure 0,316 s par appel (26/09/2026). Les deux mesures sont datees et conservees ;
+arbitrage en attente (protocoles probablement differents). Registre :
+`contradictions.md`.

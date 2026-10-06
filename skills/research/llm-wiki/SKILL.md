@@ -39,4 +39,5 @@ systeme par tour : voir `references/compilation-non-agentique.md`.
 - [Working with the Wiki](references/working-with-the-wiki.md)
 - [Pitfalls](references/pitfalls.md)
 - [Compilation non-agentique (tout le wiki en UN appel LLM)](references/compilation-non-agentique.md)
+- [Lint contradictions (cron « LLM Wiki contradictions »)](references/lint-contradictions.md)
 - [Related Tools](references/related-tools.md)

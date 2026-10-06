@@ -19,6 +19,51 @@ It fans a single request across many upstream providers and exposes
 `eco` combo is the default Hermes model and must prefer FREE models, only
 falling back to paid in last resort.
 
+## Avant d'ecrire une config : prouver que la cle EXISTE dans le code
+
+Un audit de lecture precede toute ecriture. Trois verifications, dans cet ordre — chacune evite
+d'ecrire un reglage placebo qui ne sera jamais lu :
+
+1. **Nom de variable d'environnement.** Chercher le nom exact dans les sources du paquet installe
+   (`%APPDATA%\npm\node_modules\omniroute`). Mesure : `OMNIROUTE_AUTO_FREE_FALLBACK_TO_FULL_POOL`
+   (`open-sse/services/autoCombo/virtualFactory.ts`, comparee a `"true"`/`"1"`),
+   `QUOTA_PREFLIGHT_CUTOFF_ENABLED` (`src/lib/resilience/settings.ts`) et `QUOTA_SATURATION_THRESHOLD`
+   (`src/lib/quota/enforce.ts`) existent bien — la troisieme **vaut deja 0.5 par defaut** : l'ecrire a
+   0.5 ne change rien, le dire au lieu de presenter un no-op comme une correction.
+   **Verdict A3 (mesure 2026-09-29, 3 providers coupes puis restaures) : ces 3 variables du .env sont
+   INOPERANTES sur la chaine Hermes.** `OMNIROUTE_AUTO_FREE_FALLBACK_TO_FULL_POOL` ne s'applique
+   qu'aux alias `auto/*` (virtualFactory.ts:823, filtre category/tier vide), jamais aux combos
+   priority (`free-openrouter`/`eco`/`nvidia-stack`) qu'Hermes utilise — PLACEBO pour nous.
+   `QUOTA_SATURATION_THRESHOLD` (`?? "0.5"` = defaut) est un no-op exact — PLACEBO.
+   `QUOTA_PREFLIGHT_CUTOFF_ENABLED` (opt-in, settings.ts:135) n'arme que l'auto-routing et les
+   connexions `pinned`, pas les combos priority (commentaire #11234) — SILENCIEUSE. Le fallback
+   payant observe (deepseek-flash, 0,0024 $) venait de la chaine **Hermes**
+   (`config.yaml fallback_providers: eco → nvidia-stack → deepseek`), PAS du .env OmniRoute. Ne pas
+   chercher la methode de fallback dans ces variables : elle est au niveau des combos + config.yaml.
+2. **Ne PAS grepper tout le paquet en recursif** : `grep -r` sur ce `node_modules` depasse 240 s sans
+   rien rendre. Passer par `search_files` (ripgrep borne) ou restreindre au dossier (`src/lib/...`,
+   `open-sse/services/...`), et lister les variables reellement lues avec
+   `process\.env\.[A-Z][A-Z0-9_]*` plutot que de deviner des noms.
+3. **Routes API.** `GET /api/combos`, `GET /api/providers` et `GET /api/keys` sont verifiees.
+   **`GET /api/version` n'existe pas** (`{"error":{"code":"unknown_route"}}`) : la version se lit par
+   `omniroute --version` (mesure : 3.8.50) ou dans le `package.json` du paquet. Un 404 de route ne dit
+   PAS que le daemon est mort — seul `netstat -ano | grep :20128` (ligne `LISTENING`) le dit.
+
+**Un membre de combo est un MODELE, pas un combo.** `models[].model` doit porter
+`<providerId>/<modele>` ; y mettre le nom d'un autre combo (`nvidia-stack`, `free-openrouter`) n'est pas
+un emboitement supporte — l'analogue mesure (alias `auto/*` en membre) est ecarte par le filtre
+pre-dispatch et rend `503 all targets were skipped`. Composer « gratuit puis gratuit puis payant » se
+fait donc a **deux niveaux** : les combos gratuits cote OmniRoute, et la derniere marche payante cote
+Hermes (`fallback_providers`). Un modele payant DANS un combo exige en plus une connexion de ce type
+dans OmniRoute (`GET /api/providers` : aucune connexion `deepseek` n'existe par defaut) — sans elle la
+cible est ecartee comme toute cible sans credentials.
+
+**« Ajouter » un provider no-auth = le REACTIVER.** Les connexions existent souvent deja mais
+`isActive: false` : `PATCH /api/providers/<id> {"isActive": true}`, puis relire `isActive` — un `POST`
+creerait un doublon. Verifier avant d'activer : `opencode` a son palier gratuit ferme (403 « can only be
+used from within OpenCode ») et une connexion `cloudflare-ai` sans Account ID **tue le daemon**
+(`unhandledRejection`, cf. section dediee) — reactiver a l'aveugle remet ces bombes dans la chaine.
+
 ## eco : cibles reellement atteignables dans un combo
 
 Le combo resout le provider par le **prefixe du nom de modele** et filtre les cibles
@@ -34,7 +79,19 @@ dans `eco` ; ecrire les cibles en **provider/modele reels** :
 
 Diagnostic : dans `~/.omniroute/logs/application/app.log`, chaque requete detaille ses
 targets (`Trying model i/N`, `No credentials for <provider>`, `marking for skip`).
-Un echec de combo en ~2 s = cibles filtrees, pas un modele en panne.
+Un echec de combo en ~2 s = cibles filtrees, pas un modele en panne — mais cette lecture ne
+vaut QUE pour le filtrage pre-dispatch. **Une cible dont l'amont ne repond plus fait PENDRE
+le combo au lieu d'echouer vite** (modele retire cote fournisseur, passerelle qui n'aboutit
+pas) : la trace `call_logs/<date>/*.json` porte alors `status 499` (le client abandonne),
+`tokens.in = 0` et une `duration` de 270-340 s **repete sur la MEME cible a chaque appel**.
+Le distinguer d'une saturation de quota : la fenetre NIM, elle, rend un `503`/`504` en 15 s
+ou moins. Tester la cible en appel DIRECT — si le modele seul pend ~30 s alors qu'un AUTRE
+modele du meme provider repond en 3 s, c'est le MODELE qui est mort, pas la connexion. Portee
+du diagnostic : si cette cible est la PREMIERE d'un combo qui sert de `model.default`, chaque
+NOUVELLE session paie l'attente avant que `fallback_providers` ne bascule — symptome cote
+Hermes : `hermes -z "pong"` qui ne rend rien en 300 s, et une ligne `sessions` avec
+`model=<combo>`, `message_count=1`, `billing_provider` NULL (aucun fournisseur n'a servi).
+Remonter « primaire qui pend », ni « combo casse » ni « quota sature ».
 Validation obligatoire apres toute ecriture de combo : `POST /v1/chat/completions
 {"model":"eco"}` -> `200` + `content` non vide, et lire `model` dans la reponse (route
 reellement servie) + 3 essais pour ecarter un coup de chance.
@@ -210,10 +267,103 @@ qui ne servent qu'a bruyamment echouer : `gemini/gemini-2.5-flash` et `gemini/ge
 veut reduire la sonde ; `zc/glm-5.3` (`502 spawn zcode ENOENT`, binaire local absent) et
 `cloudflare-ai/*` (`502 requires an Account ID`) ne comptent pas comme echecs terminaux.
 
+## eco : une cible MORTE en PREMIÈRE position (combo qui pend)
+
+Symptôme : `eco` pend des minutes (`499`, `tokens.in = 0`, durée répétée) ou n'a que quelques pour
+cent de succès, alors que la même famille de cibles répond en 1-2 s ailleurs. Côté Hermes, toute
+nouvelle session sur `model.default=eco` paie l'attente avant que `fallback_providers` bascule.
+
+Diagnostic TRANCHÉ par la sonde cible-par-cible (appels directs, espacés, code + durée relevés) : la
+cible de TÊTE `gemini/gemini-3-flash-preview` rend `504` en ~30 s (`limiter-managed execution expired
+after 15s`, pool de comptes en cooling) **y compris en appel direct**, tandis que les deux cibles NIM
+rendent `200` en 1,3-1,7 s. Le combo pend donc parce que sa PREMIÈRE cible est morte — en `priority`,
+chaque appel paie son attente avant de retomber sur les saines. Ce n'est PAS « chaîne sans cible
+saine » : il reste des cibles vivantes derrière.
+
+Contrôle qui tranche entre « tête de combo » et « quota/pool » : comparer au combo FRÈRE.
+`nvidia-stack` puise dans le MÊME pool NIM mais n'a pas la cible morte en tête — même journée :
+`eco` = 2 succès / 72 appels (durée moyenne ~158 s ; `504` ×25, `499` ×24, `503` ×19) contre
+`nvidia-stack` = 81/94 (~3 s). Un tel écart entre deux combos qui partagent leurs cibles désigne
+l'ORDRE (la tête), ni le pool ni les quotas.
+
+Remède qui découle du diagnostic (à RE-MESURER après application — ne pas le présenter comme acquis) :
+RÉORDONNER, pas reconstruire. Le skill interdit de rebâtir un combo sur un échec, pas de changer
+l'ORDRE. Backup du combo (`GET /api/combos` -> JSON dans `~/.omniroute/backups/`), puis
+`PUT /api/combos/<id>` avec les cibles saines EN TÊTE et la cible morte EN DERNIER (elle reprend sa
+place d'elle-même si elle guérit), `strategy: priority` + `config` repris à l'identique de la lecture.
+Valider par 3 appels `{"model":"eco"}` -> `200` + `content` non vide, en lisant le champ `model`.
+Écart à ANNONCER : le plafond de contexte du combo suit la cible servie (1 M avec gemini en tête,
+128 K avec NIM en tête) — sans impact pour des jobs de maintenance, à valider pour une session longue.
+
+Vérifier que le job d'auto-refresh ne défera pas le réordonnancement : `omniroute-eco-autorefresh`
+réécrit `eco` chaque heure et remettrait la cible morte en tête — s'il tourne, le correctif est annulé
+au tick suivant ; s'il est en pause (`hermes cron pause <id>`), il tient. Le dire dans le compte rendu.
+
+N'attendre aucune guérison d'une cible au plafond journalier : gemini free = 20 requêtes/jour, un pool
+de comptes en cooling ne revient pas dans la journée. « Attendre / contacter le fournisseur » ne
+répare rien tant que la cible morte est en tête.
+
+Contournement immédiat : `model.default = deepseek-flash` **et** `model.provider = deepseek`
+(les deux clés bougent ensemble ; `deepseek` est un provider NATIF, aucun bloc `providers.*` à créer).
+Preuve après bascule (2026-10-05) : `hermes -z "Reponds exactement: OK"` -> `exit 0`, `OK` rendu en
+**9,3-9,6 s** (2 mesures), contre ~300 s sans réponse avant.
+
+Ne PAS reconstruire le combo sur un seul échec — vérifier d'abord les quotas. Ne pas non plus
+conclure « combo cassé » : une cible dont l'amont ne répond plus fait PENDRE le combo (statut 499,
+0 token, même durée répétée) au lieu d'échouer vite ; c'est le cas ici, identifié par la répétition
+de ~273-310 s **sur la même cible à chaque appel**.
+
+**Un combo n'a pas autant de résilience que de cibles : le saut se fait par FOURNISSEUR.** Après un
+`503`, OmniRoute marque le provider épuisé et saute **ses autres cibles dans la même requête**
+(`Provider <p> connection <id> error (503) — marking for skip on remaining targets`, puis
+`Skipping <modele> — provider <p> marked exhausted this request`). Deux membres partageant le même
+`providerId` sont donc perdus ENSEMBLE : un `eco` « à 3 cibles » dont 2 pointent `providerId: openai`
+vaut en pratique **un seul fournisseur**, et un 503 NIM ne laisse plus que la cible morte à tenter.
+Grouper les cibles par `providerId` après lecture du combo, avant de présenter le nombre de membres
+comme un niveau de fiabilité. Corollaire de mesure : après un réordonnancement, mesurer le TAUX DE
+SUCCÈS et pas seulement la latence, et remonter un résultat mitigé tel quel (ex. 2 succès sur 3) — il
+signale que le correctif a atteint son plafond, pas qu'il a échoué.
+Recette complète (backup, garde-fou avant écriture, `PUT` du corps complet, renumérotation des `id`
+d'entrée pour qu'un tri par `NN` n'annule pas le réordonnancement, validation sur 3 appels espacés) :
+`references/combo-topology-and-reorder.md`.
+
 ## eco auto-refresh (cron `omniroute-eco-autorefresh`, horaire)
 
 `~/AppData/Local/hermes/scripts/probe_omniroute.py` (job `5c9dd16aaa37`) probe les
 modeles gratuits et maintient le combo `eco` (modele par defaut de Hermes).
+
+### Neutraliser le job (pause, jamais delete)
+
+- `hermes cron` n'a **PAS** de sous-commande `disable`/`enable` (sous-commandes reelles : list, create,
+  edit, pause, resume, run, remove/rm/delete, status, runs, incidents, notepad, doctor, tick). Arreter
+  la reecriture horaire d'`eco` sans detruire le job = `hermes cron pause 5c9dd16aaa37` →
+  `enabled:false` + `state:paused` + `paused_at` ; reactiver = `hermes cron resume <id>`. Ne pas
+  chercher `disable`, ne pas passer par `remove` (qui detruit).
+- **Ni `set-model`** : `hermes cron set-model` n'existe pas (l'operateur peut le demander — le dire au
+  lieu de l'inventer). La sous-commande pour changer le modele d'un job est
+  `hermes cron edit <id> --model <modele> --provider <provider>` (`--pin`/`--unpin` existent aussi).
+  Basculer des jobs d'un combo gratuit vers un primaire payant se fait exactement comme ca, job par
+  job. **Prouver par DIFF de `cron/jobs.json` avant/apres** : seuls `model` et `provider` doivent
+  bouger — planning, `next_run_at`, `deliver`, prompt, `script` et `skills` restent intacts (une
+  assertion sur l'ensemble des champs modifies le verifie en une passe). Et un job `no_agent` peut
+  porter un `model` que son script utilise : « no_agent » ne veut PAS dire « aucun modele a changer » —
+  le verifier dans `jobs.json` avant d'exclure un job d'une bascule.
+- Un job peut garder des cles HERITEES `model_snapshot` / `provider_snapshot` apres une bascule : elles
+  sont inertes (un job portant un `model` explicite « follows the main model », cf.
+  `tests/cron/test_cron_provider_pin.py`). Ne pas les prendre pour un echec de la bascule, et ne pas
+  editer `jobs.json` a la main pour les nettoyer.
+- La preuve se lit dans `hermes cron list` (`<id> [paused]`) et dans `cron/jobs.json` (`enabled:false`,
+  `state:paused`) — **PAS dans `next_run_at`** : la pause ne le nullifie pas, le champ reste pointe vers
+  l'heure suivante. Le scan des due saute quand meme le job (`cron/jobs.py` :
+  `if not job.get("enabled"): continue`), donc l'heure suivante ne tire pas. Ne pas annoncer « next_run
+  nullifie » comme critere de succes.
+- Un tick deja **claim** (dispatche) avant la pause va jusqu'au bout : pauser a HH:00:47 n'annule pas le
+  tick parti a HH:00:36 — cette derniere passe consomme encore le quota des cibles d'`eco`. Si l'enjeu
+  est d'epargner le quota, pauser AVANT le top de l'heure, pas juste apres.
+- **`cron/jobs.json` change de FORME a la premiere mutation du CLI** : le fichier passe d'une liste JSON
+  nue a une enveloppe `{"jobs": [...], "updated_at": ...}`. Parser en defendant les deux formes
+  (type `list` vs `dict` avec cle `jobs`), jamais `d[0]['id']` a l'aveugle — un `pause` reecrit le
+  fichier entier. Backuper `jobs.json` avant le `pause` pour garder la forme d'origine.
 
 - Le script est **additif + elagage** : il ajoute en tete les modeles nouvellement vivants absents du
   combo, et ne retire une cible qu'apres **N echecs consecutifs a code TERMINAL** (`401/402/403/404` =
@@ -260,7 +410,8 @@ modeles gratuits et maintient le combo `eco` (modele par defaut de Hermes).
   (les modeles froids repondent en 5-12 s et sont parfaitement utilisables).
 - Sonde avec `max_tokens >= 200`. Avec un budget minuscule (5-10), les modeles
   "reasoning" mettent tous les tokens dans `reasoning_content`, OmniRoute rejette
-  en `502 ... failed quality validation` et le probe conclut a tort "mort".
+  en `502 ... failed quality validation` (ou un `200` a contenu vide — log « empty_choices » —
+  sur un modele flash/reasoning) et le probe conclut a tort "mort".
 - `providerId` : `oc` pour `oc/*`, `opencode` pour `opencode/*`, `auto` pour
   `auto/*` (convention du combo `eco-fast`, verifiee fonctionnelle).
 - **Le pre-run script du job execute DEJA `probe_omniroute.py` : ne pas le relancer dans la meme fenetre.**
@@ -385,6 +536,24 @@ disparu en amont : c'est une reponse nette, pas un incident. Mesure 2026-09-22 :
 et `deepseek/deepseek-r1:free` n'existent plus alors que le nom circulait encore ; seuls 21 modeles
 `:free` subsistaient. Toujours `GET /api/providers/{id}/models` (ou filtrer `/v1/models`) avant
 d'inscrire un modele dans un combo, puis sonder en vrai chaque membre.
+
+**Un `403` sur un nouveau provider n'est pas forcement une cle morte — tester en direct avec un
+User-Agent navigateur/curl.** Les API fr␣ntees par Cloudflare (ex. `api.groq.com`) bannissent les
+User-Agent non-navigateurs : le corps porte `error 1010 browser_signature_banned`
+(`retryable:false`, `owner_action_required:true`), ce qui se lit a tort « cle invalide ». Discriminer
+en appelant l'API EN DIRECT avec un UA accepte : `Authorization: Bearer <cle>` +
+`User-Agent: curl/8.0` sur `GET <api_base>/models` -> `200` = cle vivante. Le `Python-urllib` par
+defaut (et l'UA qu'OmniRoute envoie) est banni, d'ou les faux 403.
+
+**Un override `USER_AGENT` par variable d'env ne desactive PAS le bloc Cloudflare.** OmniRoute
+contourne Cloudflare par un fingerprint complet (User-Agent + TLS/JA3 + Client-Hints + IP,
+`open-sse/config/claudeWebFingerprint.ts` + `cliFingerprints.ts`), cable pour Claude/Copilot/GitHub
+mais pas pour `groq` : poser `GROQ_USER_AGENT` dans l'env puis redemarrer ne debloque pas l'appel.
+Le daemon lit ses variables dans `~/.omniroute/.env` (fichier DISTINCT du `.env` Hermes ; y figurent
+`STORAGE_ENCRYPTION_KEY`, `OMNIROUTE_API_KEY`, `QUOTA_PREFLIGHT_CUTOFF_ENABLED`, `HOST`...). Un
+provider fronte par Cloudflare n'est donc pas branchable via un simple `POST /api/providers` : le
+dire et proposer un provider OpenAI-compatible non protege (ex. Cerebras) plutot que de re-tester
+en boucle.
 
 **Creer un combo** : `GET /api/combos` (backup JSON dans `~/.omniroute/backups/` avant ecriture),
 puis `POST /api/combos` avec `{name, models:[{id,kind:"model",model:"<provider>/<id>",providerId,weight:0}],
@@ -546,6 +715,26 @@ Verifier le normaliseur : `hermes_cli/model_normalize.py` doit contenir `deepsee
 
 Ne jamais scraper de tokens communautaires — violation ToS et meme pool deja en 429/cooling-down, aucun gain. Ajouter un vrai provider via dashboard OmniRoute (`POST /api/providers`) avec cle API fournie par l'utilisateur. communautaires pour `oc`/`opencode` — ces providers exposent deja le pool `muse-spark`/`big-pickle`/`mimo` en 429 cooling-down, ajouter d'autres tokens ne les dedouane pas et viole le ToS du source.
 
+## Test controle du fallback : couper un provider et observer la cascade
+
+Pour prouver QUELLE etape sert reellement (et si une bascule payante survient), ne pas se
+contenter de lire la config : forcer l'etat degrade, mesurer, restaurer. Recette reversible
+(~2 min) :
+1. Snapshot : `GET /api/providers` -> `curl -o providers_avant.json`.
+2. Desactiver le provider suspect : `PATCH /api/providers/<id> {"isActive":false}` (jamais
+   `DELETE`), puis relire `isActive` pour le prouver.
+3. Forcer une requete : `hermes -z "test"` ou `POST /v1/chat/completions {"model":"<combo>"}`.
+4. Lire la cascade dans `app.log` (tail depuis la position avant test) : `Trying model i/N`,
+   `No credentials for <provider>`, `combo trace terminal={"status":503|429}`.
+5. Verifier qui a servi : `state.db` -> `SELECT id, model, billing_provider,
+   estimated_cost_usd FROM sessions ORDER BY rowid DESC LIMIT 3`.
+6. RESTAURER toutes les connexions `isActive:true` et relire l'etat complet.
+
+La cascade observee est la chaine **fallback de Hermes** (`config.yaml fallback_providers`),
+pas les variables du `.env` OmniRoute : une bascule sur deepseek pendant ce test prouve la
+chaine config.yaml, jamais un reglage .env. Restaurer meme si le test « repond bien » — une
+connexion oubliee a `isActive:false` casse le primaire au tick suivant.
+
 ## Editing Hermes config.yaml safely
 
 - The `patch` tool REFUSES to write `~/AppData/Local/hermes/config.yaml` (security guard on agent modifying Hermes config). Edit it via `terminal` instead.
@@ -572,6 +761,22 @@ Ne jamais scraper de tokens communautaires — violation ToS et meme pool deja e
   (3) `hermes gateway restart` puis, dans le log de demarrage du gateway,
   `gateway.run: Model context warmed: <modele> -> <N> tokens (detected)` : c'est cette ligne qui
   prouve que le gateway a charge le nouveau primaire (elle nommait l'ancien avant le redemarrage).
+- **Il n'y a qu'UN gateway hote pour tous les profils.** `hermes gateway status` nomme la tache
+  planifiee (`Hermes_Gateway`) et UN seul PID ; `hermes gateway restart` redemarre cet hote, donc
+  « redemarrer le gateway du profil X » n'existe pas — un seul redemarrage couvre `default`,
+  `docs-writer`, `veille` et `watch`. Ne pas enchainer N redemarrages par profil quand l'operateur
+  le demande : le dire, et n'en lancer qu'un (trace propre : `Gateway stopped (drained cleanly)`
+  puis `Gateway started via direct spawn (PID: ...)`).
+- **`Model context warmed` est emis UNE fois, au niveau hote, et nomme le primaire du seul profil
+  `default`** : la ligne ne liste aucun profil. Pour prouver le modele charge par un AUTRE profil
+  sans attendre un message entrant, lancer un tour sur ce profil (`hermes -p <profil> -z "pong"`) et
+  lire `model` / `billing_provider` dans son `state.db` — la ligne du gateway ne le dira jamais.
+- **Un gateway DEJA demarre garde le modele charge a son demarrage.** `logs/gateway.log` porte
+  `gateway.run: Model context warmed: <modele>` : si la ligne nomme l'ANCIEN primaire apres une edition
+  de `config.yaml`, les sessions servies par ce gateway (Telegram, etc.) continuent dessus. Les
+  processus NEUFS (`hermes -z`) lisent la nouvelle chaine tout de suite : verifier les deux sources
+  avant d'annoncer que le changement est actif, et proposer `hermes gateway restart` (accord
+  utilisateur) pour les sessions du gateway.
 - **Une session DEJA ouverte garde son modele** (lie au demarrage de la conversation) : `agent.log`
   continue d'afficher `model=<ancien>` apres un changement de `model.default` — ce n'est PAS un echec
   de l'edition. Basculer par `/new` (processus neuf), `hermes model` (defaut) ou `hermes -m <modele>`
@@ -587,10 +792,24 @@ Ne jamais scraper de tokens communautaires — violation ToS et meme pool deja e
   contenu lu en `newline=""` : la sortie est exactement ce que l'ecriture produira, fins de ligne
   comprises. Meme methode pour `cron/jobs.json`, avec un `json.loads(new)` de controle avant
   d'afficher. Ne pas appliquer tant que l'accord n'est pas donne.
+- **Un script d'edition doit echouer AVANT la premiere ecriture.** Mettre les imports et la
+  validation (`import yaml` en tete, `yaml.safe_load` du resultat relu) avant la boucle d'ecriture, et
+  faire refuser l'ancrage (`count != 1` -> exit non nul) avant tout `write` : un script qui importe sa
+  dependance apres avoir commence a ecrire laisse un fichier a moitie modifie. Lancer ces scripts avec
+  l'interpreteur qui PORTE la dependance (`hermes-agent/venv/Scripts/python.exe` sur Windows ; le
+  `python` par defaut du poste peut n'avoir ni PyYAML ni ruamel). Apres un echec, VERIFIER l'etat des
+  fichiers (`grep` de la ligne visee) avant de relancer : l'echec peut etre survenu avant toute
+  ecriture, et un « fichier peut-etre corrompu » annonce sans mesure fait perdre une sauvegarde.
 - **`config.yaml` et `cron/jobs.json` portent souvent des modifications NON COMMITEES anterieures**
   (reformatage des `personalities`, skills, compteurs de cron) : `git status --short` +
   `git diff --stat` AVANT d'editer, et le dire a l'operateur plutot que de committer en bloc avec sa
-  propre modification — sinon un commit « propre » embarque des changements qui ne sont pas les votres.
+  sa propre modification — sinon un commit « propre » embarque des changements qui ne sont pas les votres.
+- **Dater un changement de primaire : `git log --oneline -S '<modele>' -- config.yaml` +
+  `git status --short config.yaml`.** Un `model.default` qui a derive sans commit ni backup
+  (mtime recent, `git status` en `M`) est une derive a REMONTER, pas a corriger en silence :
+  la corriger change le fournisseur de toutes les sessions. `git log -S` retrouve le commit ou
+  le nom est apparu ; l'absence de commit = derive non tracee, qui est le vrai risque (on ne
+  sait plus pourquoi ni quand le primaire a change).
 
 ## Tuer le daemon par un appel cloudflare-ai (mesure 2026-09-22)
 
@@ -630,7 +849,21 @@ trois endroits qu'il faut separer avant de toucher au combo :
 Mesure 2026-09-22 : les chemins 1 et 2 echouaient PARIELLEMENT (5/6 et 4/6 en 503 dans la
 meme minute) tandis que le chemin 1 rendait `200` en 0,94 s avec `content: pong` quelques
 secondes plus tard → limite de debit intermittente cote NVIDIA par cle/modele, ni le proxy
-(203 lignes de `ThreadingHTTPServer`, aucun plafond local) ni le combo. Le proxy NIM tourne
+(203 lignes de `ThreadingHTTPServer`, aucun plafond local) ni le combo.
+
+**Classer la fiabilite des etages : lire les compteurs d'`app.log` avec le BON echappement.**
+Les lignes de trace sont du JSON renverse (`terminal={\"status\":200` a l'octet) : un motif ecrit
+pour du texte brut (`terminal={"status"`) ne matche RIEN et rend un classement vide — « 0 requete
+attribuee » se lit alors a tort « aucun echec ». Chercher `status\\":(\d+)`. Et l'attribution par
+le dernier `Trying model 1/3` vu ne vaut que sur un trafic SEQUENTIEL : sur un log concurrent,
+seule une poignee de traces s'attribue (~3 %), avec un biais vers le combo lance en dernier — pas
+de quoi ordonner une chaine. Pour decider d'un ordre, preferer les mesures independantes de
+l'attribution : le JSON de la sonde (`%TEMP%\omniroute_probe_result.json`, statut + latence par
+candidat), 3 appels espaces par combo NOMME, et `proxy.log` (`grep -c "16/16"` rapporte au nombre
+d'appels relayes = taux de refus reel de la fenetre NIM). Structure a retenir pour l'ordre de
+cascade : `eco` et `nvidia-stack` puisent dans le MEME pool NIM (16 slots) et tombent ensemble,
+alors qu'un combo adosse a un autre fournisseur (OpenRouter) reste debout — garder un etage non-NIM
+en tete de cascade. Le proxy NIM tourne
 en chaine cmd -> python -> python : deux PID homonymes, UN seul port tenu — ce n'est pas un
 doublon d'instance.
 
@@ -640,6 +873,20 @@ doublon d'instance.
 de suite dans une fenetre calme (2,73 / 0,76 / 1,18 s, servi par la cible NIM nano-omni).
 Ne pas conclure d'une rafale sur la sante d'un combo : espacer les essais de 20-90 s et
 lire `model` dans la reponse.
+
+**Un refus pre-dispatch qui alterne avec des succes n'est pas un combo mort — et il faut
+innocenter sa propre sonde par un A/B.** `Service temporarily unavailable: all targets were skipped
+by pre-dispatch filters` peut frapper TOUS les combos, y compris un combo adosse a un autre
+fournisseur (OpenRouter) qui ne touche pas au pool NIM : le filtre s'applique AVANT dispatch et ne
+dit rien des cibles. Mesure : fenetres de refus de 1-3 min alternant avec des fenetres saines de
+meme duree, les MEMES requetes (corps identique a l'octet) rendant `200` quelques secondes plus
+tard. Avant d'accuser le routeur — ou sa propre methode — faire l'A/B : rejouer un corps
+STRICTEMENT identique en alternant deux formes d'invocation (sortie pipee / sortie redirigee,
+budgets differents). 6/6 en `200` des deux cotes = la forme d'appel est innocente, le refus est
+cote serveur et par fenetres. Un seul refus ne date jamais une panne : re-sonder apres 40-60 s et
+rapporter « refus par fenetres, cibles vivantes » plutot que « combo en panne ». Correlation
+observee avec les `504 ... limiter-managed execution expired` et les grappes NIM `16/16`, sans
+lien de cause prouve — ne pas l'affirmer comme cause.
 
 ## Relaunch watchdog — piege TIME_WAIT (no-op silencieux)
 
@@ -701,6 +948,14 @@ User's NIM keys are in `~/AppData/Local/hermes/data/nvidia/.env`:
 
 **Model alias**: `auto/best-chat` is a dynamic auto-routing alias, not a fixed model. It iterates through models and in testing resolved to `oc/mimo-v2.5-free`. DeepSeek only appears as a paid fallback in `fallback_providers`, never in the normal routing.
 
+**Un job cron dont le `model` est un alias `auto/*` échoue au dispatch avec « This
+conversation has grown too long for <alias> to read ».** Signature : sortie
+`cron/output/<id>/` avec `prompt_tokens: null` et durée ~6 s (échec AVANT tout travail),
+`usage_audit.jsonl` `error` nommant l'alias. L'alias a résolu sur une cible gratuite à
+petit contexte au lieu d'un modèle à grand contexte — ni crash, ni 503. Corriger le JOB
+(épingler un combo/modèle nommé à contexte connu, ex. `eco` à 1 M), pas le combo : l'alias
+est structurellement instable, il re-résout à chaque appel.
+
 ### Wiring NVIDIA NIM into OmniRoute (the proxy pattern)
 
 OmniRoute has NO native `nvidia-nim` provider type — `openai`/`pollinations`/`auto`
@@ -746,7 +1001,23 @@ To prevent multiple instances of a long-running Python daemon:
 
 ## Silent Python Wrapper Pattern (VBS)
 
-When scheduled tasks need to run Python without console flash:
-- Use `wscript.exe` (not `pwsh.exe` which may flash briefly on some Windows configs)
-- Create `.vbs` file: `sh.Run "python.exe script.py", 0, False` (second arg 0 = hidden)
-- Register VBS in scheduled task with action `wscript.exe "path/to/launch.vbs"`
+When a scheduled task needs to run Python without a console flash:
+- A task whose action is `python.exe`/`powershell.exe`/`cmd.exe` DIRECTLY (no `.vbs`
+  wrapper) opens a visible `conhost` every tick — the most common cause of a periodic
+  flash. Wrap it instead of hunting for exotic MSIX/WindowsTerminal broker causes.
+- Use `wscript.exe` (not `pwsh.exe` which may flash briefly on some Windows configs).
+- Create `.vbs`:
+  ```vbs
+  Set sh = CreateObject("WScript.Shell")
+  rc = sh.Run("""C:\...\python.exe"" ""C:\...\script.py""", 0, True)
+  WScript.Quit rc
+  ```
+  Arg 0 = hidden. `, True` + `WScript.Quit rc` propagate the exit code so the task's
+  `LastTaskResult` reflects the script's outcome — use `, False` only for fire-and-forget.
+- Register in the task in place (no XML re-import):
+  `schtasks /change /tn "<name>" /tr 'wscript.exe //B //Nologo "...\wrapper.vbs"'`.
+  The « mot de passe Executer sous vide » warning is harmless for an Interactive task —
+  verify `RunAs`/`LogonType`/interval intact after.
+- Hiding the wrapper is NOT enough: a hidden script still flashes if its OWN
+  `subprocess.run([...])` calls a console binary (`schtasks`, `nvidia-smi`, `tasklist`,
+  `netstat`). Add `creationflags=subprocess.CREATE_NO_WINDOW` to EVERY `subprocess.run`.

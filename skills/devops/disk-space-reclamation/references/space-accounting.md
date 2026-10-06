@@ -44,6 +44,20 @@ Corollaire : `du` et l'enumeration .NET additionnent des tailles LOGIQUES. Sur u
 partagent les blocs, la somme d'un arbre surestime l'occupation reelle — le seul arbitre est `FreeSpace`.
 Un fichier peut donc etre "de N Go" dans un tableau et valoir bien moins pour le volume.
 
+Le partage traverse les ARBRES, pas seulement les venvs d'un meme parc : un pack d'inference qui
+re-reference les poids d'un dossier d'entrainement, ou deux sous-dossiers d'un meme outil qui attendent le
+meme modele sous deux noms (`models\gguf\<modele>` et `models\text_encoders\<modele>`), le fait souvent par
+LIEN. Avant de sommer un tableau de tailles de packs :
+
+1. lister les fichiers de meme nom et de meme taille presents dans deux packs differents (indice : meme
+   taille ET meme mtime a la seconde) ;
+2. passer les plus gros au `fsutil hardlink list` ;
+3. retirer du total logique tout ce qui rend 2 liens ou plus.
+
+Mesure : 3 paires (un modele de 8,70 Go et un de 12,96 Go sous deux noms dans le meme outil, un
+checkpoint de 6,94 Go partage entre deux packs) = **28,60 Go comptes deux fois** sur 249,81 Go logiques.
+Les annoncer comme "doublons a supprimer" aurait promis 28,60 Go que le volume n'aurait jamais rendus.
+
 ## 4. Sonde corbeille
 
 ```powershell

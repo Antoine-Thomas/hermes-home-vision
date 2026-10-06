@@ -107,7 +107,21 @@ portrait unique garde la tete dans le cadre (il perdrait le visage).
 
 ## Lessons and Pitfalls
 
+- **Résoudre le chemin réel d'un asset AVANT de conclure qu'il manque.** Un chemin cité dans la
+  demande peut être inexact : un **espace parasite avant l'extension** (`phototetepourHErmesANIMA .jpg`
+  au lieu de `...ANIMA.jpg`) est courant dans les dossiers de cet utilisateur. Lister le dossier
+  parent (`ls -la`) et reconstruire le chemin exact ; annoncer le chemin résolu avant de produire.
+  Sous bash/MSYS utiliser `ls`, jamais `dir /b` (builtin cmd) : un `cannot access '/b'` ne dit rien
+  de la présence du fichier.
+- **Verifier la NARRATION avant de lancer le lip-sync, et ne jamais conclure d'un decodage fichier entier.** Un mot physiquement present peut ressortir absent du decodage global (memes octets, transcription differente selon la fenetre decodee) : localiser la phrase-ancres dans les jetons horodates et re-decoder la seule fenetre concernee avant de declarer une absence. Les scripts de verification prennent le chemin de l'audio ET les noms de log/json en arguments et estampillent chemin/md5/taille/date dans le JSON — sinon deux runs sur deux versions differentes du meme wav se confondent et les mesures d'une version sont attribuees a l'autre. Enfin la similarite brute (difflib) n'est pas un verdict : sigles epeles, noms propres, nombres en toutes lettres et composes doivent etre canonicalises des DEUX cotes avant de mesurer. Recettes et pieges : `references/verification-voix.md`.
+- **Structure d'un volet de la série Hermes** (sauf indication contraire) : intro = salut + numéro du
+  volet et sujet ; corps = explication technique adossée au schéma d'architecture fourni, en citant
+  les composants/ports réels lus dans le `README`/`docs\` du projet (jamais inventés) ; clôture =
+  CTA like/partage/abonnement + lien du dépôt affiché en grand. Durée : 5-6 min de voix (≈750-900 mots),
+  16:9 YouTube. Compter les mots parlés en excluant les en-têtes (`grep -v '^#' fichier.md | grep -v '^---' | grep -v '^$' | wc -w`) : le total brut compte les titres et fausse l'estimation. Le montage (fond, logo en coin) est géré par `video-assembly`.
+- **Avant de lancer un run de production, vérifier FFmpeg, les poids des modèles (`<outil>/repo/checkpoints/`), la photo source et l'audio, puis signaler les manquants et s'arrêter pour le GO.** L'utilisateur fait ces vidéos par étapes gatées et attend un rapport après chaque étape ; ne pas enchaîner directement sur un rendu long.
 - **Driving Video Mismatch:** NEVER reuse an old driving video (from a previous script) for a new audio track. Lip-sync is tied to the driving video's timing; using an old one will result in \"mismatched mouth\" syndrome. Always re-run the audio-driven stage (SadTalker) before the video-driven stage (LivePortrait) when audio changes.
+- **Plusieurs WAV de narration : concaténer et convertir AVANT le lip-sync.** Utiliser le demuxer concat d'ffmpeg puis rééchantillonner en mono 16 kHz PCM (ce que SadTalker attend) : `ffmpeg -f concat -safe 0 -i liste.txt -ar 16000 -ac 1 voix.wav`. Les moteurs ne prennent pas une liste de fichiers.
 - **Verify LivePortrait flags against `argument_config.py` before running.** AI-generated commands carry non-existent flags (`--flag_use_cuda`, `--flag_absolute_motion`, `--mouth_ratio`, `--lip_sync_strength`, `--frame_smooth_window`, `--output_fps`). The real list is the `ArgumentConfig` dataclass (`src/config/argument_config.py`); CUDA is the default (the inverse is `--flag_force_cpu`). An unknown flag makes tyro fail immediately.
 - **ONNX/CUDA Conflict (Windows):** Windows systems with CUDA 13.3+ and `onnxruntime-gpu` < 1.19 will crash if `insightface` or `HumanLandmark` try to use `CUDAExecutionProvider`.
   - **Fix:** Patch `model_zoo.py` (insightface) and `cropper.py` (LivePortrait) to force `providers=['CPUExecutionProvider']`. See `references/liveportrait-troubleshooting.md`.
@@ -127,8 +141,15 @@ portrait unique garde la tete dans le cadre (il perdrait le visage).
 - **"The mouth is blurry" is measured against the SOURCE VIDEO, not against a restored photo.** This user benchmarks lip-sync output against the original footage: a portrait that went through GFPGAN + Real-ESRGAN is *not* the reference. Measure Laplacian variance on the mouth/chin band of the output vs the same band of the source, and always report the **ratio** — the absolute value is meaningless without its display size.
 - **Measure an engine's mouth quality on a short test BEFORE committing to a long render.** Both engines are hour-scale and neither exposes a batch knob to fix a bad run; a 10-second test clip through the same pipeline answers "is this engine good enough" in minutes. Do not discover the answer after the full render.
 - **Both MuseTalk and LatentSync loop a short source in ping-pong, and build each output frame on the looped source frame.** `img, img[::-1], img, img[::-1]...` truncated to the audio length (MuseTalk `frame_list_cycle`; LatentSync `loop_video()` in `latentsync/pipelines/lipsync_pipeline.py`). Re-read the formula in the code rather than reciting it: `cycle = 2*n_src; j = i % cycle; k = j % n_src; src_idx = k if (j//n_src) even else n_src-1-k`. Because the mapping is deterministic, the source's real detail can be transferred onto the output — see `references/mouth-sharpness.md`.
+- **Un pilote au moins aussi long que l'audio supprime le ping-pong.** Tant que `i < n_src`, `i % len(frame_list_cycle)` rend les frames dans l'ordre : la sortie est la tete de la source, tronquee a la duree de l'audio. Mesure : source etendue de 7 530 frames / 301,200 s + audio de 294,119 s -> 7 352 frames / 294,080 s, aucun rebouclage. Pour atteindre cette longueur depuis un clip court : `setpts=N*PTS` (ralenti) puis INTERPOLER vers le fps de livraison (`minterpolate=fps=25:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1`), puis repeter par `-stream_loop 4 -c copy` — un simple `fps=25` apres l'etirement ne fait que dupliquer des frames (image figee). Meme interpole, un ralenti 6x d'une prise a 60 fps rendue en 25 fps garde quelques pour cent de paires quasi identiques (mesure 250/7 528 = 3,3 %) : c'est inherent au ralenti et ca ne se juge pas sur la source — le critere « aucune image figee » se mesure sur la SORTIE du moteur (mesure 0/7 350 paires sous 0,05 de difference moyenne sur 0-255).
+- **LatentSync par SEGMENTS : la sortie fait +2 frames par segment.** `latentsync/whisper/audio2feature.py::feature2chunks` boucle `while start_idx <= len(feature_array)` et le pipeline genere 1 frame par chunk : pour une tranche de N frames audio il sort N+2 frames. Consequence mesuree : chaque segment se cale sur l'audio a `19,6k` s mais se place dans la video a `19,68k` s, soit +80 ms de derive par segment (+1,2 s sur 15 segments) — la video finale depasse l'audio de 1,28 s. Corriger SANS reencodage : `ffmpeg -y -i out.mp4 -map 0 -c copy -frames:v <N> out_trim.mp4` (verifie : 490 frames / 19,600 s exact). `-c copy -t 19.6` NE coupe PAS (il laisse 492 frames) — seul `-frames:v` tranche, et c'est aussi ce qui rend la reprise (`tranche_video_valide`) compatible.
+- **LatentSync 1.5, chiffres mesures (source 1920x1080, visage ~500 px, RTX 3070 Ti, stage2.yaml = resolution 256).** 490 frames en **217,5 s = 11,1x temps reel** — PAS 47,3x : ~50 s de chargement+passe de detection, ~130 s d'inference (31 fenetres de 16 frames), ~40 s d'ecriture tmp + muxage ffmpeg (GPU retombe a 0-37 %). RAM systeme pic 31,2 Go sur 63,9 (base 14,8 Go ; plateau 22,7 Go pendant l'inference, le pic tombe pendant l'ecriture video) ; VRAM pic 7867 Mio / 151 Mio libres, 72 degC. Les 2,84 Go de frames ne representent donc PAS le besoin : ajouter le checkpoint 5,07 Go dans torch, le contexte CUDA et les buffers pipeline. A retenir : diviser la duree cible par 47,3 surestime le run d'un facteur 4 ; mesurer le premier segment avant de projeter.
+- **Options reelles de `scripts/inference.py` (LatentSync) :** `unet_config_path`, `inference_ckpt_path`, `video_path`, `audio_path`, `video_out_path`, `inference_steps`, `guidance_scale`, `temp_dir`, `seed`, `enable_deepcache`. `--resolution` et `--inference_pp_path` N'EXISTENT PAS — ne pas les passer, et `configs/unet/stage2_512.yaml` (resolution 512) fait sauter les 8 Go deja saturees par la config 256 (151 Mio libres au pic).
+- **La nettete de la bouche d'une sortie LatentSync se mesure AVEC TEMOIN de codec.** Meme source, meme CRF, sans traitement : ici un reencodage CRF 18 rend 99,7 % de la source sur le visage, donc tout l'ecart restant est au modele. Mesure sur une tranche de 490 frames (source tres nette, 1920x1080, crops ramenes a 256 px de large) : visage entier 19,6 % de la source, bande basse bouche+menton **7,0 %**, fond 30,9 %. Le « 58 % de preservation du bas du visage » qui justifie le choix de LatentSync n'est PAS reproductible tel quel : le ratio n'est pas portable d'une source a l'autre (lapvar de la bande basse = 748 ici, contre 200-320 annonces pour du 1080p natif). Sur une source tres nette, attendre la greffe hautes frequences comme etape PORTEUSE, pas comme finition de confort.
+- **MuseTalk, longue sortie 1080p : chiffres de reference et double encodage final.** 7 352 frames a 3,75 it/s (32 min 25 d'inference), ~78 min au total, landmarks ~6 it/s, ~20 Go de PNG ecrits par l'extraction de la source (verifier le disque avant). Le mux final de `scripts/inference.py` (`ffmpeg -i audio -i temp_vid out.mp4`, sans `-c:v copy`) RE-ENCODE la video puis supprime le temporaire : mesure 1,71 Mb/s en 1920x1080 alors que le temporaire etait en CRF 18. Quand le pique compte, conserver le temporaire et remuxer en copie de flux. VRAM pendant tout le run : 7 914 Mio / 8 192 — 104 Mio libres, ca tient, mais ne rien laisser d'autre sur le GPU.
+- **Vérifier la synchro labiale sans voir l'image : une seule de quatre métriques tranche.** (1) mouvement de la moitié basse contre l'enveloppe audio : dominé par le mouvement de tête, 0,03-0,06 — non concluant. (2) contraste parole/silence sur la zone régénérée : rapport X1,03 (et X0,76 sur l'image entière) — non concluant, la tête ralentie bouge autant en silence. (3) l'audio de sortie est-il celui de la source ? décoder en PCM et corréler : 0,9997 au décalage 0 ms — nécessaire, mais ne prouve que l'absence de glissement audio. (4) corréler PIXEL PAR PIXEL la variation entre images consécutives avec l'enveloppe audio : la bouche se désigne elle-même. Mesuré max +0,209 contre une médiane de +0,048 sur l'image, les 8 pixels les plus corrélés groupés en un amas compact (la bouche), maximum au décalage 0,00 s ; contrôle avec l'audio décalé de +10 s : max +0,123 et AUCUN pixel au-dessus de 0,15. C'est la preuve à produire. Script prêt à l'emploi : `scripts/qa_tete_parlante.py`.
 - **Check the source's loop seam before a long render.** A 5-6 s source reboucles ~50 times over a 5-min narration; if the first and last frames diverge, the jump repeats 50 times. Compare those two frames first.
-- **Real sharpness gains come from magnification and real high frequencies, not from generative restoration.** Reducing the on-screen face square (e.g. 1080 → 720) multiplied on-screen mouth sharpness ×3.6 for free; GFPGAN gave 7 % and Real-ESRGAN 13-37 % for 30 min to 2 h. Recipe, decision tables and the validated transfer parameters: `references/mouth-sharpness.md`.
+- **Real sharpness gains come from magnification and real high frequencies, not from generative restoration.** Reducing the on-screen face square (e.g. 1080 → 720) multiplied on-screen mouth sharpness ×3.6 for free; GFPGAN gave 7 % and Real-ESRGAN 13-37 % for 30 min to 2 h. Un aller-retour lanczos upscale->downscale ne cree AUCUN detail (il ne fait que redistribuer l'existant) : le seul gain vient de la restauration. Et `GFPGANer(upscale=2, bg_upsampler=None)` sort a **2x** la taille d'entree — ce 2x EST l'etape « upscale » d'un aller-retour 4K, RealESRGAN est inutile pour cette moitie. Recipe, decision tables and the validated transfer parameters: `references/mouth-sharpness.md`.
 - **`cv2.Laplacian` refuses float32 with `CV_64F`** ("Unsupported combination of source format (=5), and destination format (=6)"). Convert to uint8 and use `CV_32F` — this bites every sharpness script otherwise.
 - **Keep the coordinate space straight when measuring.** Three coexist in this pipeline (source frame, face crop, 1920×1080 canvas). Measure inside the crop's own frame and add the overlay offset only for the canvas — a 1080-wide crop image given canvas coordinates yields an empty region and silently invalidates every number.
 - **`GFPGANer.enhance()` returns 3 values, `RealESRGANer.enhance()` returns 2.** Unpacking 3 from the latter raises `ValueError: not enough values to unpack`.
@@ -152,6 +173,7 @@ portrait unique garde la tete dans le cadre (il perdrait le visage).
   `data\video_youtube\<outil>`, soit une profondeur 8 depuis `C:\`.** Chercher avec `maxdepth 8`
   ou lister directement `data\video_youtube\*/` — sinon on conclut a tort « non installe » et on
   recommande une installation qui n'a pas lieu d'etre.
+- **Les poids des modèles sont sous `<outil>/repo/checkpoints/`, pas `<outil>/checkpoints/`.** Un `checkpoints/` absent à la racine de l'outil ne prouve pas que l'outil est incomplet : lister `sadtalker/repo/checkpoints/` (epoch_20.pth, SadTalker_V0.0.2_512.safetensors), `wav2lip/repo/checkpoints/` (wav2lip_gan.pth) et `LatentSync/checkpoints/` avant de conclure.
 - **Prouver qu'un outil est installe par `import torch` dans son venv, pas par `ls`.** Le
   repertoire survit a toutes les casses d'import ; un `ls` vert ne prouve rien. Verifier aussi que
   `torch.cuda.is_available()` est True avant d'annoncer que l'outil est pret.
@@ -202,6 +224,89 @@ portrait unique garde la tete dans le cadre (il perdrait le visage).
   `hf_rapport.py`) lève `AttributeError: 'list' object has no attribute 'items'` a l'etape i, apres
   les heures de calcul. `print(type(d).__name__, len(d))` sur un fichier reel coute 5 secondes.
 
+- **MuseTalk : la version 1.5 (2025-03-28) EST la derniere publiee — il n'existe pas de v2.**
+  Verifier avant de proposer une mise a jour : `ls models/musetalkV15/` (unet.pth + musetalk.json)
+  et `git log -1` sur le depot. `--version v15` etait deja passe sur les runs ANIMA (config
+  `configs/inference/anima_v7.yaml`).
+- **MuseTalk v1.5 : `--bbox_shift` est un leurre, le code le force a 0.** `scripts/inference.py`
+  fait `if args.version == "v15": bbox_shift = 0  # v15 uses fixed bbox_shift`. Les deux seuls
+  leviers restants sont `--extra_margin` (marge basse du recadrage) et la position du visage —
+  aucun ne touche la resolution. Ne pas promettre un gain de nettete par `--bbox_shift`.
+- **La resolution de la bouche de MuseTalk se lit dans le code, pas dans la doc :
+  `scripts/inference.py` fait `crop_frame = cv2.resize(crop_frame, (256,256), INTER_LANCZOS4)`
+  sur la bbox du visage.** Consequence directe : **agrandir la bbox ne peut que DILUER la
+  bouche** (meme grille de 256 pour une zone plus grande). C'est la preuve dure a citer quand on
+  demande « plus de nettete » a MuseTalk. Le README lui-meme renvoie a un modele de
+  super-resolution pour depasser 256x256.
+- **Une passe de restauration (GFPGAN / Real-ESRGAN) ne peut pas sauver une bouche generee a
+  256x256, et un aller-retour upscale->downscale est un no-op de detail.** Donc une « methode 2 »
+  du type upscaler la source x2 avant MuseTalk ne change rien : le crop est ramene a 256x256
+  quelle que soit la resolution d'entree.
+- **Un visage PLEIN CADRE n'est pas toujours une magnification.** Verifier la chaine reelle :
+  ici `scale=1920:1080` sur une source deja 1920x1080 est un NO-OP, donc `crop=640:1080` est un
+  recadrage 1:1 et passer en plein cadre sans crop garde l'echelle 1:1 — le gain de nettete de la
+  correction bouche survit. La regle « la nettete chute au carre de l'agrandissement » ne
+  s'applique qu'a un zoom/recadrage effectif. Lire la chaine de filtre avant d'annoncer une perte.
+- **`-vsync` a ete SUPPRIME de ffmpeg (n9) : `Unrecognized option 'vsync'`.** Utiliser
+  `-fps_mode passthrough` (ou `cfr`/`vfr`). Erreur classique en extrayant une frame par
+  `select=eq(n\,N)`.
+- **insightface tourne sur GPU ici : ne pas forcer le CPU par reflexe.** Avec onnxruntime 1.21
+  (`get_available_providers()` -> Tensorrt/CUDA/CPU) et `providers=["CUDAExecutionProvider","CPUExecutionProvider"]`,
+  la detection tombe a **0,024 s/frame (2,9 min pour 7352 frames)** contre 0,49 s/frame en CPU
+  (60 min) — bbox et det_score identiques. Le patch « forcage CPU » ne concerne que
+  onnxruntime-gpu < 1.19.
+- **`select='between(n,N0,N1)'` reedecode depuis la frame 0 a chaque appel.** Pour sonder
+  quelques instants, extraire les frames UNE fois en PNG (`-vf select='eq(n\,A)+eq(n\,B)...'
+  -fps_mode passthrough`) et lire les PNG ensuite : sinon chaque mesure relance un decodage
+  complet et la cadence s'effondre avec l'indice des frames.
+- **`vision_analyze` n'est pas un instrument de mesure de nettete.** Sur une planche
+  SOURCE | brut | 3 doses, il a classe la SOURCE comme la PLUS FLOUE (mesure : lapvar 244,9
+  contre 15,0) et invente des halos sur la variante qui n'en a pas. Sur un agrandissement
+  nearest x6 il hallucine des contours doubles partout. S'en servir pour lire un cadrage, jamais
+  pour trancher une nettete ou un fantome : mesurer, puis faire trancher l'oeil humain.
+- **Le parametre de delai de l'outil terminal est `timeout`, pas `timeout_s`.** `timeout_s`
+  appartient a l'outil navigateur et est ignore silencieusement : la commande retombe au defaut
+  et est coupee a 180 s, ce qui ressemble a un plantage du script.
+- **Contre-controler une mesure AVANT de conclure : meme fichier, meme CRF, sans le traitement.**
+  Comparer les pics de gradient d'un brut CRF 23 a une sortie CRF 16 mesure le codec, pas la
+  greffe — premier passage de ce test, il faisait apparaitre un faux fantome. Encoder un
+  temoin sans traitement au meme CRF, puis mesurer `corr(sortie - temoin, hp_source)` : c'est ce
+  qui distingue de l'information injectee d'un bruit de prediction x264.
+- **Une trame horizoncale du visage n'est pas la zone des levres.** Les bandes `levre_sup` /
+  `levre_inf` couvrent toute la largeur du visage : elles incluent les joues. Sur le fichier
+  livre elles affichaient 94 % / 66 % alors que la boite des levres (landmarks) affichait 7,1 %.
+  Mesurer la boite des landmarks, et annoncer les deux.
+- **Verifier a propos de la zone de test demandee par l'utilisateur qu'elle contient bien ce
+  qu'il croit.** `x 900-1050, y 500-600` sur ANIMA 1920x1080 tombe sur le nez/philtrum : les
+  levres sont a y 640-712 selon la frame. Mesurer la zone demandee ET la vraie boite de la
+  bouche, et signaler l'ecart plutot que de repondre uniquement sur la zone nommee.
+
+## Post-traitement d'une video deja rendue (GFPGAN / Real-ESRGAN)
+
+- **Les poids GFPGAN/facexlib se resolvent par rapport au CWD, pas a l'installation.** `GFPGANer`
+  vaut `model_rootpath='gfpgan/weights'` : lancer la passe depuis un dossier sans `gfpgan/weights/`
+  fait echouer le chargement (poids de detection/parsing/alignment introuvables). Placer les 4
+  fichiers — `GFPGANv1.4.pth`, `parsing_parsenet.pth`, `detection_Resnet50_Final.pth`,
+  `alignment_WFLW_4HG.pth` — dans `<cwd>/gfpgan/weights/` ; ils sont deja tous dans
+  `sadtalker/repo/gfpgan/weights/`. Les **lier en dur** (`os.link`, meme volume) plutot que les
+  copier : plusieurs centaines de Mo dupliques pour rien.
+- **Ne jamais lancer une passe GFPGAN/Real-ESRGAN pendant qu'un rendu SadTalker occupe le GPU.**
+  Sur 8 Go le rendu culmine deja a ~5,8 Go et l'enhancer demande 1-2 Go de plus : enchainer, pas
+  parallelliser. Declencher la passe sur le **marqueur d'achevement** du run (le JSON de rapport
+  contenant `fin` et le `sha256` du mp4 livre), jamais sur la vivacite du process ni sur l'ETA
+  affichee ; et prevoir une sortie de secours si aucun fichier de log ne bouge pendant plusieurs
+  minutes (run mort).
+- **Valider le code d'une passe post-traitement sur CPU pendant que le rendu tient le GPU.**
+  3 images d'un clip court suffisent : chargement des poids, detection du visage, **forme de la
+  sortie** et bbox du visage (a reutiliser comme zone de mesure de nettete). C'est ce controle qui
+  revele les erreurs de forme. En revanche la cadence CPU (mesuree ~29 s/image) n'est PAS une ETA
+  GPU : ne jamais la citer comme duree de la passe.
+- **Une passe sur 10 000 images ne se fait pas en PNG.** Extraire puis relire chaque frame en PNG
+  4K (~16 Mo piece) sature le disque : alimenter ffmpeg par un pipe `rawvideo`
+  (`-f rawvideo -pix_fmt bgr24 -s WxH -r 25 -i -`) avec l'mp4 d'origine en 2e entree pour
+  recuperer l'audio. `scripts/gfpgan_upscale.py` utilise le chemin PNG (fichiers temporaires) :
+  acceptable sur un clip court, a eviter sur une narration complete.
+
 ## Reference Files
 - `references/echomimic-v2-setup.md`
 - `references/mouth-sharpness.md` (measuring + restoring mouth sharpness)
@@ -211,5 +316,9 @@ portrait unique garde la tete dans le cadre (il perdrait le visage).
   orphelin, reference de 19 s et duree cible reelle)
 - `references/models-and-deps.md`
 - `references/musetalk-setup.md`
+- `references/verification-voix.md` (verifier une narration avant le lip-sync : tracabilite du run,
+  decodage cible d'un mot, canonicalisation des familles OOV, chiffres a rapporter)
 - `references/liveportrait-troubleshooting.md` (ONNX/CUDA patches)
 - `scripts/gfpgan_upscale.py`
+- `scripts/qa_tete_parlante.py` (contrôle d'une sortie de tête parlante : conteneur, images
+  figées, glissement audio, synchro labiale par corrélation pixel/enveloppe + contrôle décalé)

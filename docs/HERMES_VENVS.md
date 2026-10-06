@@ -111,11 +111,13 @@ des dépendances alignées sur la version du jour.
 ## 5. Procédure — mise à jour de `venv` (voie normale)
 
 1. `cd /c/Windows/System32`
-2. Arrêter le backend serve s'il tourne (sinon l'updater s'arrête sur « Another hermes.exe is running ») :
-   `taskkill /PID <pid du "…\venv\Scripts\python.exe" -m hermes_cli.main serve> /T /F`
+2. Aucun backend à arrêter : le backend **9119 est hors de l'architecture ANIMA 0.1** (tâche
+   « Hermes - serve backend » désactivée le 29/09/2026, cf. `data\route_ia_fix\backend_9119_retirement_plan.md`).
+   Si « Another hermes.exe is running » apparaît malgré tout, l'arrêter par son PID :
+   `taskkill /PID <pid du "…\venv\Scripts\python.exe"> /T /F`
 3. `hermes update --plan` (lecture seule) puis `hermes update -y`
-4. Relancer le backend : `schtasks /Run /TN "Hermes - serve backend"` puis vérifier
-   `curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:9119/` → 200
+4. (sans objet) Le redémarrage du backend 9119 a été retiré de cette procédure : il n'appartient plus
+   à l'architecture ANIMA 0.1.
 5. `hermes --version` puis `hermes doctor` — attendu : `Version files consistent (0.21.3)`
 
 `.venv` n'est plus à maintenir : il est en cours de retrait (§6). Si un jour il fallait le garder comme

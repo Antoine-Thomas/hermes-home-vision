@@ -15,7 +15,10 @@ metadata:
 
 Mecanique d'edition de la config Hermes (`config.yaml`, `.env`) et pieges qui
 cassent une chaine de repli sans erreur visible. Pour la strategie de routage
-(combos OmniRoute, couts, latences), voir la skill `fallback-intelligent`.
+(combos OmniRoute, couts, latences), voir la skill `fallback-intelligent` — mais la confronter a
+`hermes fallback list` avant de recopier sa forme de chaine : elle est user-owned, donc hors curation
+automatique, et peut citer des etages qui n'existent plus (mesure : `free-stack` en repli 1 alors que
+l'alias ne resolvait rien).
 
 ## Procedure
 
@@ -55,6 +58,22 @@ Cles de provider custom reconnues : `api` / `base_url` / `url` (equivalentes),
 `default_model`, `models`. NE PAS ecrire `type: openai` (ignore) ni
 `api_key: "${VAR}"` (substitution non faite -> cle introuvable).
 
+Meme regle pour les autres fichiers de controle Hermes : **passer par le CLI, jamais par
+`patch`/`write_file`**. Les jobs cron vivent dans `<profil>/cron/jobs.json` et le planificateur
+REECRIT ce fichier a chaque run (risque de course) : un job s'edite par
+`hermes cron edit <id> --prompt/--schedule/--clear-skills`, se cree par `hermes cron add`, se retire
+par `hermes cron remove <id>`. Deux pieges verifies :
+
+- **Le drapeau de profil va AVANT la sous-commande** : `hermes --profile veille cron edit <id> …`
+  (ou `venv/Scripts/python.exe -m hermes_cli.main --profile <nom> cron …`). Sans lui, le job d'un
+  autre profil est simplement invisible.
+- **`cron run` refuse un job en pause** (`Job is paused/disabled; resume it before running`) : un job
+  cree `--paused` pour un test doit etre REPRIS avant d'etre declenche, sinon le run n'a jamais lieu
+  et le « test » ne prouve rien.
+- Un `cron add` sur un profil non-`default` est une vraie modification : sauvegarder `jobs.json`
+  avant, et comparer apres. Une edition sans effet fonctionnel ne laisse que `updated_at` modifie —
+  le montrer evite de croire a une reecriture massive.
+
 ## Model principal : il n'existe pas de `hermes model set`
 
 `hermes model` est un selecteur interactif, sans sous-commande : toute forme de
@@ -93,10 +112,68 @@ hermes config set EXEMPLE_API_KEY ""           # placeholder a remplir a la main
   `hermes/profiles/*/.env` = la même clé partout. Une clé attendue ABSENTE d'un profil n'est pas un
   oubli si ce profil tourne sur un autre fournisseur (`veille` en `nvidia-stack` n'a pas de
   `DEEPSEEK_API_KEY`) : nommer les profils porteurs au lieu de raisonner sur « les N .env » attendus.
+- **Une cle absente du `.env` d'un profil rend son ETAGE de repli structurellement inoperant — et
+  Hermes l'annonce comme un cooldown.** La resolution des cles passe par `agent/secret_scope.py`,
+  scopee par profil et fail-closed : une cle definie dans le `.env` RACINE n'est pas visible d'un
+  profil qui ne la redeclare pas. L'entree de pool sans cle runtime est sautee
+  (`credential_pool.py`, `_available_entries`) -> `has_available()=False` + `next_available_at()=None`
+  -> le message `Fallback skip: <provider> credential pool is exhausted (every entry in cooldown)`
+  (`agent/chat_completion_helpers.py`, `_candidate_pool_exhausted`), qui ne decrit alors AUCUN cooldown.
+  Diagnostic en 3 lectures, dans cet ordre : (1) `hermes --profile <p> auth list` — le marqueur `<-`
+  est `pool.peek()`, la seule entree louable : aucun `<-` sur aucune entree = aucune cle louable pour
+  ce profil ; (2) le `.env` du profil (noms de variables seulement) contient-il la cle de l'etage ?
+  (3) l'entree du pool dans l'`auth.json` racine (`credential_pool.<provider>[0]`) : `last_status: None`
+  + `last_error_reset_at: None` = aucun cooldown actif, aucune date d'expiration a chercher — un
+  `failure_reason: billing` persistant est un residu de verdict, seul un vrai 402 le date.
+  Ne pas annoncer « cooldown jusqu'a HH:MM » ni proposer de « lever le cooldown » avant ces trois
+  lectures : l'etage n'est pas en attente, il est hors de portee du profil (et la cle peut etre
+  parfaitement valide — le prouver depuis le profil qui la VOIT, ses appels factures recents, sans
+  appel supplementaire).
 - Cle collee dans le chat = compromise : la remplacer par un placeholder dans
   `.env`, demander la rotation, ne jamais la re-afficher ni la recopier dans un log.
 
 ## Pieges critiques
+
+**Verifier « gratuit d'abord » : lire la chaine, pas le nom des etages.**
+`fallback_providers` peut etre parfaitement ordonne (gratuits en repli) alors que
+`model.default` reste le modele PAYANT : la chaine ne sert alors que quand le paye
+tombe, soit l'inverse du besoin. Diagnostic en une commande : `hermes fallback
+list` — `Primary:` doit etre le combo gratuit. Derive type mesuree :
+`Primary: deepseek-flash (via deepseek)` + replis `[nvidia-stack, free-openrouter,
+deepseek-flash]` -> 163 sessions facturees ~40 $ pour rien. Correction = 2 lignes
+(`model.default`, `model.provider`) ; la liste de repli n'a pas besoin de bouger.
+Preuve avant/apres : `state.db` (`sessions.billing_provider`,
+`estimated_cost_usd`) sur des tours reels, jamais la duree du tour.
+
+**Un tour servi par un etage gratuit qui n'est PAS le primaire n'est pas un echec —
+c'est la cascade qui travaille.** Meme configuration saine, le premier appel apres
+le tick horaire de la sonde (`:01`) tombe souvent sur l'etage 2 gratuit : la sonde
+epuise les quotas des cibles du primaire (gemini 429 quotidien + NIM `Worker local
+total request limit reached (16/16)`). Lire l'ordre des lignes d'`app.log`
+(`Trying model 1/3` sur le primaire, `terminal={"status":503}`, puis un second
+combo `terminal={"status":200}`) avant de conclure a une panne de configuration :
+cout 0 et etage paye non atteint.
+
+**Un etage gratuit qui tombe ne doit pas pousser vers le paye : le tester sans
+couper le routeur.** Couper l'etage amont (proxy NIM local) et laisser Hermes
+choisir : si l'etage gratuit suivant absorbe la panne, la cascade est saine.
+Mesure : proxy NIM `:20200` tue -> `nvidia-stack` et `eco` en 502,
+`free-openrouter` 200, tour Hermes servi par `free-openrouter` a 0 $ (DeepSeek
+jamais appele). Forcer un primaire mort sans rien casser :
+`hermes --provider xiaomi -m mimo-v2.6-pro -z "pong"` (402 facturation -> la
+chaine avance). Relance du proxy NIM : `wscript.exe //B
+"%LOCALAPPDATA%\hermes\data\nvidia\nvidia-nim-launch.vbs"` (idempotent, filtre
+`LISTENING` ; port rouvert en ~3 s, 200 en ~1 s — inutile d'attendre le watchdog).
+
+**Ne JAMAIS lancer un tour de bout en bout pendant une fenetre ou les etages gratuits sont
+refuses.** Un tour reel parcourt la chaine entiere : si les 3 etages gratuits sont indisponibles
+au meme instant, le 4e est le payant et la session est facturee (`api_max_retries: 3` = 3 bascules
+maximum, soit exactement le nombre d'etages gratuits a traverser). Avant tout `hermes -z` de
+controle, sonder les etages gratuits **en direct** (`POST /v1/chat/completions` par combo nomme) :
+tant qu'un seul repond `200`, le tour est couvert ; si tous sont refuses, attendre la fenetre
+suivante plutot que de prouver « ca marche » aux frais du client. Un tour qui repond pendant une
+panne partielle ne prouve rien sur le gratuit, et il peut avoir paye — la preuve reste
+`state.db` (`billing_provider`), pas le fait que la reponse soit arrivee.
 
 **Un fallback s'adresse a un PROVIDER, pas a un modele.** `eco` et
 `nvidia-stack` sont des modeles servis par OmniRoute ; ecrire `provider: eco`
@@ -265,6 +342,29 @@ output_tokens)` — la table n'a pas de colonne `provider` ni `created_at`, trie
 `rowid`). Un test de bout en bout qui « marche » alors que le principal est casse
 est le cas normal, pas l'exception.
 
+**Prouver « aucune session payante » : compter des SESSIONS, jamais filtrer des ids.** Un
+filtre `id >= '<AAAAMMJJ_HHMM>'` est une comparaison de CHAINES : les sessions de cron
+(`cron_<jobid>_<date>`) sont plus grandes en ASCII que les ids dates, passent le filtre, et
+une mesure de 0 session reelle devient « 40 sessions payantes ». Et la SOMME des couts du
+profil bouge pendant le controle, puisque la session en cours s'accumule — un delta de
+quelques centimes ne prouve rien. Deux signaux fiables : (1) `select count(*), sum(cost)
+from sessions group by billing_provider` (un COMPTEUR inchange = aucune nouvelle session ;
+`started_at` peut etre un epoch, un `where started_at >= '<ISO>'` ne matche alors rien) et
+(2) les 5 dernieres lignes triees par `rowid`, dont l'horodatage de la derniere session
+payante doit etre ANTERIEUR au changement teste. Ne pas non plus confondre
+`billing_provider = custom` (endpoint local declare par sa seule `base_url`) avec une
+session payante.
+
+**Chiffrer un etage payant CANDIDAT avant de l'ajouter — et annoncer tout chiffre de sessions AVEC
+son filtre.** Partir des sessions cron deja passees du profil (`state.db`, `source='cron'`) : sommer
+`input_tokens`, `output_tokens` et `cache_read_tokens` SEPAREMENT (le cache se facture a un tarif
+reduit : le compter comme de l'entree gonfle le cout), appliquer la grille du modele candidat, puis
+doubler le resultat si le run tombe en heures pleines (un cron du lundi 08:00 Paris = 06:00 UTC).
+Toujours ecrire le filtre a cote du nombre : « N sessions cron facturees deepseek » et « N sessions
+cron » ne designent pas le meme ensemble (mesure : 83 sessions cron payantes sur le profil, 40
+facturees deepseek, 361 sessions cron tous profils) — un chiffre sans son filtre rend le calcul
+inverifiable, donc contestable, et fait douter du reste du rapport.
+
 **Un etage se prouve DANS la cascade, pas force a la main.** `hermes --provider X
 -m Y -z` valide le couple cle/modele, pas l'entree de repli : la resolution peut
 sauter une entree (backend identique, credential manquant, `unavailable` pour la
@@ -292,13 +392,48 @@ resolution une `AuthError` fait avancer la chaine, et un client non
 constructible marque l'entree `unavailable` pour la session.
 
 **Pluriel vs legacy.** `fallback_providers` (pluriel) est la source de verite et
-garde son ordre ; `fallback_model` (singulier, legacy) est fusionne a la suite.
-Confirmer l'absence du legacy : `hermes config get fallback_model` ->
-« Config key not set ».
+garde son ordre ; `fallback_model` (singulier, legacy) est fusionne A LA SUITE et
+dedoublonne (provider, model, base_url) par `get_fallback_chain`
+(`hermes_cli/fallback_config.py`). Un profil peut n'avoir QUE le legacy : ne pas
+conclure « aucune chaine » parce que la cle pluriel est absente, et ne pas se fier a
+`hermes config get fallback_model` (« not set » cote racine) pour un profil. Lire la
+chaine EFFECTIVE, une cle isolee ne prouve rien :
+
+```bash
+venv/Scripts/python.exe -c "
+import io, json, sys; sys.path.insert(0, 'hermes-agent')
+from hermes_cli.fallback_config import get_fallback_chain
+import ruamel.yaml as ry
+cfg = ry.YAML(typ='safe').load(io.open(r'profiles/veille/config.yaml', encoding='utf-8'))
+print(json.dumps(get_fallback_chain(cfg), ensure_ascii=False))"
+```
+
+**Editer la config d'un profil n'exige AUCUN redemarrage : le cron relit la chaine a chaque job.**
+`cron/scheduler.py` (`_job_fallback_chain` -> `get_fallback_chain(cfg)`) l'applique « at credential
+resolution AND mid-run », et le gateway rafraichit aussi a chaud
+(`gateway/run_config_loaders.py`, `_refresh_fallback_model`). Retirer un etage d'une config de profil
+se suffit donc a lui-meme : le prochain tir du job prend la nouvelle chaine. Le dire, et ne pas
+demander ni annoncer un redemarrage de gateway pour un simple retrait d'etage. Corollaire : c'est le
+job NON epingle qui parcourt cette chaine — verifier son epinglage avant de lui attribuer un echec.
 
 **Ne pas toucher aux profils sans accord.** Modifier la config racine suffit
 pour le profil `default` ; pour `veille` / `watch`, demander avant. Verifier
 apres coup que les modeles primaires sont inchanges : `hermes profile list`.
+
+**Un profil n'herite PAS du bloc `providers:` de la config racine.** Chaque
+`profiles/<nom>/config.yaml` resout ses providers tout seul : passer le `model.provider`
+d'un profil d'un provider BUILT-IN (`deepseek`, `google`, `openrouter` — qui n'exigent
+qu'une cle `.env`) a un provider LOCAL (`omniroute`) le casse en
+`hermes -z: agent failed: Unknown provider 'omniroute'`, alors que la config racine le
+declare. L'echec est tardif et discret — le gateway demarre, `hermes profile list` affiche
+le profil `running`, seules ses sessions echouent — donc il ne se decouvre qu'en lancant un
+tour sur CE profil. Donc : tout changement de provider sur un profil s'accompagne de la
+copie du bloc `providers.<id>` COMPLET depuis la config racine (`api`, `name`,
+`default_model`, `key_env` — un NOM de variable d'environnement, aucun secret —,
+`extra_headers`, `request_timeout_seconds`), puis d'une preuve par tour reel
+(`hermes -p <profil> -z "pong"`) + lecture de `sessions.model` dans le `state.db` du
+profil. Le gateway multiplexe reprend la correction sans redemarrage :
+`[MULTIPLEX] Re-scanned profile '<nom>' after config/.env change`.
 
 **Un provider custom nomme est ignore quand son nom est canonique.** La
 resolution n'utilise l'entree `providers.<id>` que si le nom demande n'est pas
@@ -347,6 +482,16 @@ reformatages de `config.yaml` (listes repliees puis derepliees par les outils He
 seules lignes `model.default` / `model.provider` / `fallback_providers`). Quand l'utilisateur demande
 un commit isole, c'est le contenu du commit qui le rend isole, pas son message.
 
+**Le diff qui fait foi est celui contre la SAUVEGARDE prise avant l'edition, jamais `git diff` contre HEAD.**
+Le working copy porte en permanence des modifications non commitees anterieures a l'intervention : mesure —
+le diff contre le backup montre 3 lignes modifiees (53/56/66), `git diff --stat` en annoncait 52 insertions
+et 8 suppressions. Rendre le diff BACKUP (CR-insensible : `diff <(sed 's/\r$//' bak) <(sed 's/\r$//' config.yaml)`)
+et dire que `hermes config set` a reecrit le fichier sans reformatage parasite (aucune autre ligne du diff),
+puis donner les deux sha256 (avant/apres). Corollaire de comptage : compter l'ID COMPLET (`qwen2.5:7b`), pas
+la famille (`qwen2.5`) — `qwen2.5-coder:14b`/`:7b` vivent dans un autre bloc et font passer un controle de
+3 a 5 lignes ; et un `grep` de traces dans `logs/` retrouve l'ancien nom apres le remplacement (historique,
+pas configuration : le dire, sinon le compte semble faux).
+
 **Apres `config set model.provider <x>`, `model.base_url` disparait — c'est normal.** La resolution
 retombe alors sur `providers.<x>.api` : verifier le base_url reellement utilise dans `state.db`
 (`session_model_usage.billing_base_url`), pas dans `config.yaml`. Ne pas le reecrire « pour etre
@@ -357,6 +502,8 @@ verification de cle sans exposition, catalogue de modeles) :
 `references/custom-openai-provider.md`.
 Route du principal, preuve du provider qui a servi le tour, plafonds de palier
 gratuit par requete : `references/model-route-and-free-tier-limits.md`.
+Analyse du cout paye (source de verite, fiabilite du champ cout, part imputable au repli)
+et conception/test d'un watchdog de cout : `references/cout-paye-et-watchdog.md`.
 
 **Verifier une mise a jour Hermes : `hermes --version` peut mentir.** Il affiche
 « Up to date » a partir de la ref locale `origin/main`, jamais rafraichie depuis
@@ -394,6 +541,33 @@ etage a servi ; la duree du tour ne prouve rien.
 `--provider omniroute -m free-openrouter -z "ping"` -> `pong` et
 `session_model_usage.model = free-openrouter` prouve que le combo a repondu par son nom.
 
+**Les roles auxiliaires sont une liste FERMEE : une sous-cle inventee sous `auxiliary:` est inerte.**
+Source de verite : `hermes_cli/config_defaults.py` (bloc `auxiliary`) et `hermes_cli/main_provider_setup.py`
+(`_AUX_TASKS`). Cles reconnues : `vision`, `compression`, `skills_hub`, `approval`, `review`, `mcp`,
+`title_generation`, `memory_query_rewrite`, `tts_audio_tags`, `triage_specifier`, `kanban_decomposer`,
+`profile_describer`, `goal_judge`, `curator`. Forme d'un bloc :
+`{provider, model, base_url, api_key, timeout, extra_body, reasoning_effort}`, et `provider: auto` =
+herite du modele principal. Donc `auxiliary.decision:` — ou tout autre nom absent de cette liste —
+s'ecrit sans erreur et n'est **jamais lu** : avant d'ajouter un role, `grep` le nom dans
+`config_defaults.py`, citer la ligne, ou dire qu'il n'existe pas.
+
+**`compression.threshold` est un RATIO du contexte, pas un nombre de tokens** (0.5 =
+compresser a mi-contexte, pas « 96 000 tokens »). Verifier la valeur ET le type reels
+(`hermes config get compression.threshold`) avant de proposer un seuil : une proposition batie
+sur une hypothese de seuil fausse se refait. Le role de compression (`auxiliary.compression`)
+defaut `provider: auto` (= herite du modele principal), PAS `free-openrouter` ; pour le figer
+sur un combo gratuit : `hermes config set auxiliary.compression.provider omniroute` +
+`hermes config set auxiliary.compression.model eco`.
+
+**`auxiliary.approval` est le crochet d'approbation — et il attend un MODELE de chat.** C'est le
+classifieur des commandes destructrices (defaut `provider: auto` + `model: ''` = modele principal).
+Un service de decision type qui rend du JSON type n'entre PAS dans ce bloc, car il ne parle pas le
+contrat de chat : Jev s'appelle en `POST https://openrouter.ai/api/v1/systemone`, la route officielle
+de Laya est `/v1/decisions` (service Altherium) — aucune des deux n'est une completion. Meme un modele
+local qui rendrait des logits ne s'y branche pas. Un approbateur maison passe par le rail **hooks de
+plugin** (`agent/shell_hooks.py`, reponse `{"action"|"decision": "block"|"modify"}`) ou par un
+**serveur MCP** — jamais par une sous-cle `auxiliary.*` inventee.
+
 **Un modele de DECISION n'est pas un etage de chaine — et ne se teste pas sur `/v1/chat/completions`.**
 Un modele qui rend une reponse structuree (classification, choix, score) n'accepte pas le contrat de
 chat : `fallback_providers` n'attend que des completions, donc il ne peut pas y entrer. Il s'appelle
@@ -421,3 +595,153 @@ tourne sur le CPU sans PyTorch, hors ligne et a cout nul (~190 ms par decision) 
 service de decisions payant dans du code, jamais un tour de chat ni un job d'agent qui doit REDIGER
 (voir la skill `laya-onnx-windows`). Un modele local ne s'ajoute pas non plus a la chaine :
 `fallback_providers` n'attend que des completions.
+
+**Un etage local est refuse d'emblee si la fenetre de contexte DECLAREE du modele est < 64K — et
+l'erreur ne ressemble pas a un probleme de chaine.** Mesure : `hermes --provider ollama-local -m
+"qwen2.5:7b" -z "..."` sort en `agent failed: Model qwen2.5:7b has a context window of 32,768
+tokens, which is below the minimum 64,000 required by Hermes Agent` apres 6,98 s et **sans aucune
+inference** (l'erreur tombe avant le chargement des poids). Le seuil se lit sur la fenetre declaree
+par le modele (`POST http://127.0.0.1:11434/api/show -d '{"model":"<m>"}'` ->
+`qwen*.context_length` = 32768 ici), pas sur celle du serveur — mais les deux comptent : le log de
+demarrage du serveur montrait `OLLAMA_CONTEXT_LENGTH:16384`, donc la fenetre REELLEMENT servie etait
+encore plus basse. `model.ollama_num_ctx` ne debloque rien d'utile (le seuil des 64K reste) et
+l'ecrire ferait croire a Hermes une fenetre que le serveur ne sert pas. Verifier AVANT de raccorder
+un etage local, et se souvenir qu'une entree de `context_length_cache.yaml` peut porter la valeur
+d'un modele desinstalle (`llama3.2:3b@http://127.0.0.1:11434/v1: 131072`) : un cache n'est pas une
+preuve de joignabilite.
+
+**Un etage LOCAL se prouve en confrontant deux listes, pas sur la presence du modele.** « installe »
+n'est ni « declare dans `providers.<id>.models` », ni « joignable », ni « teste ». Lire ce qui existe
+(`GET http://127.0.0.1:11434/api/tags`) et le comparer au bloc du provider plus son `default_model` :
+mesure — un bloc `ollama-launch` declarait 7 modeles (dont `deepseek-v4-pro:cloud`, `qwen3.5:cloud`,
+`gemma4:12b`) alors que l'hote n'en portait que deux (`qwen2.5:7b`, `llama3.2:3b`) : intersection
+VIDE, et un `default_model` a modeles CLOUD dans un bloc cense servir de repli local. Un etage dont le
+modele n'existe pas ne tombe pas « en panne » : il echoue a chaque bascule, sans un mot.
+
+**Un modele INSTALLE n'est pas un modele LIBRE : inventorier ses autres consommateurs avant de le mettre dans la chaine.** Le meme serveur Ollama sert d'autres services que Hermes, et avec `OLLAMA_MAX_LOADED_MODELS=1` un tour qui charge le modele EVINCE celui du service voisin (qui repaie un chargement de poids complet au tir suivant) : ajouter un modele « deja present » CREE le partage, il ne l'evite pas. Avant d'ecrire un provider local, chercher le modele dans les configs de TOUTE la machine — `grep -rn "<modele>"` sur les dossiers de service (`data/*/config.json`, `*.conf`, `*.py`), avec le nom COMPLET et pas la famille — jamais seulement dans `config.yaml` / les `profiles/` Hermes ; un modele peut y etre declare depuis des semaines par un autre stack. Si un autre service le revendique : le dire et demander, ne pas l'ajouter en silence. Corollaire pour un retrait (`hermes config unset providers.<id>`) : verifier aussi les blocs `providers.<id>` RESIDUELS — un bloc inerte garde sa `api: http://127.0.0.1:11434/v1` (et ses modeles) et rend faux le raccourci « Hermes ne reference plus Ollama » ; le grep de controle doit viser l'ID, pas la famille de modele.
+
+**Un modele local se mesure a CHAUD.** Le premier appel charge les poids : mesure 66,1 s
+(`total_duration`, dont 39,3 s de `load_duration`) sur un 3B, puis 0,1 s au deuxieme tir (0,059 s cote
+serveur, `size_vram` confirmant l'inference GPU). Un tir a froid declare l'etage inutilisable a tort ;
+un `ollama list` le declare utilisable a tort. Rapporter le second chiffre, pas le premier.
+
+**Le seuil des 64 K refuse PUREMENT un etage local trop petit — et remplacer le modele local rouvre ce seuil.**
+Hermes refuse un modele dont la fenetre de contexte annoncee est < 64 000 tokens : `hermes -z` sort en
+`agent failed: Model <m> has a context window of N tokens, which is below the minimum 64,000 required by
+Hermes Agent`. L'etage est alors structurellement mort (echec a la construction du client, donc a CHAQUE
+bascule, sans un mot dans la cascade), et l'erreur tombe AVANT le chargement des poids — donc un test qui
+la rencontre ne fait aucun run GPU. La fenetre lue est celle de `context_length_cache.yaml` si une entree
+existe (`<modele>@<base_url>: <tokens>`), sinon celle du serveur (`POST /api/show` ->
+`model_info.<arch>.context_length`). Consequences a annoncer :
+
+- **Un modele local qui passait le seuil peut etre refuse apres un simple changement de `default_model`** :
+  mesure — `llama3.2:3b` avait `131072` en cache (seuil franchi), son remplacant `qwen2.5:7b` declare
+  `32768` -> l'etage tombe. Le cache de l'ancien modele ne se transfere pas au nouveau.
+- **La fenetre REELLEMENT servie ne se lit pas dans l'environnement du shell** : lire le log du serveur
+  (`%LOCALAPPDATA%\Ollama\server.log`, ligne `server config`, champ `OLLAMA_CONTEXT_LENGTH`). Mesure : le
+  shell portait `8192`, le serveur en cours `16384` — la variable du shell peut etre perimee.
+- Corriger en levant la fenetre SERVEUR (`OLLAMA_CONTEXT_LENGTH=65536` + redemarrage du serveur) ; ecrire
+  seul `model.ollama_num_ctx` ne fait que masquer le seuil en annoncant a Hermes une fenetre que le serveur
+  ne sert pas. Ne pas appliquer cette correction d'environnement sans accord explicite (64 K de KV cache sur
+  un 7B en 8 Go de VRAM deborde vers la RAM), et si la demande se limite au remplacement du nom, livrer le
+  remplacement + declarer l'etage comme mort : la config est valide, l'etage ne l'est pas.
+
+**Raccorder un etage local : un provider DEDIE, ajoute en DERNIER — jamais un combo du routeur.** Un
+etage local passe par son propre bloc `providers.<id>` (`api` sur `127.0.0.1`, `default_model` = un modele
+reellement present, `models` = la meme liste que `GET /api/tags`, `request_timeout_seconds` eleve car le
+chargement des poids depasse le defaut), puis par une entree ajoutee a la FIN de `fallback_providers` :
+
+```bash
+hermes config set providers.ollama-local '{name: "Ollama (local)", api: "http://127.0.0.1:11434/v1", default_model: "llama3.2:3b", models: ["llama3.2:3b", "qwen2.5:7b"], request_timeout_seconds: 300}'
+hermes config set fallback_providers '[{provider: omniroute, model: free-openrouter}, {provider: omniroute, model: nvidia-stack}, {provider: deepseek, model: deepseek-flash}, {provider: ollama-local, model: "llama3.2:3b"}]'
+hermes fallback list   # 4 entrees, la locale en 4e
+```
+
+Le raccord se fait cote Hermes, pas par une cible OmniRoute : un etage qui traverse le routeur tombe avec
+lui, alors qu'un provider local pointe directement sur `127.0.0.1`. Verifier avant d'ecrire : OmniRoute n'a
+souvent AUCUNE cible locale (table `provider_connections`, zero ligne `ollama` / `11434`).
+
+**Choisir le modele local sur une mesure, et tester le TOOL-CALLING avant de le declarer utilisable.**
+Protocole et chiffres : `references/model-route-and-free-tier-limits.md` §5. Deux pieges mesures : un
+modele peut rendre un `tool_calls` parfait sur un tour court et produire un tour d'agent inexploitable (un
+3B a recopie du texte d'amorcage du prompt systeme au lieu de repondre, 1 tir sur 3) — l'annoncer comme
+DERNIER RECOURS, jamais comme remplacant ; et verifier la LANGUE de la reponse (un 7B a repondu en chinois
+a une question francaise).
+
+**Prouver l'etage local par une coupure a cout nul, restauree par `trap`.** Chaine temporaire
+`[{provider: omniroute, model: <combo-inexistant>}, {provider: ollama-local, model: "llama3.2:3b"}]` +
+primaire forcee sur le meme modele mort (`hermes -z "..." --provider omniroute -m <combo-inexistant>`) :
+le tour est servi par l'etage local, ce que `state.db` confirme (`billing_provider`, `billing_base_url`,
+`estimated_cost_usd = 0`, `tool_call_count`). Reecrire la chaine nominale dans un `trap EXIT` du script de
+test : une erreur du test ne doit pas laisser l'installation sur une chaine de laboratoire.
+
+Note : un one-shot `hermes -z` sur un modele local fait ecrire `context_length_cache.yaml` par Hermes —
+ce fichier qui apparait modifie n'est PAS une edition manuelle (meme bruit que `skills/.usage.json`).
+
+**Une chaine entierement distante n'est pas un mode degrade.** Quand la demande porte sur le
+hors-ligne ou la degradation, verifier qu'un etage LOCAL existe (provider pointant `127.0.0.1` +
+modele reellement installe) : trois etages distants (proxy, combo, API payante) tombent ensemble des
+la premiere coupure reseau, et annoncer un repli hors ligne serait faux. L'ecrire comme un ecart a
+corriger, jamais comme une intention satisfaite.
+
+**Ne pas conclure « inexistant / obsolete » depuis `--help` ou depuis la doc.** Hermes masque des
+sous-commandes de son aide : `hermes serve` n'apparait dans aucun `--help` et demarre pourtant le backend
++ dashboard sur `127.0.0.1:9119` (`HERMES_BACKEND_READY port=9119`). Avant d'ecrire qu'une commande ou un
+composant n'existe pas, le sonder (`hermes <cmd>`) et grep le code
+(`grep -rn '"<cmd>"' hermes-agent/hermes_cli/main.py`) : une conclusion d'audit fausse sur ce point fait
+prendre une decision de retrait sur un composant encore valide. Et classer un composant « obsolete » exige
+deux preuves : aucun consommateur mesure (code, scripts, `.vbs`/`.cmd`, jobs cron, profils) ET une decision
+DATEE du proprietaire — une entree d'`allowlist` de surveillance ou une mention de README n'exigent rien,
+elles tolerent.
+
+**`hermes status` affiche « not set » pour une cle utilisee par un service satellite.** L'inventaire
+des cles est celui de l'environnement de la CLI : un proxy local (NIM `:20200`) peut servir des `200`
+avec une cle absente du `.env` racine (la sienne vit dans l'environnement de son lanceur). Le ✗ est
+donc un PERIMETRE, pas une preuve d'absence — ne pas declarer la dependance cassee, ni la
+« reparer », avant d'avoir teste le service lui-meme.
+
+## Diagnostiquer un job cron qui echoue (`503 all targets skipped`)
+
+Un job cron en echec ne se diagnostique PAS depuis son message ni depuis la config : la cause est
+repartie entre quatre artefacts, tous lisibles en lecture seule. Recette complete (colonnes exactes,
+requetes, tableau de preuve a rendre) : `references/cron-job-failure-triage.md`. Ce qui repond a quoi :
+
+1. `<profil>/cron/jobs.json` — la definition : `model`/`provider`/`base_url` a `null` = AUCUN
+   epinglage, le job suit le `model.default` du profil ; `model_snapshot`/`provider_snapshot` sont des
+   traces inertes ; `failure_streak` + `last_error` portent la derniere panne.
+2. `<profil>/cron/executions.db` — l'historique : date, duree, statut, `source` (`builtin` =
+   planificateur en process, `direct` = run declenche a la main), erreur. Ouvrir en
+   `file:<chemin>?mode=ro` (URI sqlite3) : lecture seule garantie.
+3. `<profil>/state.db` — le modele REELLEMENT servi (`sessions.model`, `billing_provider`,
+   `estimated_cost_usd`, `api_call_count`) : c'est cette table qui tranche, pas la config.
+4. `<profil>/logs/agent.log` — le deroule par etage (`API call #n: model=… summary=…`,
+   `Fallback activated`, 429/502/503/504) et la ligne terminale.
+
+Regles durables :
+
+- **Le modele SERVI peut differer de la config alors que rien n'a ete edite.** Un run `builtin` tourne
+  dans le planificateur en process, qui garde le contexte modele charge a SON demarrage ; un run
+  `direct` est un process neuf qui relit la config. Face a un changement de modele inexplique, mettre
+  en regard le servi (`state.db`) et le configure
+  (`git show <rev>:profiles/<p>/config.yaml | grep -m1 '^  default:'`) et declarer l'ecart comme un
+  fait a instruire — pas l'expliquer par une edition qui n'a pas eu lieu.
+- **`git diff profiles/<p>/cron/jobs.json` est l'instrument « qu'est-ce qui a change sur ce job ? »** :
+  le diff montre le prompt, les skills, `last_status` et le `failure_streak` sans fouiller des
+  sauvegardes. Le planificateur REECRIT ce fichier a chaque run : ne jamais l'editer a la main.
+- **`503 all targets were skipped by pre-dispatch filters` avec `poolSize`/`attempted: 0` n'accuse ni
+  la cle ni le combo.** Verifier d'abord que les cibles du job sont dans les modeles autorises de SA
+  cle (`GET http://127.0.0.1:20128/api/keys` -> `modelAccessMode`, `allowedModels`, valeurs masquees),
+  puis chercher la fenetre de quota dans `~/.omniroute/logs/application/app.log` (`16/16`, `429 … limit:
+  20`, `rate-limit execution expiration`). Un meme job servi par la meme chaine plus tot dans la
+  journee = panne par FENETRES, pas chaine morte : le dire ainsi.
+- **Un compteur de quota journalier ne se lit pas comme « le quota ne s'est pas reconstitue ».**
+  `GET /api/v1/auth/key` rend `free_model_daily_requests {used, limit, remaining}`, `usage_daily` et
+  `is_free_tier` : deux releves identiques dans la meme journee sont normaux (remise a zero a
+  00:00 UTC). Annoncer l'heure de remise a zero plutot qu'une reconstitution absente.
+- **Un quota epuise ne compte que s'il appartient a la CHAINE du job.** Comparer le quota mesure a la
+  liste des etages reellement cites par la config du profil : un quota sature sur une route absente de
+  la chaine n'explique rien et se declare comme tel dans le rapport.
+- **Ne pas `grep -r` la racine Hermes pour retrouver un id de job** : le parcours expire avant de
+  rendre. Cibler `profiles/*/cron/jobs.json` + `cron/jobs.json`, et lire tout journal avec `grep -a`
+  (sans lui : « Binary file (standard input) matches » au lieu des lignes), en extrayant par
+  `grep -aoE "API call #[0-9]+: model=[^ ]+ summary=.{0,120}"`.

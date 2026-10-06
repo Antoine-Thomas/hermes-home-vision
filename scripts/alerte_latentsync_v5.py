@@ -83,7 +83,7 @@ def pid_vivant() -> bool:
     try:
         out = subprocess.run(
             ["tasklist", "/FI", f"PID eq {PID_LATENTSYNC}", "/NH"],
-            capture_output=True, text=True, encoding="cp1252", errors="replace", timeout=25,
+            capture_output=True, text=True, encoding="cp1252", errors="replace", timeout=25, creationflags=subprocess.CREATE_NO_WINDOW,
         ).stdout.lower()
         return "python" in out
     except Exception:

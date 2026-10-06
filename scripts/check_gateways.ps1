@@ -88,12 +88,20 @@ function Get-PidDepuisState([string]$chemin) {
     return $null
 }
 
-function Test-GatewayVivant([int]$processId) {
-    if (-not $processId) { return $false }
-    $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction SilentlyContinue
+function Test-GatewayVivant([string]$stateFile) {
+    if (-not (Test-Path $stateFile)) { return $false }
+    try {
+        $state = Get-Content -Raw -Path $stateFile -Encoding UTF8 | ConvertFrom-Json
+    } catch { return $false }
+    if (-not $state.pid) { return $false }
+    if ($state.gateway_state -ne 'running') { return $false }
+    $proc = Get-Process -Id ([int]$state.pid) -ErrorAction SilentlyContinue
     if (-not $proc) { return $false }
-    # un PID recycle sur un autre programme ne doit pas etre pris pour un gateway vivant
-    if ($proc.CommandLine -and $proc.CommandLine -notmatch 'gateway\s+run') { return $false }
+    # le gateway tourne sous hermes.exe (bundle PyInstaller) depuis v0.21.5+ ou python.exe.
+    # ATTENTION : Get-Process .Name revient SANS extension sur cet hote ("python", "hermes"),
+    # donc comparer sur le nom de base — sinon un gateway vivant est declare MORT a chaque tick.
+    $nomBase = [System.IO.Path]::GetFileNameWithoutExtension($proc.Name)
+    if ($nomBase -notin @('hermes','python','pythonw')) { return $false }
     return $true
 }
 
@@ -203,16 +211,7 @@ foreach ($p in $Profils) {
     }
 
     $gwPid = Get-PidDepuisState $p.StateFile
-    $vivant = Test-GatewayVivant $gwPid
-    if (-not $vivant) {
-        # Hermes v0.21.5+ re-execute le gateway via runpy : le pid du state file
-        # est un process enfant dont la CommandLine ne contient plus 'gateway run'.
-        # Secours : retrouver le superviseur reel (python -m hermes_cli.main gateway run).
-        $superviseur = Get-CimInstance Win32_Process |
-            Where-Object { $_.CommandLine -match 'gateway\s+run' } |
-            Select-Object -First 1
-        if ($superviseur) { $vivant = $true; $gwPid = [int]$superviseur.ProcessId }
-    }
+    $vivant = Test-GatewayVivant $p.StateFile
     $etat = if ($vivant) { 'up' } else { 'down' }
     $nouvelEtat[$p.Nom] = $etat
 
@@ -270,7 +269,7 @@ foreach ($p in $Profils) {
 
     Start-Sleep -Seconds $ConfirmDelaySeconds
     $pid2 = Get-PidDepuisState $p.StateFile
-    if (Test-GatewayVivant $pid2) {
+    if (Test-GatewayVivant $p.StateFile) {
         Write-Log ("[{0}] RELEVE OK a T+{1}s : pid={2}" -f $p.Nom, $ConfirmDelaySeconds, $pid2)
         $nouvelEtat[$p.Nom] = 'up'
         $alertes += "[$($p.Nom)] gateway RELEVE (pid $pid2) en moins de $ConfirmDelaySeconds s"

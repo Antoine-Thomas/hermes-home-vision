@@ -85,6 +85,22 @@ pre-dispatch filters`. Ils marchent UNIQUEMENT appeles directement comme modele
 401 "valid API key required" sans cle. Le provider `pol` est desormais present
 (modele `pol/openai`), mais inutilisable sans cle API Pollinations.
 
+**Le modele d'un job cron se resout ainsi : `job.model` (pin) > `cron.model` (config) >
+`model.default` du profil. Les cles `provider_snapshot` / `model_snapshot` de `jobs.json` sont
+INERTES** (heritage : `cron/scheduler.py` — « There is no creation-time snapshot axis any more:
+a record that still carries legacy provider_snapshot/model_snapshot keys follows the main model »).
+Ne jamais diagnostiquer un echec de job par `model_snapshot` : comparer `job.model` (
+`hermes cron list`) au `model.default` du profil. Un job sans `model` joue donc DEJA le modele du
+profil, meme si `model_snapshot` affiche un vieil alias `auto/*`.
+
+**Piege du pin : `--model` retire la chaine de repli.** Des qu'un job porte `model` (ou
+`provider` / `base_url`), `_job_route_pinned()` est vrai et le job n'herite plus de
+`fallback_providers` / `fallback_model` (`scoped_fallback_chain(..., pinned=True)` renvoie `None`).
+Epingler un job sur le modele qui est DEJA le defaut du profil ne change rien au modele joue et lui
+retire tout repli — c'est une perte nette. Verifier avant d'epingler, et revenir au modele principal
++ chaine avec `hermes cron edit <id> --unpin`. Le 503 « all targets were skipped by pre-dispatch
+filters » vient d'OmniRoute (toutes les cibles d'un combo filtrees), pas du modele du job.
+
 **`fallback_providers` ne se declenche que sur rate-limit / 5xx / erreur
 reseau.** Un 400 (modele inexistant) n'active PAS la chaine : la requete
 echoue directement. Ne pas compter dessus pour une faute de frappe.
@@ -122,6 +138,11 @@ Teste un par un (latence mesuree, aller-retour complet) :
 
 Ne pas mettre The Old LLM ni Pollinations dans une chaine de repli : le
 premier renvoie 403, le second n'existe pas dans OmniRoute.
+
+Catalogue reverifie le 29/09/2026 sur `GET http://127.0.0.1:20128/v1/models` (1831 modeles) :
+plus AUCUN id `kiro/*` (l'etage `kiro/claude-haiku-4.5` du tableau ci-dessus n'est plus expose).
+Equivalents concrets presents : `ddgw/claude-haiku-4-5`, `aug/haiku4.5`, `cfp/nvidia/nemotron-3-120b-a12b`
+(latence NON mesuree — a tester avant de les mettre en repli).
 
 ## Cout
 
