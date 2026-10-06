@@ -22,12 +22,17 @@ Control Hermes at runtime without restart: ESTOP (pause/resume), gateway status,
 | **Archiver un skill** (récupérable, jamais supprimé) | `hermes curator archive <skill>` |
 | Lister les skills archivés / en restaurer un | `hermes curator list-archived` · `hermes curator restore <skill>` |
 | État du curateur / déclencher une revue / geler un skill | `hermes curator status` · `hermes curator run` · `hermes curator pin <skill>` |
+| Récupérer gateway bloqué après mise à jour | `hermes update` puis `hermes gateway restart` |
+| **Gateway mort / ticker cron figé** (plus aucun job ne tourne, jobs « en retard ») | `hermes gateway status` ; procédure complète : `references/cron-heartbeat-diagnosis.md` |
 | Historique des décisions du curateur | `hermes curator ledger` |
 | Budget mémoire (lecteur autoritaire) | `hermes memory status` + `scripts/check_memory.ps1` |
 | Inventaire réel des skills d'un profil (sans troncature) | `find <profil>/skills -mindepth 3 -maxdepth 3 -name SKILL.md` |
 | Lire / écrire une valeur de config | `hermes config get <clé>` · `hermes config set <clé> <val>` — **jamais `set` sur une clé LISTE** |
 | Agir sur un autre profil | `hermes -p <profil> <sous-commande>` |
 | Créer / tester / lister les jobs d'un profil | `hermes -p <profil> cron create …` · `cron status` · `cron run <id>` · `cron list` |
+| **Diagnostiquer un job qui semble bloqué** (lecture seule : état réel, PID du worker, motifs de log, verrous) | `references/cron-job-diagnostic.md` |
+
+**Diagnostic = lecture seule jusqu'au GO.** Un état anormal se rapporte d'abord (état, durée, cause `établie` / `hypothèse` / `inconnue`, recommandation) ; ne jamais tuer un process, relancer un job ou lancer un reindex sans GO explicite. Ne pas présenter une hypothèse comme établie, et signaler tout écart avec la mesure plutôt que de le corriger en silence.
 
 `hermes curator` est le cycle de vie des skills **créés par l'agent** : la revue est une tâche
 d'arrière-plan qui élague, consolide et archive. Les skills bundled et hub-installed ne sont jamais
@@ -37,41 +42,7 @@ skill » : `list-archived`, puis `restore`.
 
 ### La revue d'arrière-plan écrit dans tes fichiers pendant ta session
 
-Un fichier de skill, `skills/.usage.json` ou `memories/MEMORY.md` qui change **sans action de ta part**
-vient presque toujours de la revue d'arrière-plan de la session en cours (fork du curateur), pas d'une
-seconde instance. Avant de conclure à un agent concurrent, inventorier les **piles réelles** :
-`Get-CimInstance Win32_Process | Where-Object { $_.Name -match 'python|hermes' }` trié par
-`CreationDate` — les PID vont par chaînes (lanceur `hermes.exe`/venv + python `.hermes-runtime` +
-`tools/python-*`), donc un parc sain = **1 pile gateway + 1 pile chat**. Une écriture sans PID
-supplémentaire est un fork interne.
-
-Attribuer l'écriture à son auteur, dans cet ordre :
-
-- `skills/.curator_ledger.jsonl` : chaque entrée porte `actor` (`"curator"` = revue d'arrière-plan,
-  `"agent"` = tes propres `skill_manage`), `skill`, `before`/`after` en `sha256` et surtout
-  `evidence.session_id` — c'est lui qui désigne le writer.
-- `.curator_backups/blobs/<sha256>` : les états avant/après en clair, avec leur mtime (le `sha256` de
-  l'entrée de ledger s'y retrouve, ce qui donne la chronologie exacte).
-- `pending/memory/*.json` : `origin: "background_review"` = **propositions**, pas écritures — comparer
-  au contenu réel du fichier avant de dire qu'une entrée a été appliquée.
-- `logs/agent.log` : grepper l'id de session entre crochets (`[20260927_…]`). Les refus
-  `Refusing background curator patch for skill <X>: … not curator-managed` prouvent à la fois le fork
-  interne et sa borne (il ne touche jamais les skills bundled ni user-owned).
-
-**Ne jamais committer un fichier dont le writer est encore actif** : `stat -c '%y %n' <fichiers>` +
-`wc -l`, pause ~30 s, re-mesure — identiques = stable, on peut committer ; sinon on fige un état à
-moitié écrit et le diff audité n'est plus celui qui part. Et **un diff qui porte des lignes qu'on n'a
-pas écrites se NOMME** (message de commit, rapport) au lieu d'être absorbé en silence.
-
-**Elle repasse toutes les ~15 min : ne pas courir après chaque passe.** Mesure : 4 passes en 1 h 04,
-chacune pendant que la session travaillait, la dérive repassant de 1 à 10 entrées sans que la session
-ait touché à une skill — et une passe réécrit des fichiers que la session vient de committer. Un arbre
-propre est donc un **état de quelques minutes, pas un objectif** : geler à chaque passe revient à un
-commit toutes les ~15 min, dont l'historique ne dit plus rien. Pratique retenue par l'opérateur :
-**gel groupé** — laisser les passes s'accumuler, figer l'ENSEMBLE des entrées à un moment choisi (fin de
-session, fin d'heure, avant un push important) avec la preuve de stabilité de 3 min, pousser, et
-accepter la re-dérive. Une passe survenue pendant le gel se ramasse au gel suivant ; la voir réapparaître
-n'est pas l'échec du commit précédent.
+Voir [references/background-review.md](references/background-review.md).
 
 ## ESTOP — what it does
 
@@ -82,285 +53,19 @@ n'est pas l'échec du commit précédent.
 
 ## Inspection et config : méthodes non-interactives
 
-`hermes tools` **sans sous-commande** est l'interface interactive : lancée hors TTY elle bloque la
-session. Ses **sous-commandes** sont non-interactives et sûres (`tools list`, `tools --summary`,
-`tools disable|enable <nom>`) — et c'est la seule surface qui dit l'état **réel** d'un toolset : une
-intention écrite dans `config.yaml` sous une clé que rien ne lit n'y change rien
-(`references/profile-provisioning.md` §9). Les équivalents non-interactifs :
-
-| Besoin | Commande |
-|---|---|
-| État des plugins (activé / `not enabled`) | `hermes plugins list` |
-| État RÉEL des toolsets d'un profil | `hermes -p <profil> tools list` · `hermes -p <profil> tools --summary` |
-| Activer / désactiver un toolset (écrit `platform_toolsets.<plateforme>`) | `hermes -p <profil> tools disable <nom>…` · `tools enable <nom>…` |
-| Lire une valeur de config | `hermes config get <clé.pointée>` |
-| Écrire une valeur de config | `hermes config set <clé.pointée> <valeur>` |
-| Intégrité / migration de la config | `hermes config check` |
-| Inventaire skills (N enabled, M disabled) | `hermes skills list` |
-| Budget mémoire | `hermes memory status` + `scripts/check_memory.ps1` |
-| Santé install / version | `hermes doctor`, `hermes --version` |
-| Chercher / détailler un plugin du catalogue | `hermes plugins search <motif>` · `hermes plugins info <nom>` |
-
-**Le nom d'un plugin ne prouve pas ce qu'il branche — lire `hermes plugins info <nom>` avant de
-l'installer.** La fiche donne les lignes `Tools` / `Hooks` / `Middleware` : `(none)` partout signifie
-que le plugin n'expose rien au runtime (typiquement un serveur MCP stdio lancé par `uv run`), donc il
-ne rend PAS une primitive automatiquement disponible dans le backend, quel que soit son nom. Un
-`hermes plugins list` ne dit que l'état activé/désactivé, jamais la surface d'intégration : chercher
-(`search`) → lire (`info`) → présenter la fiche, puis attendre l'accord avant d'installer.
-
-**Installer n'active pas.** `hermes plugins install <nom>` sort « Plugin installed but not enabled »
-et le plugin reste inerte : c'est **`hermes plugins enable <nom>`** qui branche reellement les hooks —
-il resout et installe les dependances Python, puis recharge le gateway a chaud (« Gateway reloaded
-plugins — active in the running gateway now: hooks »). Preuve a rapporter, dans cet ordre : la ligne
-`enabled` de `hermes plugins list`, puis le hook lu dans la SOURCE installee (`grep -n 'HOOK'
-plugins/<nom>/*.py`, `plugin.yaml: provides_hooks`) — ni la sortie d'`install` ni `plugins list` ne
-disent quel hook est branche. Le plugin reste modifiable dans l'arbre git du home
-(`plugins/<nom>/`) : c'est cette copie qu'on committe.
-
-**`hermes config set` n'écrit que des scalaires.** Sur une clé *liste* il **remplace la liste entière
-par la valeur scalaire** — `hermes config set platform_toolsets.cli a2a` transforme les 17 toolsets
-en la chaîne `a2a`, et l'avertissement n'arrive qu'*après* l'écriture. Pour toute clé liste : édition
-textuelle ciblée du YAML, jamais `config set`. Supprimer une clé : `hermes config unset`. Procédure
-complète, harness de vérification sur copie et test d'isolation `HERMES_HOME` :
-`references/config-editing-safety.md`.
-
-**`hermes config validate` n'existe pas** (sous-commandes réelles : `show, edit, get, set, unset,
-path, env-path, check, migrate`) — `check` est le validateur : il affiche `Config version: N ✓` et
-sort 0. De même `hermes plugins status <nom>` n'existe pas : seulement `list`, `enable`, `disable`. Et
-`hermes tools --list` n'existe pas (la forme est `hermes tools list`) : l'argument rejeté remonte en
-`unrecognized arguments` par le parseur **principal**, ce qui ressemble faussement à un problème de
-`-p <profil>`.
-Si l'utilisateur demande une commande absente, dire laquelle est fausse et basculer sur
-l'équivalent — ne pas improviser un flag.
-
-**`hermes skills disable <nom>` n'existe pas non plus** (sous-commandes réelles : `trust, untrust,
-browse, search, install, inspect, list, check, update, audit, uninstall, reset, list-modified, diff,
-opt-out, opt-in, repair-official, publish, snapshot, tap, config`). Désactiver des skills pour un
-profil passe par la clé **liste** `skills.disabled` de son `config.yaml` — donc édition textuelle
-ciblée, jamais `config set` — et `hermes skills opt-out` est un interrupteur **global de profil**
-(marqueur `.no-bundled-skills`, `--remove` supprime les skills bundled non modifiés), trop large pour
-désactiver quelques skills. Les skills bundled d'un profil vivent sous
-`profiles/<nom>/skills/<categorie>/<skill>/SKILL.md` : compter par `find`, pas par la sortie de
-`skills list` qui tronque les noms longs (si on relit quand même cette sortie, apparier par
-**préfixe** — un nom affiché `foo-bar…` correspond à `foo-bar-entier`).
-
-**Un compte de skills se donne sur trois niveaux, sinon il ne retombe jamais juste.** Le CLI **filtre
-par plateforme** : des noms écrits dans `skills.disabled` ne correspondent à aucun skill reconnu
-(typiquement `apple/*` hors macOS, ou un skill dont une dépendance manque) et restent **inertes, sans
-erreur**. Les trois niveaux sont : fichiers `SKILL.md` **sur disque**, skills **reconnus par le CLI**,
-et **noms écrits** dans `skills.disabled`. Additionner « désactivés + non reconnus + activés » compte
-les non reconnus **deux fois** (ils sont déjà inclus dans les noms écrits) et le total dépasse le
-nombre de fichiers : ce n'est pas un drift de contenu, c'est l'addition qui est fausse. La
-réconciliation qui tient : `disque = reconnus + non reconnus` et `reconnus = activés + désactivés
-appliqués`.
-
-**Authenticité d'une fonctionnalité** : ne pas conclure d'un grep, lire le `plugin.yaml`. Et grepper
-scopé — un `grep -rn` lancé depuis `$LOCALAPPDATA/hermes` se noie dans `data/*/venv`,
-`site-packages`, `node_modules`, `.hermes-runtime` (une recherche a rendu 81 Ko de bruit
-`pygments`/`chardet`). Chercher dans `hermes-agent/` en excluant ces quatre-là. Les plugins bundled
-sont sous `hermes-agent/plugins/<kind>/<name>/` ; `plugin.yaml` fait foi pour `requires_env` et
-`provides_tools`.
-
-**JEV (TypeSafe System One)** : primitive de decision appelee par script, pas un outil Hermes natif
-et pas d'integration backend par defaut. Signatures et pieges (`choice` prend un DICT d'options,
-`score` plafonne a 10 niveaux), latence/cout mesures, lecture du cout reel via
-`/api/v1/auth/key`, et la liste des plugins d'integration disponibles mais non installes :
-`references/jev-primitives.md`.
+Voir [references/inspection-config-noninteractive.md](references/inspection-config-noninteractive.md).
 
 ### Multiplexeur de sessions d'agents (tmux / Herdr) — Hermes n'a pas de backend natif
 
-**`terminal.backend` (`local|docker|singularity|modal|daytona`) est un choix d'ISOLATION d'exécution,
-pas de gestion de sessions** : il n'existe ni pilote tmux ni pilote Herdr, et aucune clé
-`tmux`/`herdr`/`multiplexer` dans `config.yaml`. Donc « migrer Hermes vers Herdr » n'est jamais un
-changement de config : c'est un ADAPTATEUR (le plus propre : serveur MCP local qui wrappe la CLI en
-`--json`, déclaré sous `mcp_servers:`), ou rien. Le dire avant de planifier quoi que ce soit.
-
-- **Avant de promettre un workflow de panes, vérifier que le multiplexeur est joignable DANS le shell
-de l'outil terminal** (`command -v tmux` depuis ce shell-là, pas depuis un autre) : tmux peut vivre dans
-WSL pendant que le terminal Hermes tourne en git-bash Windows, et la recette tmux du skill
-`autonomous-ai-agents` ne s'exécute alors pas telle quelle.
-- **Où tmux est réellement utilisé** : (a) la doc du skill `autonomous-ai-agents` — 3 copies
-(`skills/autonomous-ai-agents/`, `profiles/watch/skills/…`, `profiles/veille/skills/…`) — c'est elle qui
-porte `send-keys`/`capture-pane` ; (b) **un seul** chemin de code :
-`hermes_cli/kanban_db_workspace.py::_cleanup_worker_tmux` (sessions `swarm-<assignee>`,
-`tmux list-panes -F #{pane_dead}` puis `kill-session`). Tout le reste des mentions tmux dans le code
-est de la compatibilité terminal (OSC 52, mouse tracking, redraw), pas de la gestion de sessions.
-- **Intégration Herdr côté Hermes : une seule**, et elle n'agit pas — plugin communautaire
-`herdr-auto-reconcile` (tier community, `hermes-agent/plugin-catalog/herdr-auto-reconcile.yaml`) : il
-détecte et réveille des panes allowlistés, il ne les pilote jamais.
-- **Découverte express « Hermes connaît-il l'outil X ? »** : `cache/plugin-catalog.json` (clé `entries`,
-champs `name`/`repo`/`tier`/`description`/`capabilities`) + `hermes-agent/plugin-catalog/*.yaml`, puis
-`hermes plugins list`. Beaucoup moins cher que grepper l'install — et `provides_tools`/`provides_hooks`
-disent si le plugin agit ou seulement observe.
-- **Un `grep -R` lancé depuis `%LOCALAPPDATA%/hermes` n'échoue pas : il EXPIRE** (mesuré : 240 s puis
-300 s sans une seule ligne) — et un timeout n'est pas une absence de résultat. Cibler les fichiers
-(`config.yaml`, `*.yaml`, `--include='*.py'` sous `hermes-agent/`) ou passer par `search_files`.
-- Mapping complet tmux→Herdr, modèle de persistance, intégrations agents, schéma d'adaptateur et
-pièges : `references/session-multiplexers.md`.
-
-**Lire les tâches planifiées depuis git-bash** : `schtasks /Query` sort en UTF-16, donc `grep`
-répond `Binary file (standard input) matches` sans rien afficher. Passer par `tr -d '\0'` et garder
-`MSYS_NO_PATHCONV=1` pour les commutateurs `/TN`, `/FO`, `/NH` — ou, plus simple et hors du problème
-d'encodage, utiliser l'applet PowerShell :
-`Get-ScheduledTask | Where-Object { $_.TaskName -like '*Hermes*' } | Select-Object TaskName, State | Format-Table -AutoSize`.
-
-Deux pièges MSYS en pilotant des processus : `taskkill //PID <n> //F` échoue (`Argument ou option non
-valide`) — utiliser `Stop-Process -Id <n> -Force` en PowerShell ; et `cmd //c "…"` accompagné de
-`MSYS_NO_PATHCONV=1` ouvre un shell **interactif** au lieu d'exécuter la commande — exporter la
-variable d'abord (`export MSYS_NO_PATHCONV=1`), puis appeler `cmd /c "…"`.
+Voir [references/agent-session-multiplexers.md](references/agent-session-multiplexers.md).
 
 ### Créer une tâche planifiée Hermes (Windows)
 
-Reprendre le principal d'une tâche existante au lieu d'en inventer un :
-`Export-ScheduledTask -TaskName 'Hermes - check memory'` montre la convention du parc (SID de
-l'utilisateur courant + `<LogonType>InteractiveToken</LogonType>`).
-
-```powershell
-$action   = New-ScheduledTaskAction -Execute $python -Argument ('"' + $script + '" --auto') -WorkingDirectory (Split-Path $script)
-$trigger  = New-ScheduledTaskTrigger -Weekly -DaysOfWeek Sunday -At 4:00am
-$settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1)
-Register-ScheduledTask -TaskName '<nom>' -Action $action -Trigger $trigger -Settings $settings -Force
-```
-
-- Pointer l'action sur le python du venv Hermes en **chemin absolu**, jamais un `python` nu : le
-  contexte de la tâche n'a pas le PATH de la session interactive.
-- `-StartWhenAvailable` : un déclenchement manqué (PC éteint la nuit) se rattrape au démarrage suivant.
-- Garder la création dans un script ré-exécutable à côté du script cible
-  (`scripts/creer_tache_<nom>.ps1`) — c'est ce qui rend la tâche reproductible après un incident.
-- Tester avec `Start-ScheduledTask -TaskName '<nom>'`, puis lire `Get-ScheduledTaskInfo`
-  (`LastRunTime`, `LastTaskResult`) **et** le log propre du script : un code retour suffit à déclarer
-  victoire alors que le script n'a rien écrit.
-- Une tâche `Disabled` alors que `hermes doctor` voit le service tourner (cas du profil watch) ne
-  remontera pas seule après un redémarrage : le signaler plutôt que le corriger sans demande.
-- **Une tâche planifiée ne ressuscite pas un process mort.** Un déclencheur `LogonTrigger` seul n'a
-  pas de prochaine exécution (`NextRunTime` vide) : le service lancé ne revient qu'au prochain logon,
-  sans aucun signal entre-temps. Pour tout service long-running (proxy, sidecar), ajouter
-  `-StartWhenAvailable` **et** une répétition, le launcher restant idempotent (« si le port écoute,
-  sortir ») :
-  ```powershell
-  $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 15)
-  ```
-  avec `-MultipleInstances IgnoreNew` pour ne pas empiler les instances.
-- **Greffer la répétition sur un déclencheur `LogonTrigger` existant la laisse INERTE jusqu'au prochain
-  logon.** `Set-ScheduledTask -Trigger` accepte la modification, le XML affiche bien
-  `<Repetition><Interval>PT15M</Interval>`, et pourtant `NextRunTime` reste vide : la fenêtre de
-  répétition ne s'arme qu'au déclenchement du logon. Deux conséquences : (a) vérifier l'effet sur
-  `Get-ScheduledTaskInfo … NextRunTime`, jamais sur le XML ; (b) pour une couverture armée tout de
-  suite, ajouter un **second** déclencheur `New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1)`
-  portant la même répétition, et garder le logon pour la reprise après redémarrage.
-- **Un script qui touche a l'installation se livre en SPEC d'abord, en code ensuite.** Ecrire
-  `bootstrap.ps1` (installation, taches planifiees, demarrage de services) sans validation prealable se
-  fait refuser : presenter l'ordre des etapes, le perimetre exact de chaque action, ce que le script ne
-  peut pas faire (secrets, installs hors depot) et les questions ouvertes, puis attendre. Convention
-  du parc pour tout script qui modifie quelque chose : **`-DryRun` par defaut, `-Apply` pour executer**,
-  idempotence, journal horodate, et `-SelfTest` quand il reecrit un fichier de config. **Le test
-  `-DryRun` doit prouver l'ABSENCE d'effet**, pas seulement afficher une sortie plausible : relever le
-  md5 d'un fichier sensible (`config.yaml`) et `git status --short` avant/apres, plus le code de sortie
-  (0 avec 0 echec). Un `-DryRun` qui ecrit son journal dans le depot le salit : poser le motif du
-  journal au `.gitignore`. **Et un controle de prerequis doit viser un vrai ecouteur** : tester la
-  connectivite sortante sur `127.0.0.1:443` ne peut qu'echouer (rien n'ecoute en local) et fait
-  annoncer une panne reseau inexistante a chaque execution — viser un hote distant (`github.com:443`).
-- **Le durcissement est un script, pas une commande.** Livrer le `.ps1` rejouable qui prend le backup
-  XML (`Export-ScheduledTask | Out-File -Encoding UTF8`), modifie puis se vérifie lui-même, et
-  l'exécuter depuis là : c'est le seul moyen de revenir à l'état cible après incident, et ça rend la
-  définition auditable en clair (au lieu du `schtasks /Query` en UTF-16).
-- **Tâche dont `LastTaskResult ≠ 0`** : trois causes à séparer avant de proposer un correctif —
-  script jamais chargé (aucun log), abort volontaire (`exit 1` dans un garde-fou du script), crash
-  réel. La présence du log que le script écrit dès ses premières lignes tranche à elle seule.
-  Recette complète : `references/windows-task-failure-triage.md`.
-- **Rediriger la sortie d'un sidecar lancé masqué** (`wscript`/`pythonw`, `SW_HIDE`) vers un fichier
-  de log. stdout sur fenêtre cachée est perdu : une panne sans log est une panne invisible, et
-  `LastTaskResult = 0` ne dit rien de la santé du process lancé.
-- **Vérifier ce que la tâche a réellement fait**, pas seulement qu'elle a tourné : confronter
-  `LastRunTime` aux événements de session (`Get-WinEvent -FilterHashtable @{LogName='System';
-  Id=7001} -MaxEvents 8`). Un `LastRunTime` égal à l'heure du dernier logon signifie « déclencheur de
-  logon », pas « planification récurrente » — deux situations qui appellent des conclusions opposées
-  sur la cause de la panne.
+Voir [references/scheduled-tasks-windows.md](references/scheduled-tasks-windows.md).
 
 ### Snapshot git de la config (`docs/`)
 
-Le depot est **unique** : runtime a la racine de `%LOCALAPPDATA%\hermes`, documentation sous `docs/`.
-
-**Le depot EST le home** (branche `main`, poussee sur son distant). Les skills vivent dans son arbre
-(`skills/**`) : corriger un skill, le committer et le pousser se fait depuis cette racine — pas depuis
-un autre depot, et **sans en chercher un ailleurs** : un balayage `.git` sur le disque remonte des
-checkouts sans rapport (un clone `wazuh` sous le `Code\GitHub` de l'utilisateur) et fait perdre le
-tour. **Le terminal s'ouvre dans `C:\WINDOWS\system32`** : faire `cd "$LOCALAPPDATA/hermes"` puis
-`pwd` + `git status --short` AVANT tout `git` ou chemin relatif ; les chemins que l'utilisateur donne
-(`skills/…`, `data/…`) sont relatifs a cette racine.
-
-Apres un commit, rapporter le hash complet (`git rev-parse HEAD`) et la ligne de push
-(`<ancien>..<nouveau>  main -> main`), et montrer le `git diff` des fichiers vises AVANT d'ajouter :
-l'operateur veut voir ce qui part, pas seulement le fait que c'est parti. Ne jamais `git add -A`
-depuis le home (l'arbre contient des dizaines de fichiers vivants, cf. `.gitignore` et l'audit).
-
-**Un chantier de maintenance se committe en étapes logiques, chacune avec le préfixe de sa nature**
-(`fix:` une correction de contenu ou de config, `docs:` la documentation et les fiches du wiki,
-`chore:` le nettoyage de fichiers et de logs). Un commit fourre-tout rend le retour arrière
-impossible quand une seule des modifications se révèle fausse. Committer **et pousser** à chaque
-étape, puis donner le hash complet : l'opérateur suit l'avancement commit par commit.
-
-**Un fichier introuvable se DIT ; il ne se cherche pas sur tout le disque.** Verifier le chemin exact
-donne et, s'il n'y est pas, le rapporter tel quel plutot que de lancer une recherche large — elle
-ramene des homonymes d'autres projets et fait conclure a tort a un livrable manquant ou deplace.
-L'ancien depot externe a ete fusionne puis renomme en `*.archive` : ne plus y chercher la doc ni le
-snapshot — tout est sous `docs/`.
-
-La copie versionnée du config live est `docs\snapshot\config.yaml` — il n'y a
-**pas** de `hermes_install\config.yaml` à la racine du dépôt. « Resynchroniser
-docs/config.yaml » désigne donc ce fichier-là : le dire avant d'agir, plutôt que de
-supposer que la racine contient la copie.
-
-Procédure : `cp` live → snapshot, confirmer les deux `md5sum` identiques, `diff` vide, puis commit.
-**S'attendre à un drift plus large que la dernière modification** : la copie versionnée retarde de
-toute la migration de config, donc lire le `diff` en entier et rapporter chaque hunk au lieu de
-supposer que seule l'édition du jour manque.
-
-`config.yaml` ne contient aucun secret en clair (`api_key: ''` partout, les clés vivent dans
-`.env`) : la copie brute est sûre. Mais le `.gitignore` déclare la politique « REDACTED uniquement »
-et `snapshot/config.yaml.redacted` n'a **aucun régénérateur** (le scanner de secrets est un scanner
-seul, sans mode export) — le rafraîchir signifierait inventer un format : le laisser tel quel et le
-signaler.
-
-**Une liste de décisions numérotée (D1…Dn) fournie par l'opérateur s'applique à la lettre, item par
-item, et s'arrête à ses propres gates.** Un item conditionnel qui demande de « montrer le diff AVANT
-écriture » se traite en **deux temps** : livrer le diff proposé dans le rapport, ne rien écrire, et
-attendre le GO — écrire puis montrer le diff dans le compte rendu inverse la consigne, même quand
-l'écriture est techniquement correcte. Un item marqué OPTIONNEL n'exempte pas de cette preuve préalable.
-
-- **Une consigne littérale qui n'atteint pas son but se SIGNALE, elle ne se corrige pas en silence.**
-  Un motif `.gitignore` sans joker (`.bak_`) ne matche que le fichier nommé exactement `.bak_` : le
-  prouver avec `git check-ignore --no-index -v <chemin réel>` sur les vrais fichiers ET une sonde
-  (`probe.bak_2026`), puis proposer le motif qui couvre (`*.bak_*`) et attendre le GO. Un fichier déjà
-  SUIVI n'est de toute façon jamais concerné par `.gitignore` : `git rm --cached` le fait réapparaître
-  en non suivi si aucun motif ne le couvre — c'est le seul cas encore attrapable par un `git add -A`,
-  donc celui à nommer dans le rapport.
-- **Un item hors dépôt (sous `data/`, chemin ignoré) ou sans fichier se traite et se rapporte, mais ne
-  se committe pas** : l'annoncer par item (« hors dépôt, non committable ») sans inventer de chemin de
-  remplacement. Un item dont la cible a disparu change de NATURE, pas seulement de valeur —
-  « réparer un fichier tronqué » devient « réassembler un livrable absent » — et se réécrit ainsi.
-- **Un item de code se prouve par ses DEUX branches, exécutées sans réseau** (monkeypatch de la
-  primitive externe) : branche nominale ET branche dégradée, en comparant clé par clé les valeurs
-  exactes exigées par la décision, plus le code de sortie CLI dans les deux modes (`--json` et texte).
-- **Les gates de l'opérateur s'exécutent dans l'ordre annoncé** : `git diff --cached` complet, puis le
-  scan de secrets SUR LE DIFF indexé, motif par motif (`for m in sk- gh_ AKIA AIza xox hf_ nvapi- JWT;
-  do git diff --cached | grep -cE "$m"; done`), puis le contrôle nommé (ACLs, config). **Un gate ROUGE
-  arrête le commit** : nommer l'item fautif et sa commande de correction, laisser l'index prêt, et
-  proposer des options numérotées (« GO tel quel » / « GO correction d'abord » / « GO motif corrigé »)
-  plutôt que de committer presque ou de pousser pour finir.
-- **Un fichier réécrit par un outil se mesure avant d'être accusé de reformatage** : un patch qui
-  affiche tout le fichier en +/- peut n'avoir changé que 2 lignes. Trancher par `git diff --numstat`
-  (2/0 attendu), `git diff --stat` et `grep -c $'\r' <fichier>` (0 CRLF attendu) — `.gitattributes`
-  (`* text=auto eol=lf`) normalise à l'index, donc l'avertissement CRLF de git n'est pas un écart.
-- **Corriger une ligne dans un bloc : ne matcher QUE cette ligne.** Un `old_string` qui inclut les
-  lignes voisines les **supprime** (le remplacement ne restitue que ce qu'on écrit, pas le contexte
-  au-delà) : mesuré sur un `.gitignore` à blocs, un simple passage de `hermes-agent/` à `/hermes-agent/`
-  a effacé `data/`, puis `bin/` au correctif suivant. Après toute édition de ce genre, prouver la
-  minimalité par `git diff --numstat <fichier>` (attendu `1 1`) **et** relire le bloc entier — sur un
-  `.gitignore`, une ligne d'exclusion perdue (`data/`, `logs/`, `.env*`) ne salit pas le diff : elle rend
-  le motif inopérant, et le `git add -A` suivant indexe ce qu'elle protégeait.
-- **« Ne pas pousser avant mon go » est absolu** : commit seulement, jamais `git push`, et l'état de
-  l'index se rapporte tel quel (prêt, rien perdu) entre deux tours.
+Voir [references/config-git-snapshot.md](references/config-git-snapshot.md).
 
 ## Multi-bot Telegram (deux bots = deux profils)
 
@@ -368,361 +73,27 @@ Voir `references/multi-telegram-bots.md` : 1 `TELEGRAM_BOT_TOKEN` = 1 bot ; plus
 
 ## Envoyer un message ponctuel (récap de fin de chantier) par l'API Bot
 
-Livrable récurrent demandé en fin de chantier de maintenance : un récap Telegram (décisions prises,
-chemins finaux, ce qui reste). Le gateway n'est pas nécessaire — l'API Bot suffit, et ça évite
-d'attendre un tick.
-
-```bash
-ENVF="$LOCALAPPDATA/hermes/.env"
-TOKEN=$(grep -m1 '^TELEGRAM_BOT_TOKEN=' "$ENVF" | cut -d= -f2- | tr -d '"' | tr -d "'" | tr -d '\r')
-curl -s -X POST "https://api.telegram.org/bot$TOKEN/sendMessage" \
-  --data-urlencode "chat_id=8956868107" \
-  --data-urlencode "text@$LOCALAPPDATA/Temp/recap.txt"
-```
-
-- Le corps se passe **par fichier** (`--data-urlencode "text@<fichier>"`), jamais inline : un récap
-  multi-lignes avec accents, `§`, guillemets et antislashs de chemins Windows se fait déchiqueter par
-  le quoting bash. Écrire le texte avec `write_file`, puis appeler `curl`.
-- **Sans `parse_mode`** : en Markdown/HTML le moindre `_` ou `*` d'un chemin fait échouer l'envoi
-  (`can't parse entities`) et rien ne part. Le récap part en texte brut.
-- **Ne jamais exposer le jeton** : le lire dans une variable au moment de l'appel, jamais l'`echo`, ni
-  dans la commande montrée au chat. La preuve d'envoi à rapporter est `message_id` + `chat` + longueur.
-- Limite **4096 caractères** par message : au-delà, découper en envois numérotés (« 1/2 »).
-  `{"ok":true,"result":{"message_id":…}}` en retour vaut accusé de réception.
-- Un récap doit se lire **seul** : décisions prises, chemins finaux livrés, état des services, et ce
-  qui reste à faire côté utilisateur. S'arrêter aux chemins sans dire ce qui reste oblige à relire la
-  session.
-- **Un second message court est préférable à un récap faux** : si une affirmation du premier envoi se
-  révèle inexacte, envoyer la rectification (elle nomme l'erreur) plutôt que de laisser le fil sur une
-  version fausse.
+Voir [references/bot-api-message.md](references/bot-api-message.md).
 
 ## Update procedure
 
-Voir `references/update-preflight.md` pour la séquence complète : précaution (multiplex_profiles, snapshot frais, arrêt des writers), contrôles post-update, et récupération des pièges d'exécution Windows (gateway tué par Job Object → `schtasks /Run /TN Hermes_Gateway` ; serveur long-running → `cmd //c "start /b …"` car `setsid` absent de git-bash et background terminal timeout). frais, arrêt des writers).
-
-`hermes update` has NO `--restart` flag — this fails silently and confusingly. The correct sequence:
-
-**Editing config.yaml: use `hermes config set KEY value`, never patch/write_file.** `patch` and `write_file` refuse `config.yaml` as security-sensitive ("Agent cannot modify security-sensitive configuration"). `hermes config set gateway.multiplex_profiles false` is the sanctioned path; verify placement with `hermes config get KEY` and by grepping the section (a dotted key can land under a sibling heading — confirm it is under the right section, not just that it resolves).
-
-**Post-update gateway dies on Windows (Job Object #91675): recover with `schtasks /Run /TN Hermes_Gateway`, not `hermes gateway start`.** The cold-start gateway spawned inside `hermes update`'s shell is killed when that shell exits because it sits in a Windows Job Object. `schtasks /Run /TN <task>` starts the task-scheduler task OUTSIDE any Job Object, so it survives. The task name is `Hermes_Gateway` for the default profile. **Ne pas supposer qu'une tache par profil existe** : avec `gateway.multiplex_profiles: true`, le gateway `default` sert TOUS les profils (`hermes gateway list` → « veille — served by the default multiplexer ») et les taches `Hermes_Gateway_watch` / `Hermes_Gateway_veille` n'existent legitimement pas — il n'existe pas non plus de VBS par profil (`gateway-service/` ne contient que `Hermes_Gateway.vbs`, qui lance `gateway run` sans argument de profil). Lire `hermes gateway list` avant de conclure qu'une tache manque, et ne recourir a `schtasks /Query /FO CSV /TN <task>` que pour une tache censee exister. Verify with `hermes gateway status` → look for `✓ Gateway process running (PID: …)`.
-
-The correct sequence:
-
-1. **Pre-check (read-only)**: `hermes update --plan` — shows what will be updated, which services will restart, and the install method. Safe on live fleet.
-2. **Run update**: `hermes update -y` (auto-accepts config migration prompts).
-3. **Verify**: `hermes doctor` — check for "mixed sys.modules" warning.
-4. **Fix if needed**: `hermes gateway restart` if doctor warns about modules.
-5. **Confirm**: `hermes gateway status` + `hermes doctor` clean output.
-
-**state.db cleanup after repair**: if state.db was repaired (`.pre_repair`, `.corrupted` files exist), purge them ONLY after `PRAGMA integrity_check` returns `ok` on the current `.db`. These backups can be 400+ MB each.
+Voir [references/update-procedure.md](references/update-procedure.md).
 
 ## Limites inter-agents (delegate_task et A2A)
 
-**`delegate_task` a des bornes natives dans `delegation.*` — les utiliser plutôt que d'écrire un
-wrapper** : `max_spawn_depth`, `max_concurrent_children`, `child_timeout_seconds`. La garde de
-profondeur est réelle et refuse avec un message explicite (`Delegation depth limit reached
-(depth=N, max_spawn_depth=M)`).
-
-**`max_spawn_depth` compte les ARÊTES, pas les agents.** La garde est `if depth >= max_spawn` où
-`depth` est la profondeur du *parent* : `2` donne la chaîne A→B→C (3 agents), `1` = parent→enfant
-seulement (défaut). Régler `3` pour « 3 niveaux » autorise en réalité 4 agents — piège vérifié
-dans `tools/delegate_tool.py`.
-
-**Aucun knob natif** pour : plafond de tokens par sous-agent (l'enfant hérite du `max_tokens` du
-parent), détection de cycles, log par appel. Ces trois points exigent un guard externe.
-
-**A2A n'est pas une dépendance manquante.** C'est un plugin platform livré avec Hermes
-(`hermes-agent/plugins/platforms/a2a/`), transport stdlib pur : `requires_env: []`, aucun package
-à installer, aucune clé requise. Le `⚠ a2a (system dependency not met)` du doctor est un **gate de
-configuration** — le toolset est dans `_DEFAULT_OFF_TOOLSETS` et `_a2a_tools_available()` ne renvoie
-vrai que si `a2a_agents` est renseigné, ou `A2A_PORT` posé, ou `platforms.a2a.enabled: true`.
-Activer A2A ouvre un port d'écoute (défaut 9900 ; bind 127.0.0.1 tant qu'aucun token n'est
-configuré) : ne pas l'activer sans demande explicite.
-
-**Le plugin A2A n'expose aucune hook d'interception** (ni middleware, ni call-site) : un guard ne
-peut pas s'y brancher, l'intégration passe par un wrapper documenté.
+Voir [references/inter-agent-limits.md](references/inter-agent-limits.md).
 
 ## Masque récursif — état
 
-Bornes effectives du masque appliqué à `delegate_task` — colonne *runtime* relue dans `config.yaml`
-section `delegation`, colonne *défaut code* lue dans `hermes_cli/config_defaults.py` (le défaut
-s'applique dès que la clé est absente : retirer une clé **relâche** la borne, ça ne la fige pas) :
-
-| Règle | Runtime | Défaut code | Sémantique exacte |
-|---|---|---|---|
-| Profondeur max | 1 | 1 (`MAX_DEPTH`, plancher `_MIN_SPAWN_DEPTH`) | seuls les agents de profondeur 0..N-1 peuvent spawner ; aucune détection de cycle |
-| Timeout par enfant | 120 s | 0 = **aucun plafond** | cap d'**inactivité** (secondes sans progrès, pas de durée totale), plancher 30 s ; tout signe de progrès (appel terminé, changement d'outil) relance la fenêtre |
-| Sous-agents simultanés | 3 | 10 | cap des délégations async : à saturation la demande est **rejetée**, pas mise en file (l'appelant repart en synchrone) |
-| Budget d'itérations | 250 | 250 | `delegation.max_iterations` — le vrai garde-fou de coût d'un enfant |
-| Budget tokens par enfant | — | — | ⚠ aucune clé dédiée (à implémenter par patch) ; à défaut : `max_iterations`, `compression_threshold_tokens` (cap du déclencheur de compaction, 0 = hérité du parent) et `max_tokens` de l'enfant **hérité du parent** (`delegate_tool.py` : `child_max_tokens = getattr(parent_agent, "max_tokens")`) |
-| Détection de cycle | — | — | ⚠ toujours absente du code (seuls des compteurs de heartbeat nommés `_HEARTBEAT_STALE_CYCLES_*` existent) : passer `max_spawn_depth` > 1 lève le seul garde-fou anti-récursion |
-| A2A (inter-agents) | désactivé | fail-closed | plugin bundled `a2a-platform`, `a2a` dans `_DEFAULT_OFF_TOOLSETS` (`hermes_cli/tools_config.py`) |
-
-Clés natives **non renseignées** ici (défauts en vigueur, à connaître avant de croire à une borne) :
-`oneshot_max_children` (2 ; 0 = illimité, cap des sous-agents d'un run `-q`/`--oneshot`),
-`max_summary_chars` (24000), `independent_completions` (false = « one message per call »),
-`subagent_auto_approve` (false → auto-refus des approvals côté enfant, jamais d'`input()` en worker),
-`surface_child_process_notifications` (false).
-
-Changer `delegation.*` : `hermes config set delegation.<clé> <valeur>`, puis vérifier le placement
-réel sous `delegation:` (`grep -n "^delegation:" -A 14 config.yaml`) — une clé pointée peut atterrir
-sous une section voisine. Nota : `hermes config validate` n'existe plus dans 0.21.5 : la vérification se fait via `hermes config check` (exit 0, « Config version: 46 ✓ », section Required vide). Pour appliquer les migrations automatiques, utilisez `hermes config migrate`.
-
-**Pourquoi depth reste à 1** : `max_spawn_depth` est le seul garde-fou anti-récursion du code
-(`tools/delegate_tool.py` : `effective_role = "orchestrator" si child_depth < max_spawn_depth sinon
-"leaf"`). Il n'existe aucune détection de cycle (pas de suivi d'ancêtres ni de graphe). Passer à 3
-lèverait le seul garde-fou existant — à ne faire qu'après avoir écrit la détection de cycle.
-
-**Pourquoi A2A reste désactivé** : aucun pair Hermes à interconnecter, et l'activer ouvre un port
-d'écoute (défaut 9900, bind 127.0.0.1 tant qu'aucun token). Procédure d'activation complète et
-vérifiée : section « A2A — procédure d'activation » ci-dessous (scripts prêts, jamais exécutés).
+Voir [references/masque-recursif.md](references/masque-recursif.md).
 
 ## A2A — procédure d'activation (préparée, non activée)
 
-**Prérequis : un 2ᵉ agent Hermes opérationnel et joignable.** Sans pair, ne pas activer : un port
-d'écoute de plus à surveiller, zéro bénéfice.
-
-**Scripts prêts** (jamais exécutés en mode activation) :
-
-| Script | Rôle | Options |
-|---|---|---|
-| `%LOCALAPPDATA%\hermes\scripts\activer_a2a.ps1` | activation, **paramétrée par profil et par port** | `-LocalProfile` (défaut `default`), `-LocalPort` (9900), `-Profile` (pair), `-Port`, `-PeerToken`, `-PeerCaps`, `-WriteEnvKeys`, `-Force`, `-SkipGateway`, `-ConfigPath`, `-SelfTest` |
-| `%LOCALAPPDATA%\hermes\scripts\desactiver_a2a.ps1` | retour au défaut fail-closed, symétrique | `-LocalProfile`, `-LocalPort`, `-Profile`, `-Port`, `-Force`, `-SkipGateway`, `-ConfigPath`, `-SelfTest` |
-
-`activer_a2a.ps1` enchaîne : sauvegarde `config.yaml.a2a-backup-<horodatage>` →
-`hermes plugins enable a2a-platform` → ajout de `- a2a` dans `platform_toolsets.cli` →
-`hermes config set platforms.a2a.enabled true` → `hermes config check` → redémarrage des gateways
-(profil watch inclus s'il existe) → vérification du port 9900 → rappel des 5 outils A2A.
-`desactiver_a2a.ps1` fait l'inverse, plus `hermes config unset platforms.a2a.enabled`.
-
-**`-SelfTest` est le seul mode exécutable sans risque** : il rejoue insertion/retrait sur une COPIE
-de `config.yaml`, vérifie l'idempotence des deux sens et l'égalité md5 après add+remove, sans toucher
-ni au plugin ni aux gateways. Rejoué sur la config live le 21/09/2026 (`platform_toolsets.cli` = 18
-entrées) : add 18→19, add x2 sans effet, remove 19→18, md5 de la copie identique à l'original, md5 de
-`config.yaml` inchangé, aucun `a2a-platform` enabled, rien en écoute sur 9900/9901 → scripts non périmés.
-Gate relu le même jour : `_a2a_tools_available()` (`plugins/platforms/a2a/tools.py`), port par défaut
-9900 (`adapter.py:_DEFAULT_PORT`), `a2a_agents` lu par `.get(nom)` (`tools.py:_configured_peers`).
-
-**Piège de lecture** : `grep -n "a2a" config.yaml` renvoie une ligne (sous `known_plugin_toolsets.cli`)
-— c'est le **registre** des toolsets plugin connus, pas une activation. L'activation se lit sous
-`platform_toolsets.cli` ; vérifier avec `hermes plugins list | grep a2a` → `not enabled`.
-
-**Config minimale — les 3 clés :**
-
-| Élément | Où | Rôle |
-|---|---|---|
-| `platforms.a2a.enabled: true` | `config.yaml`, **clé racine** | gate des outils A2A (`tools.py:_a2a_tools_available`) et démarrage de la plateforme entrante |
-| `a2a_agents:` | `config.yaml`, racine | pairs sortants : `url`, `auth: {type: bearer, token}`, `timeout`, `capabilities`. **Table indexée par NOM de pair** (`a2a_agents: {veille: {url: …}}`), pas une liste `- name:` : `tools.py::_configured_peers()` fait `.get(nom)` sur cette clé, donc une liste ouvre le gate des outils puis casse à l'appel (`'list' object has no attribute 'get'`) |
-| `A2A_BEARER_TOKEN` (partagé) ou `A2A_PEER_TOKENS="alice:tok1,bob:tok2"` (par pair) | `.env` | authentification entrante |
-
-`gateway.platforms.a2a.enabled` **n'est pas** la clé lue par le gate des outils — `gateway/config_loader.py`
-fusionne les deux emplacements côté gateway, `tools.py` lit le niveau racine. Rencontrer un cas où les
-outils n'apparaissent pas malgré la plateforme active : vérifier d'abord l'emplacement de la clé.
-
-**Sécurité** : bind `127.0.0.1` tant qu'aucun jeton n'est posé (il faut un jeton **et**
-`A2A_HOST=0.0.0.0` pour élargir — l'activation ne le fait jamais d'elle-même) ; audit
-`a2a_audit.jsonl` ; conversations dans `a2a_conversations/` (survivent à la compaction) ; texte
-entrant filtré (prompt-injection) et slash-commands non invocables par un pair ; texte sortant
-nettoyé des chaînes ressemblant à des credentials.
-
-**Port** : 9900 (`A2A_PORT`). Agent Card servie sur `/.well-known/agent-card.json`.
-
-**Pièges vérifiés (reproduits en isolation) :**
-- `platform_toolsets.cli` est une clé **liste** : c'est `references/config-editing-safety.md` qui
-  s'applique ici (jamais `config set`, insertion textuelle ciblée).
-- Un aller-retour YAML complet (`ruamel.yaml` load/dump) **reformate tout `config.yaml`** :
-  réindentation des séquences, rewrapping des blocs de prompts. Diff inacceptable sur le fichier live.
-- Une regex qui matche `^platform_toolsets:` doit **restituer la ligne d'en-tête** : la première
-  version du script la consommait et supprimait le bloc entier. C'est le `-SelfTest` (comparaison
-  md5) qui l'a attrapé.
-- `is_connected()` lit `extra.enabled`, pas le champ typé `enabled` : l'état « connecté » affiché
-  peut être faux alors que la plateforme tourne. Se fier à `netstat` sur 9900.
-
-**Vérification après activation** : `hermes config check`, `netstat -ano | findstr :9900` (attendu :
-`127.0.0.1:9900` en LISTENING), `hermes plugins list` (`a2a-platform` enabled).
-
-**Désactivation** : `scripts\desactiver_a2a.ps1`, puis vérifier que 9900 n'écoute plus. Les jetons
-`A2A_*` restent dans `.env` (inertes plugin désactivé) : les retirer à la main si besoin.
-
-## A2A — cas d'usage stratégiques (lus dans le code, non activés ici)
-
-| Cas | Ce que ça donne | Exemple concret | État vérifié |
-|---|---|---|---|
-| Fédération multi-machines | un agent Hermes par machine, chacun sa mémoire, ses clés, son modèle ; découverte par Agent Card | le bureau (PC) appelle l'agent veille (serveur / VM) pour une synthèse ; le distant garde ses propres credentials | Supporté (`#25176`, `#689` : agent↔agent inter-machines). Distant ⇒ `A2A_HOST` **et** jeton. Aucun pair configuré ici |
-| Délégation cross-framework | appeler un agent non-Hermes | un agent LangChain / CrewAI / Google ADK / OpenClaw qui annonce une capacité devient un pair comme un autre | Interopérabilité **annoncée** dans `plugin.yaml` (JSON-RPC v1.0). Jamais testée localement : aucun pair non-Hermes dans le parc — ne pas la présenter comme acquise |
-| Orchestration de capacités | `a2a_orchestrate(capability, message, mode)` diffuse à tous les pairs annonçant la capacité (`*` = tous) | « Cherchez les 5 dernières publications arXiv et croisez les résultats » avec 3 agents de recherche | Outil présent, modes `all` / `first` / `best` réels |
-| Service callable (inbound) | Hermes devient un pair découvrable | un workflow n8n / Make découvre `/.well-known/agent-card.json` et envoie un `message/send` | Actif seulement avec `platforms.a2a.enabled: true`. La tâche entre dans la **session live** : elle occupe un tour réel de l'agent |
-| Paiement à la requête (x402) | facturer un appel | — | **Hors périmètre** : `DESIGN.md` liste DID/Ed25519, scopes OAuth2 et x402 (`#14559` bindu) comme non-objectifs assumés. Ne pas planifier dessus |
-
-### Pièges propres à A2A
-
-- **Piège de lecture de config** : `grep -n a2a config.yaml` remonte `- a2a` (ligne ~717) sous
-  `known_plugin_toolsets.cli` — la liste des toolsets *connus*, pas la liste *active*. Le gate réel
-  est `platform_toolsets.cli` + `platforms.a2a.enabled`. Un grep naïf conclut « A2A activé » à tort.
-- `hermes a2a` **n'existe pas** : activation par le plugin et les clés de config uniquement.
-- **Aucune hook d'interception** dans le plugin (ni middleware ni call-site) : un guard de sécurité
-  passe par un wrapper documenté, jamais par un branchement interne.
-- `tasks/cancel` marque la tâche annulée et abandonne la réponse mais **ne coupe pas** le tour en
-  cours de la session live : ce n'est pas un vrai abort.
-- Une tâche entrante consomme un tour de l'agent destinataire — cadence lente, une alerte = un appel.
-- `a2a_orchestrate(mode="best")` = **la réponse la plus longue**, pas un score de qualité ni de
-  latence (le code se qualifie lui-même de « coarse »). Pour arbitrer, utiliser `all`. Les résultats
-  sont triés par nom de pair, donc déterministes.
-- Distant = `A2A_HOST` **et** un jeton ; sans jeton le bind reste `127.0.0.1` même si `A2A_HOST`
-  est posé.
-- L'interopérabilité cross-framework et les micropaiements x402 ne sont pas des fonctionnalités
-  livrées : un brief qui les présente comme « working in production » mélange une issue-source
-  d'exigences (`#11025` : injection session live, filtres, persistance, auth) et un non-objectif.
+Voir [references/a2a-activation.md](references/a2a-activation.md).
 
 ## Supervision du gateway sur Windows (le trou de surveillance)
 
-**Un gateway orphelin sans répétition peut mourir silencieusement pendant des heures.** Toute tâche
-gateway doit porter `StartWhenAvailable` + **répétition courte (PT15M)** + `MultipleInstances=IgnoreNew`.
-Sans répétition, la tâche ne tire qu'au logon : si le processus meurt sans déconnexion de session
-(aucun 7001/7002), rien ne le relève — un bot muet peut passer un jour entier sans alerte.
-
-**La répétition est sûre : ne pas craindre les doublons.** `gateway/run.py::_start_gateway_claim_pid_file()`
-est le verrou autoritatif — un second `gateway run` échoue au claim (`Another gateway instance (PID N)
-started during our startup` / `Gateway runtime lock is already held by another instance`) et sort sans
-double-run. Le verrou est un fichier OS (msvcrt/flock) : « the OS releases it if the process dies »,
-donc après une mort brutale le tick suivant reprend la main. ⚠ Le préflight CLI
-`_guard_existing_gateway_process_conflict` est **court-circuité** par `HERMES_SUPERVISED_CHILD=1` (posé
-par le VBS) — raisonner sur le verrou runtime, pas sur ce préflight.
-
-**Vérifier PT15M sur le VBS avant de l'armer** : `Hermes_Gateway.vbs` n'est PAS idempotent (aucun test
-« 20200 écoute » contrairement au VBS du proxy NIM). C'est le verrou runtime qui protège, pas le VBS.
-
-**Script source de vérité : `scripts/creer_tache_gateway.ps1`** (`-DryRun` par défaut, `-Apply`,
-`-TaskName`). Il repart du XML exporté et insère le `<TimeTrigger>` — principal, settings et action
-restent identiques au bit près. Idempotent : si `<Interval>PT15M</Interval>` est présent, il ne fait rien.
-
-**Diagnostic d'une mort « sans trace »** : une terminaison dure (TerminateProcess / fermeture de Job
-Object) ne laisse rien dans `gateway.log`, rien dans `gateway-exit-diag.log`, rien dans WER ni dans le
-journal Application. **Activer le journal des tâches est le seul moyen de dater la prochaine
-occurrence** :
-
-```powershell
-wevtutil sl Microsoft-Windows-TaskScheduler/Operational /e:true    # activer (reversible)
-wevtutil sl Microsoft-Windows-TaskScheduler/Operational /e:false   # commande inverse
-```
-
-Il est **désactivé par défaut** sur ce parc : sans lui, un arrêt de tâche à une heure précise reste
-introuvable (c'est ce qui a empêché de trancher sur l'arrêt du 17/09 à 13:42). Lecture :
-`Get-WinEvent -LogName 'Microsoft-Windows-TaskScheduler/Operational'` (id 100/200 = tâche lancée,
-102/103 = fin, 129/201 = action lancée/terminée) ; filtrer sur `$_.Properties[0].Value -like 'Hermes_*'`.
-
-Autre témoin exploitable après coup : `gateway-shutdown-watchdog.log`. Un arrêt « propre » peut
-quand même tuer le process en dur — le drain se coince (threads de fond), et après 240 s le watchdog
-force l'exit (bypass des hooks `atexit`, d'où l'absence de trace), avec un dump de tous les threads
-qui désigne le point de blocage exact.
-
-**Surveillance active : `scripts/check_gateways.ps1`** (source de vérité, sa tâche
-`Hermes_Gateway_HealthCheck` PT5M est créée par `-InstallTask -Apply`). Il relève la couverture que
-la répétition PT15M ne donne pas : détection en ≤5 min, relevage explicite, alerte et journal
-`logs/gateway-health.log`. Il teste que le PID est vivant **et** qu'il s'agit bien d'un process
-`gateway run` (un PID recyclé ne compte pas), relève par `Start-ScheduledTask` puis recontrôle à
-T+30 s, et n'alerte que sur **transition** d'état.
-
-L'alerte `[profil] relevage ECHOUE (La tâche est désactivée.)` = la tâche planifiée du gateway est
-**Disabled**. Réactiver naïvement (`Enable-ScheduledTask` puis `Start-ScheduledTask`) peut
-**aggraver** : si des instances résiduelles pollent déjà le même bot, le gateway re-crash en boucle
-« MORT/RELEVE » (Telegram 409 polling conflict) à chaque tick PT5M. Avant de réactiver, tuer les
-résidus (`Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'profile <profil>' }`
-→ `Stop-Process -Force`), puis trancher : réactiver UNE instance propre, OU laisser désactivé et
-patcher `check_gateways.ps1` pour **ignorer** les tâches `Disabled` (traitée comme « volontairement
-arrêtée », pas « morte » — sinon le healthcheck alerte `relevage ECHOUE` à chaque tick).
-
-**Piège : ignorer une tâche `Disabled` ne stoppe PAS l'alerte « MORT detecte ».** Le contrôle `Disabled → skip` arrive APRÈS la génération de l'alerte de transition `[profil] gateway MORT detecte` ; l'état précédent du profil étant `disabled` (pas `down`), le test `$deja -ne 'down'` reste vrai et l'alerte repart à **chaque tick** PT5M. Pour exclure définitivement un profil (bot retiré du parc), passer `Toujours = $false` dans la liste `$Profils` : le `continue` de non-surveillance s'exécute AVANT la génération d'alerte. Désactiver la tâche seule ne suffit pas.
-
-**Crash loop MORT/RELEVE = plusieurs instances du même gateway pollent le même jeton Telegram.**
-La 409 « polling conflict — previous session still held open » signifie DEUX pollers sur le MÊME
-token. Diagnostic sans divulguer les jetons : comparer les empreintes `sha256` des
-`TELEGRAM_BOT_TOKEN` des profils concernés (default/watch/veille) pour confirmer des bots distincts ;
-`getMe` (curl) pour le nom du bot ; `getUpdates?timeout=5` (curl) — s'il rend `{"ok":true}` alors
-que le gateway est DOWN, le conflit est intermittent (instances concurrentes), pas un poller externe.
-
-**Le test qui separe un conflit INTERNE d'un poller EXTERNE : gateway ARRETE, sonder les trois jetons a
-la suite.** `hermes gateway stop`, laisser expirer le long-poll en cours (~1 min), puis `getUpdates`
-sur `default`, `veille` puis `watch` : le jeton contendu rend **409** quand les deux autres rendent
-**200** — donc un poller HORS de ce poste detient ce bot. Ecarter d'abord un residu local : un seul
-process `gateway run` (`Get-CimInstance Win32_Process` filtre sur la ligne de commande) et une seule
-connexion sortante vers Telegram (`Get-NetTCPConnection -State Established`, adresse du gateway). Un
-409 reproductible sur plusieurs minutes, gateway arrete, n'est pas une session perimee qui expire.
-
-**Un jeton présent dans un seul fichier du parc n'exclut PAS un second consommateur : l'inventaire porte
-sur les processus et les sidecars, pas sur les `.env`.** Le concurrent peut être un script local
-NON-Hermes rangé sous `data/` (boucle `getUpdates` PowerShell ou Python, jeton dans un `token.sec`
-sidecar) avec sa propre tâche planifiée qui le relance — et deux fichiers peuvent porter le MÊME bot id
-avec des secrets différents (l'un révoqué, l'autre vivant). Trois axes, à croiser : (a) les processus
-dont la ligne de commande cite le script (`Get-CimInstance Win32_Process | Where-Object { $_.CommandLine
--like '*<script>*' }`), (b) leurs tâches (`Get-ScheduledTask` + `Get-ScheduledTaskInfo` — une répétition
-courte relance un poller muet toutes les quelques minutes), (c) chaque fichier portant ce bot id,
-`token.sec` et copies de rotation compris, trié par `getMe` (200 = vivant, 401 = révoqué). Le tell de ce
-montage dans les logs du gateway est `Unrecognized slash command <cmd> from telegram` : le gateway a bien
-mangé la mise à jour, et la commande appartient en réalité à l'autre consommateur — donc répondre
-« encore utile ou vestige » pour cet autre consommateur est un choix à présenter à l'opérateur, pas une
-réparation à faire seul.
-
-**`hermes gateway restart` ne repare PAS un 409 dont la source est externe.** L'adaptateur du profil
-retente 5 fois sur ~200 s (`Telegram polling conflict (n/5)` dans `logs/gateway-stdio.log`, adapter
-`platforms__telegram__home_<hash>.adapter`), puis passe `fatal` ; entre deux echecs `gateway_state.json`
-peut repasser a `connected`, donc **un `connected` qui flappe n'est pas un etat sain** — relire l'etat
-plus de 200 s apres le demarrage et croiser avec les lignes de conflit avant d'annoncer « les 3 profils
-UP ». Issue a proposer : retrouver l'autre consommateur du bot, ou revoquer le jeton (BotFather) et en
-poser un neuf dans le `.env` du profil ; un `restart` supplementaire ne fait que rejouer le cycle.
-Rapporter l'etat par plateforme (`default:telegram` OK / `watch:telegram` en conflit) plutot qu'un
-« les 3 profils UP » global : `hermes gateway list` les annonce servis meme quand un adaptateur est mort.
-
-**Trouver le process d'un profil : lire `gateway_state.json`, pas grepper la ligne de commande.** Le VBS du profil `veille` lance `gateway run` avec `HERMES_HOME` (variable d'env) et SANS `--profile veille` — donc `Get-CimInstance … -match 'profile veille'` ne trouve rien et fait conclure à tort « gateway down » alors qu'il tourne (PID vivant). Lire le PID dans le `gateway_state.json` du profil, pas le flag `--profile`. **Sous multiplexage, le fichier PAR PROFIL MENT** : seul le `gateway_state.json` RACINE fait foi — il porte le PID du process unique, `served_profiles` et une entree par profil et par plateforme (`default:telegram`, `veille:telegram`, `watch:telegram`) avec leur etat et leur `error_code`. `profiles/<nom>/gateway_state.json` reste figé sur le dernier etat standalone (`gateway_state: "stopped"`, adaptateurs `fatal`) et fait conclure a tort « le profil est mort » alors que `hermes gateway list` le rend « served by the default multiplexer ». Lire le racine d'abord ; l'autre ne sert qu'a dater l'epoque ou le profil tournait seul.
-
-**Battement horaire** (ajouté le 17/09) : une ligne `[battement] <heures>h : N/M gateways up, X alerte(s) | default=up …`
-est écrite **une fois par heure même quand tout va bien**, pour donner un historique de disponibilité
-lisible (24 points/jour) et parsable par `scripts\verif_24h.ps1`. Les lignes par tick existaient déjà ;
-c'est le résumé compact qui manquait. Sur ce journal, aucun accès visuel ne distingue « tout va bien »
-de « rien ne tourne » sans un tel repère.
-
-**Piège d'un marqueur d'idempotence dans un script périodique** : le script RÉÉCRIT son état à chaque
-tick. Si le marqueur « déjà fait » (ici `_battement_heure`) n'est pas reporté dans le nouvel état, il
-disparaît au tick suivant et le garde-fou se réarme tout seul — observe : deux lignes de battement
-pour la même heure, la seconde écrite par le tick planifié qui suivait un run manuel. Tout marqueur
-« dernière exécution » doit être re-lu puis réécrit :
-
-```powershell
-if ($dernierMarqueur -ne $valeurCourante) { …; $nouvelEtat['_marqueur'] = $valeurCourante }
-else { $nouvelEtat['_marqueur'] = $dernierMarqueur }   # sans ce else, le marqueur est perdu
-```
-
-Vérifier le comportement en enchaînant **deux exécutions dans la même fenêtre** (attendu : une seule
-ligne) — un seul run ne prouve rien, c'est le second qui révèle la perte du marqueur.
-
-**Piège PowerShell à ne jamais introduire dans un script de surveillance** : `$pid` est une variable
-**en lecture seule** (PID du process courant) — `$pid = ...` échoue avec « Impossible de remplacer la
-variable PID, car elle est constante ou en lecture seule », et l'échec se produit en plein milieu de
-la boucle. Nommer sa variable `$gwPid`.
-
-**Ce qui reste exploitable** : `gateway-exit-diag.log` calcule la fenêtre de mort (la ligne `previous_unclean_exit`
-au redémarrage suivant), et la comparaison des drapeaux de démarrage (`console_window_attached`,
-`breakaway`) entre l'instance morte et la vivante.
-
-**Mort au démarrage hors Job Object** : `hermes gateway start` lancé depuis un shell se fait tuer à la
-fermeture de ce shell (#91675 — le CLI le diagnostique lui-même au redémarrage suivant). Relancer par
-`schtasks /Run /TN Hermes_Gateway*`, jamais par `hermes gateway start`.
-
-**Piège Python à ne jamais introduire dans un script de vivacité** : sur Windows `os.kill(pid, 0)`
-**TUE** le processus cible (il appelle `TerminateProcess`, ce n'est pas une sonde comme sur POSIX).
-Pour tester une liveness : `Get-Process -Id <pid>` (PowerShell) ou `psutil.pid_exists`.
-
-## Gateway restart after update
-
-After `hermes doctor` shows "A previous update pulled new code but did not restart running gateways" → run `hermes gateway restart`. This fixes mixed `sys.modules` (code and binary out of sync). The gateways keep serving stale modules until explicitly restarted.
-
-## Gateway double-process is normal
-
-`hermes gateway status` reports one PID but `Get-CimInstance Win32_Process` where CommandLine like '*gateway*' routinely shows 2: parent `...\.venv\Scripts\python.exe -m hermes_cli.main gateway run` (PPID = Task Scheduler) and child `...\.hermes-runtime\python\generation-...\python.exe -m hermes_cli.main gateway run` (PPID = parent). Do not treat as zombie — killing the child alone drops gateway (`No gateway process detected`). Only kill stale generations: CreationDate older than last `schtasks /Run /TN Hermes_Gateway` or PID not matching `hermes gateway status`. Verify with `ProcessId, ParentProcessId, CreationDate` table before any taskkill.
-
-## Restart verification
-
-After `hermes gateway restart` or `schtasks /Run /TN Hermes_Gateway`, wait 7-9s then check `hermes gateway status` and `Get-Content "$env:LOCALAPPDATA/hermes/logs/gateway.log" -Tail 25` for `telegram connected` / `polling healthy` / `set_my_commands OK`. Log tail is authoritative — status alone can show `No gateway process detected` while child is still warming (2s turn machinery). ESTOP check is `Test-Path "$env:LOCALAPPDATA/hermes/ESTOP"` — must be False for normal ops.
+Voir [references/gateway-supervision-windows.md](references/gateway-supervision-windows.md).
 
 ## Commands
 
@@ -759,310 +130,23 @@ ls "$LOCALAPPDATA/hermes/ESTOP" # sentinel presence = paused
 
 ## Pitfalls
 
-- `/resume` in gateway is NOT ESTOP resume — it resumes a named session (`CommandDef resume [name]`, `argument_mode mixed`). Always use `/pause off` to lift ESTOP from Telegram; `hermes resume` only exists as CLI.
-- `CommandDef pause` is `gateway_only` — it does not exist as CLI slash, and `hermes pause` does not exist as gateway slash. Use the right channel for each form.
-- Assuming webhooks stop on pause — they do not; ESTOP has no hook into webhook dispatch. Verify with `grep -rn check_paused` if unsure whether a component respects ESTOP before claiming it is frozen.
-- One Telegram channel (`channel_directory.json: platforms.telegram`) can back multiple bot usernames only if they share the same token. Two distinct bot tokens require two entries via `hermes gateway setup`; otherwise only one bot actually receives dispatch.
-- `patch` tool refuses to write `config.yaml` (security guard) — edit Hermes config via `terminal` (Python read/write or `hermes config set`), never `patch` or `sed` range substitution which silently truncates on fragile boundaries.
-- GPU-bound inference (LivePortrait/SadTalker at 100% GPU / ~95% VRAM) starves the gateway event loop and triggers `CRITICAL gateway.shutdown_watchdog: missed 3 liveness probes -> exit 75` — this is an intentional self-kill for the Task Scheduler to restart, not a code bug; recover with `hermes gateway restart` + verify `telegram connected` in `gateway.log`, never treat as auth/network failure.
-- A gateway that died on its own with `gateway.log` ending in "Received UNKNOWN as a planned gateway stop — exiting cleanly" and "Shutdown context: signal=UNKNOWN parent_pid=... parent_cmdline='(unknown)'" orphaned because its parent (Task Scheduler spawn) died — not a code bug. Confirm with `gateway_state.json` showing `"gateway_state":"draining"` and `hermes gateway list` showing `✗ not running`, then restart with `hermes -p <profile> gateway start` (profile flag, not `gateway restart`). Distinct from the `exit 75` watchdog self-kill above. **`hermes doctor` ne signale pas ce cas** : sa section Profiles ne liste que les profils *autres* que le courant, donc un gateway `default` mort passe inaperçu — il faut le contrôler explicitement avec `hermes gateway status` (le profil courant affiche `✗ No gateway process detected` en tête, les autres sur la ligne `Other profiles: ✓ <nom> — PID …`).
-- **Le tell de la mort avec le parent est dans `logs/gateway-exit-diag.log`, pas dans `gateway.log`.**
-  Comparer le dernier enregistrement `gateway.start` aux démarrages sains : `"console_window_attached"`
-  doit être `false` et `"breakaway"` `true`. Une instance née avec `"console_window_attached":true` et
-  `"breakaway":null` a hérité de la console / du Job Object du shell qui l'a lancée (typiquement
-  `hermes update`) : quand ce parent disparaît, elle reçoit `signal=UNKNOWN`, le traite comme un arrêt
-  planifié, draine le tour en cours et sort — sans entrée `gateway.exit_clean`. C'est l'explication que
-  le log principal ne donne jamais.
-- **Le `gateway_state.json` en `"draining"` est inerte : ne pas le supprimer à la main.**
-  `gateway/status.py` : `_RUNTIME_STATUS_STALE_TTL_S = 120`, donc un enregistrement vieux de plus de
-  2 min n'est plus cru pour la vivacité ; et `derive_gateway_drainable` exige en plus un PID **vivant**
-  et un état `running`. Un redémarrage réécrit le fichier (`starting` → `running`). Le supprimer
-  n'apporte rien et détruit l'indice (PID, `start_time`, `exit_reason`).
-- **Voie de redémarrage selon le profil** : `schtasks /Run /TN Hermes_Gateway` pour le profil `default`
-  (démarrage hors Job Object) ; `hermes -p <profil> gateway start` pour un autre profil. Éviter
-  `hermes gateway start` lancé depuis un shell pour le défaut : on recrée le piège du Job Object.
-- **Deux tâches qui démarrent le même gateway au logon.** La canonique est reconnaissable :
-  `Description` renseignée, action `wscript.exe //B //Nologo "…\gateway-service\<Profil>.vbs"`,
-  `RestartOnFailure`, et elle apparaît dans `hermes gateway status` (`✓ Scheduled Task registered: …`).
-  Un jumeau sans description, `Hidden`, dont l'action est `pwsh -NoProfile -Command "hermes gateway
-  start"`, est un vestige artisanal : le désactiver explicitement (`Disable-ScheduledTask`), jamais le
-  supprimer.
-- `cron.scheduler: Job '...' failed: lost its durable fire claim ownership / _abort_if_fire_claim_lost` after a gateway restart is a benign abort of the in-flight fire, not a gateway crash — clean the orphaned job with `hermes cron remove <id>` and do not alert on it.
-- `deliver=telegram` on heavy/background cron jobs blocks the gateway loop and amplifies spam via `security-monitoring/monitors/log_monitor.py` (each ERROR forwarded as lvl8 `Erreur API` per bot) — use `deliver=local` for GPU/monitoring jobs; extend `EXCLUDE` in `log_monitor.py` with `lost its durable fire claim|fire claim ownership lost|cron\.scheduler.*failed|_abort_if_fire_claim_lost` to suppress internal scheduler noise.
-- **Redémarrer un gateway resté longtemps arrêté déclenche une rafale de rattrapage cron — ce n'est pas
-  neutre.** Le scheduler reprend au premier tick tous les jobs en retard (`catch_up_occurrences` sous
-  `cron/`), et parmi eux un job de maintenance mémoire qui **réécrit `MEMORY.md`** dès que le store
-  dépasse ~90 %. Deux conséquences : (a) après tout redémarrage d'un gateway longtemps mort, relire
-  `cron/executions.db` (`job_id`, `status`, `started_at`) et `cron/jobs.json` pour lister ce qui a
-  réellement tourné **avant** d'affirmer une non-régression — et vérifier les effets de bord des jobs
-  du parc (combos du routeur, fichiers d'état) ; (b) une consigne « mémoire inchangée » peut être
-  violée par le parc lui-même sans qu'aucune action de l'agent n'y soit pour quelque chose : le dire
-  avec la cause, la preuve (reconstruction de la version d'avant, structure et séparateurs `§`
-  intacts) et la copie conservée, plutôt que de restaurer en boucle — restaurer remet l'usage
-  au-dessus du seuil et le job re-consolide au tick suivant.
+Voir [references/pitfalls.md](references/pitfalls.md).
 
 ## Cron d'un profil : créer, tester, vérifier
 
-Un job appartient à **un profil** : `hermes -p <profil> cron …`. Le créer depuis le profil qui doit le
-porter, jamais depuis `default` en supposant qu'il hériterait des deux.
-
-```bash
-hermes -p <profil> cron create "0 8 * * 1" "$(cat prompt.txt)" \
-  --name <nom> --deliver telegram --skill <skill>
-hermes -p <profil> cron status        # ✓ Gateway is running + Ticker heartbeat = le job partira
-hermes -p <profil> cron run <job_id>  # test immédiat, part au tick suivant (< 1 min)
-```
-
-- Passer le prompt par un **fichier** (`--skill` ne remplace pas les consignes) : il part sans aucun
-  contexte de session, donc il doit être auto-portant.
-- `--deliver telegram` = canal home du profil (`TELEGRAM_HOME_CHANNEL`). Sans gateway vivant, pas de
-  ticker : `cron status` le dit.
-- **Attribuer l'echec d'un job : lire son `model`, `provider` et `last_error` dans `cron/jobs.json`.**
-  Le champ `model` dit quel combo/alias le job fait tourner (un job pose sur `eco` herite de la
-  fragilite du combo) et `last_error` porte l'erreur amont telle quelle — p. ex.
-  `[openai/nvidia/nemotron-…] [503]: ResourceExhausted: Worker local total request limit reached
-  (16/16)` est un plafond du fournisseur, pas une panne locale a reparer. Le job porte aussi
-  `provider`, `base_url`, `script` (`no_agent: true` = pre-run script seul) et `repeat.completed`.
-- **Changer le modele d'un job = editer ses deux champs `model` + `provider` dans `cron/jobs.json`**
-  (l'override par job prime sur `model.default` du profil) puis revalider le JSON. C'est le geste juste
-  pour sortir UN job d'une chaine fragile sans toucher au primaire de tout le parc. Verifier la cible
-  avant de l'inscrire : le provider est-il natif (`plugins/model-providers/<nom>/`, alias compris —
-  `gemini` a pour alias `google`, env `GOOGLE_API_KEY`) et le modele est-il servi par l'amont
-  (`GET .../v1beta/models` cote Gemini, `GET /v1/models` cote routeur) ? Un modele absent de
-  `providers.<p>.models` dans `config.yaml` reste utilisable, mais l'y ajouter evite de le croire
-  indisponible. Montrer le diff avant d'appliquer, et NOMMER les autres jobs qui partagent le meme
-  modele avant de n'en corriger qu'un seul.
-- **`cron/jobs.json` est TOUJOURS modifié : le committer seulement si une DÉFINITION change.** Le
-  planificateur y réécrit l'état de runtime à chaque tir (`completed`, `next_run_at`, `last_run_at`,
-  `updated_at`, `scheduled_at`, `dispatched_at`, `lateness_seconds`) — 24 lignes de diff pour 2 jobs
-  sur 14, dont **0** touchant une définition. Le garde-fou est `scripts/cron_jobs_gate.py` (sortie 0 =
-  bruit de runtime seul, 1 = définition modifiée, avec les lignes fautives) : ne pas le retaper en
-  one-liner — un filtre `^[+-]` sans exclusion des deux lignes d'en-tête du diff (`--- a/…`, `+++ b/…`)
-  ne renvoie **jamais** « bruit » et valide tout. Corollaire de comptage : dans un relevé de porcelain,
-  la ligne `M cron/jobs.json` **ne compte pas** comme une entrée de dérive.
-- **`execute_code` est refusé dans un job cron** : « BLOCKED: execute_code runs arbitrary local Python
-  … Cron jobs run without a user present to approve it ». Le job doit passer par `terminal` (+ `write_file`
-  pour un payload), pas par Python — un run qui compte sur `execute_code` échoue une fois sur deux.
-- **Un job relancé deux fois le même jour produit deux artefacts**, pas un remplacement : SiYuan accepte
-  deux documents portant le même titre (ids distincts). Après un test manuel, vérifier et ranger le
-  doublon, sinon la note « quotidienne » se dédouble en silence.
-- **`Ran now: succeeded` est le résultat du déclenchement, pas la preuve que le travail a abouti.**
-  Vérifier l'artefact réel (fichier, note, message), plus la ligne
-  `cron.scheduler: Job '<id>': delivered to telegram:<chat_id>` dans `logs/agent.log`, plus le dernier
-  message assistant de la session `cron_<job_id>_<stamp>` dans `state.db`.
-- Le CLI n'a **pas** d'équivalent au `StartWhenAvailable` du Task Scheduler : le rattrapage d'un
-  déclenchement manqué est le fait du ticker (`catch_up_occurrences`), donc conditionné au gateway
-  vivant à cette heure-là. Le dire, ne pas promettre le rattrapage.
-
-### Relire le `state.db` d'un profil (lecture seule)
-
-Le gateway écrit pendant qu'on lit : ouvrir en **read-only**, ne jamais copier ni verrouiller le
-fichier live.
-
-```python
-sqlite3.connect("file:C:/Users/<user>/AppData/Local/hermes/profiles/<profil>/state.db?mode=ro", uri=True)
-```
-
-Schéma utile : `sessions` est indexée par **`id`** (pas `session_id`) et porte `source`, `title`,
-`chat_id` ; `messages` porte `session_id`, `role`, `content`, `timestamp` ; `delivery_obligations`
-porte `platform`, `chat_id`, `state`, `attempts`, `last_error`. **`delivery_obligations` est vidée
-après une livraison réussie** : une table vide ne signifie pas « rien livré » — la preuve d'envoi est
-la ligne du scheduler dans `agent.log`.
+Voir [references/cron-profil.md](references/cron-profil.md).
 
 ## Jetons et secrets : mesurer sans divulguer
 
-- **Aucun secret ne sort dans un retour d'outil ni dans le chat.** Pour comparer deux jetons, publier
-  une **empreinte** : `sha256("id:secret")[:10]`, jeton complet, `id:` inclus. Les deux côtés de la
-  comparaison doivent utiliser le même schéma — une empreinte du *secret seul* face à une empreinte du
-  *jeton complet* donne « ça ne correspond pas » alors que les jetons sont identiques.
-- **Quand un livrable doit NOMMER une clé sans la révéler** (rapport d'audit, inventaire d'un parc),
-  la forme attendue est le masque court : 4 premiers + 4 derniers caractères + longueur
-  (`KdvEa3…Fbvy (len=32)`). Jamais la valeur entière, jamais un extrait plus long — et une table de
-  secrets ne liste que les **noms** de variables, jamais leurs valeurs.
-- **Un identifiant de bot n'est pas un secret.** Chercher le jeton complet
-  (`\b[0-9]{8,12}:[A-Za-z0-9_-]{30,40}\b`). Un grep sur `8801969330:` remonte la doc, les dumps et
-  les collages qui ne citent que l'id, et fait croire à des fuites inexistantes.
-- **Trier une fuite par vivacité, pas par emplacement** : `getMe` sur chaque jeton trouvé — 200 =
-  exploitable maintenant, 401 = révoqué. C'est ce tri qui hiérarchise le nettoyage.
-- **Un nom de fichier ne prouve rien : scanner le CONTENU des fichiers suivis.** Un fichier baptisé
-  `env.pre_update.redacted` a porté un jeton de bot **en clair et vivant** pendant des semaines ; le
-  filtre par nom donne des faux positifs (docs de skills parlant de jetons) et laisse passer ce qu'on
-  cherche. Le contrôle qui tranche : `git grep -I -n -E '<motifs>'` sur les fichiers suivis, hit trié
-  par vivacité (200 = à révoquer tout de suite, 401 = inerte).
-- **Auditer l'HISTORIQUE, pas seulement HEAD.** `git ls-files` et `git grep` ne voient que l'arbre
-  courant : un jeton encore vivant peut être dans trois blobs anciens (copie `.env` dé-suivie,
-  `state.db` de 192 Mo, `.env.avant_*`) qui partent quand même au push. Scanner **tous** les blobs avec
-  `scripts/scan_history_secrets.py <dépôt> --purge-cmds`, planifier la purge en **UNE** passe
-  (`git filter-repo --force --invert-paths --path …` : une passe oubliée = une réécriture de SHA de
-  plus), puis **re-vérifier avec le même scanner** — `git log -p | grep` ne prouve rien sur un blob de
-  192 Mo. La liste des blobs décide, pas le fichier cité par un brief. Détail :
-  `references/hermes-home-git-baseline.md` §3 ter (audit d'historique) et §6 (fusion de deux dépôts).
-- **Tout secret collé dans le chat est déjà une fuite** : il est écrit en clair dans `.hermes_history`
-  et dans `pastes/`. Le signaler dans le même tour avec son empreinte et sa ligne, et proposer la
-  rotation — nettoyer ne suffit pas tant que le secret est valide. L'inventaire se fait **par motif,
-  jamais par valeur**, et il est plus large qu'il n'y parait : dans `state.db` la valeur vit aussi dans
-  `reasoning`, `reasoning_content`, `tool_calls`, `api_content` et dans les index FTS (`messages_fts`,
-  `messages_fts_trigram`) — un `UPDATE` sur `content` seul la laisse dans l'index — et `state.db-wal`
-  compte aussi. Le chiffrer (n lignes, n colonnes) et donner la seule preuve qui rassure l'operateur :
-  `git grep -lE '<motif>'` sur les fichiers **suivis** = 0, donc le push ne l'emporte pas.
-- **Un fichier vivant (`state.db`, `logs/`, `cache/terminal/hermes-snap-*.sh`) se nettoie à longueur
-  constante**, pas par suppression : retirer des octets décale la suite du fichier pour un writer en
-  append. Un `UPDATE` sur `messages` ne suffit pas — reconstruire `messages_fts` **et**
-  `messages_fts_trigram` (`INSERT INTO … VALUES('rebuild')`), sinon le secret survit dans l'index.
-- **Compter les OCCURRENCES, jamais les lignes, et jamais avec un `LIKE` sur le motif litteral.**
-  `where content like '%github_pat_%'` compte aussi les lignes qui CITENT le motif — les commandes de
-  l'agent, la doc du scanner, le present skill — donc le chiffre annonce est faux et surestime
-  (observe : « 72 lignes concernees » pour 13 occurrences reelles, correction a faire dans le meme
-  tour quand on s'en apercoit). Compter les occurrences avec une fonction SQL :
-  `con.create_function('nb_occ', 1, lambda s: len(pat.findall(s)) if isinstance(s, str) else 0)` puis
-  `select coalesce(sum(nb_occ(col)),0) from tbl`. Le `LIKE` ne sert que de pre-filtre de candidats.
-- **Apres le masquage : `PRAGMA wal_checkpoint(TRUNCATE)`, pas `PASSIVE`.** Un checkpoint PASSIVE rend
-  `(0, n, n)` — succes, toutes les pages checkpointees — et **laisse le `-wal` a sa taille** ; c'est le
-  fichier de plusieurs dizaines de Mo, et `hermes doctor` le compte comme un **nouveau** probleme
-  (« Large WAL file » : 5 issues au lieu des 4 preexistantes). C'est une regression auto-infligee qui
-  invalide le controle de non-regression : `TRUNCATE` ramene le `-wal` a 0 et le doctor a 4.
-- **Le script existe, ne pas reecrire un one-shot** :
-  `python scripts/nettoyer_traces_secret.py --motif '<regex>' [--apply]` — DryRun par defaut, recherche
-  par motif (jamais la valeur), sauvegarde `state.db` + `-wal` + `-shm`, masque a longueur constante,
-  rebuild des deux index FTS, checkpoint TRUNCATE, vacuum, puis verification du compte exact.
-- **Prouver la sante apres l'operation, pas seulement l'absence du secret** : `pragma integrity_check`
-  = `ok` **et** une requete `MATCH` sur les deux index FTS (un `rebuild` qui rend « succes » ne prouve
-  pas que l'index repond encore). Le test bout-en-bout le moins cher est un `session_search`, qui
-  traverse l'index et rend des resultats reels.
-- **Le cache du sandbox terminal recopie les `.env` du profil** en `declare -x` dans
-  `cache/terminal/hermes-snap-*.sh` : à inclure dans toute passe de nettoyage.
-- **Un message qui recite un ancien secret le remet dans `.hermes_history` et `state.db`** : refaire la
-  passe après un tel collage. Et ne jamais dumper la section secrets d'un fichier de config
-  (`conf.json` → `api.token`) : l'aperçu en sortie d'outil recrée la fuite.
-- **Un secret partagé entre plusieurs fichiers casse les autres consommateurs à la rotation — et un
-  consommateur n'est pas forcément un `.env`.** Après une rotation de jeton de bot, re-chercher TOUS les
-  porteurs du même bot id (`.env` de profils, sidecars de scripts non-Hermes type `token.sec`, copies
-  `.env.avant_rotation_*`, snapshots) et les trier par `getMe` : 200 = vivant, 401 = révoqué. Un sidecar
-  resté sur le secret révoqué laisse son process **vivant mais sourd** (401 en boucle) et sa tâche
-  planifiée le relance indéfiniment : le symptôme se lit à tort « le bot est connecté mais /X ne répond
-  plus ». Nommer chaque casse dans le même tour ; la réparer est une action distincte, soumise à
-  l'accord de l'utilisateur.
-- **Un dépôt git du home est une surface de fuite de plus, pas un rangement.** Il se crée avec un
-  scan pré-commit par empreinte et une liste d'exclusion explicite (jetons tiers, sessions, binaires) :
-  recette et motifs dans `references/hermes-home-git-baseline.md`. Un motif oublié se rattrape
-  (`git rm --cached`) tant que le commit n'est pas poussé — après, la rotation est la seule sortie.
-- **Les permissions du système de fichiers font partie de la surface de fuite : un `.env` qui hérite
-  d'un groupe sandbox/outil reste lisible par lui.** Cible : Système(F), Administrateurs(F), utilisateur
-  courant(F), héritage coupé. Geste insensible à la locale (Windows FR affiche « Système »,
-  « Administrateurs »), donc par SID : `icacls <fichier> /inheritance:r /grant:r '*S-1-5-18:(F)'
-  '*S-1-5-32-544:(F)' '*S-1-5-21-<…>-1001:(F)'` ; vérifier ensuite fichier par fichier :
-  `(Get-Acl <f>).Access | % { $_.IdentityReference + '|' + $_.FileSystemRights + '|' + $_.IsInherited }`.
-  Sur un DOSSIER, `/T` étend l'opération aux enfants, et un déplacement INTRA-VOLUME **conserve** les
-  ACEs d'origine du fichier : (re)poser l'ACL APRÈS le déplacement, jamais avant. Contrôler aussi les
-  fichiers que la liste d'audit ne nommait pas : un `.env` créé APRÈS l'audit garde l'héritage et fait
-  échouer le contrôle « les N .env sont propres » — c'est un gate rouge, donc pas de commit.
-- **Une sauvegarde de secret (`.env.bak_*`) se DÉPLACE hors du home, elle ne se supprime pas.**
-  Destination dédiée hors du dépôt (`%USERPROFILE%\<dossier>`), avec **structure miroir par profil** :
-  trois `.env.bak_<horodatage>` homonymes de profils différents s'écraseraient dans un dossier plat.
-  Preuve à rapporter : `sha256` avant/après sur chacun + absence de la source, puis ACL restreinte
-  (point précédent).
-- Carte des fuites, nettoyage (CRLF, blocs de `.hermes_history`, longueur constante, reconstruction FTS),
-  vérification par empreinte quand la valeur n'existe plus, risque selon le type de jeton, séquence de
-  rotation : `references/token-leak-audit.md`.
+Voir [references/tokens-secrets-measurement.md](references/tokens-secrets-measurement.md).
 
 ## Verification
 
-```bash
-hermes gateway status   # expect PID + Scheduled Task Hermes_Gateway
-hermes gateway list     # all profiles at once (default + watch) -> ✓/✗ per profile
- hermes status          # model/provider sanity
-cat "$LOCALAPPDATA/hermes/channel_directory.json"  # which telegram chats are authorized
-```
-
-**Rapport de vérification (passe en lecture seule)** : quand la demande est « colle-moi les sorties
-de <commandes> », livrer les sorties brutes dans l'ordre demandé — pas de résumé, pas d'artefact de
-contrôle, pas de commit pour cette partie. Commenter uniquement les écarts par rapport à l'attendu,
-et requalifier ce qui est **préexistant** (vulnérabilités npm du doctor, tâche planifiée désactivée)
-au lieu de le présenter comme une régression de la session. Quand la passe découvre un **service mort** (port muet, tâche sans prochaine exécution), ne pas se contenter de le signaler : trancher « encore utile ou vestige » en interrogeant le **consommateur** — jamais un grep de config — puis livrer des options numérotées avec une recommandation, et attendre la décision avant toute action. Recette : `references/local-service-triage.md`.
-
-**Un audit d'installation** (confronter le parc au README de référence) se livre dans
-`docs/RAPPORT_AUDIT_<AAAAMMJJ>.md` avec la structure attendue : résumé exécutif de 3-5 lignes,
-tableaux « élément | attendu | réel | écart », versions et dérive, optimisations priorisées par
-impact/effort, résultats des contrôles de sécurité, actions prioritaires, et une section finale
-« points à trancher » (les questions à poser avant toute action). Le rapport se montre **section par
-section** au fur et à mesure, et se termine par l'envoi en pièce jointe sur Telegram.
-
-**Compter les taches attendues contre la REALITE du multiplexage avant d'annoncer des manquantes.**
-Un README qui liste N taches (dont `Hermes_Gateway_watch` / `_veille`) decrit un parc a gateways
-separes ; avec `multiplex_profiles: true` ces taches n'ont pas lieu d'etre et leur absence n'est PAS
-un ecart. Le controle qui tranche est `hermes gateway list`, pas la liste du README. Et
-`scripts/creer_tache_gateway.ps1` **refuse** de creer une tache inexistante sans `-TemplateTask` ET
-`-VbsPath` — sous multiplexage il n'existe pas de VBS par profil, donc « recreer les taches
-manquantes » n'est pas un correctif applicable : le correctif est de mettre a jour le README. Un
-`-DryRun` sur une tache absente doit montrer cette erreur, pas un diff plausible.
-
-**Cette liste de taches vit en TROIS endroits, et n'en corriger qu'un recree la derive.** Sous
-multiplexage : `README.md` (§ Installation : « N taches », la variante manuelle, la table des scripts),
-`docs/ARCHITECTURE_HERMES.md` (le tableau des taches planifiees, qui porte encore les taches par profil
-et les vestiges) et `docs/scripts/bootstrap.ps1` (le generateur — ses listes `$generateurs` /
-`$recreables` **creent encore** une tache gateway par profil, donc rejouent le conflit de pollers au
-premier redeploiement). Decompte reel : **12 taches** (1 gateway multiplexe + healthcheck + 10
-recreables), la ou un parc a gateways separes en comptait 14. Quand la demande ne porte que sur le
-README, le dire et proposer l'alignement des deux autres — un README « honnete » que le bootstrap
-contredit reste faux.
-
-**Un changement machine qui ne touche AUCUN fichier du depot se versionne dans le tableau des taches de
-`docs/ARCHITECTURE_HERMES.md`.** Supprimer ou desactiver une tache planifiee ne produit par nature
-aucun `git diff` : la seule trace durable est la ligne du tableau (avec la raison — vestige, doublon,
-code de sortie — et son etat) mise a jour puis commitee. Sans ca, le depot reste faux et le prochain
-audit re-signale une tache « manquante » volontairement retiree. Un commit par action
-(`chore(tasks): supprime la tache vestige <nom>` / `chore(tasks): desactive la tache stale <nom>`),
-avec la verification dans le meme tour (`Get-ScheduledTask -TaskName <nom>` -> 0 resultat, ou
-`State = Disabled`) : la desactivation se fait par `Disable-ScheduledTask`, jamais `Unregister-`, quand
-la tache est un doublon fonctionnel d'une autre.
-
-**Une consigne de nettoyage qui melange des fichiers precis et une regle de retention (« supprime
-agent.log.1 et process-results, garde les 7 derniers jours ») se tranche en LISTANT les candidats,
-jamais en choisissant en silence une des deux regles.** Mesurer l'age reel
-(`find <dir> -type f -mtime +N`) et presenter la liste AVANT de supprimer : si les fichiers nommes
-sont DANS la fenetre de retention, le dire (« agent.log.1 a 4 jours ; tout process-results est < 7
-jours ») et demander le perimetre. La suppression est irreversible et c'est l'operateur qui a demande
-les deux regles a la fois.
-
-**Un plan ou un brief fourni de l'extérieur se MESURE avant d'être exécuté.** Convertir chaque
-affirmation factuelle du brief en contrôle d'assertion et l'exécuter d'abord : compteurs réels
-(`git rev-list --count`, `du -sh`), listes de fichiers calculées (`comm` des `git ls-files`),
-remplacement d'un état supposé par l'état mesuré (`git status`, `git tag -l`), existence réelle du
-dépôt distant (`gh api repos/<owner>/<nom>` → 404 = à créer). Les chiffres du brief deviennent les
-critères de vérification, et chaque écart se dit dans le même tour : un brief qui annonce « un seul
-fichier contient le secret » ou « le dépôt existe » oriente vers une action partielle ou impossible.
-Les gates explicites demandés par l'opérateur (« attends ma validation avant X ») se respectent à la
-lettre : exécuter la phase préparatoire, s'arrêter à la phase nommée, et rapporter ce qui bloque.
-
-**Une provenance annoncée se MESURE avant d'être reprise : « c'est un skill Hermes », « c'est une
-instance externe », « c'est un service » sont des hypothèses, pas des prémisses.** Une correction de
-l'opérateur qui nomme la nature d'un composant se vérifie comme n'importe quelle affirmation de brief :
-chercher le handler de la commande citée (`grep -rn 'CommandDef("<nom>"' hermes-agent/hermes_cli/`,
-`grep -rl '^name: <nom>$' --include=SKILL.md skills/ profiles/*/skills/`), puis chercher le script ou le
-processus qui traite réellement l'entrée (`grep -rn '"/<nom>"'`, `Get-CimInstance Win32_Process`). Un nom
-de commande cité dans une doc de skill ne prouve pas une implémentation : un skill de documentation peut
-lister `/com` et `/video` sans les implémenter, `hermes_cli/commands.py` donne `/com` = alias de
-`/commands`, et les vraies commandes de capture sont les skills `photo` et `record`. Construire une
-mission sur la provenance annoncée coûte le tour entier (tester `/com` comme une prise de vue alors que
-c'est un index de commandes) : mesurer d'abord, puis nommer la nature réelle du composant dans le même
-tour que le résultat.
-
-**Chantier explicitement reporté à une session dédiée** : ne pas le relancer depuis une session
-multi-chantiers, ne pas en rejouer les tests. Relever seulement son état — `git status` sur
-`hermes-agent` (propre, aucun diff = patch annulé, pas de patch à moitié appliqué), emplacement des
-sauvegardes pré-patch — et l'écrire dans le plan du dépôt. Le contexte frais fait partie de la
-procédure : une tentative de patch upstream échouée sur du code frais se rejoue à l'identique.
+Voir [references/verification.md](references/verification.md).
 
 ## Memory & runbook bookkeeping
 
-- `memories/MEMORY.md` has a hard ~2200 char budget (injected every turn). When near limit, compress existing entries in place before appending — shorten verbose lines, merge related bullets, keep `§` separators. Target ≤2170 to leave headroom.
-- **Verify memory usage in CHARACTERS, never with `wc -c`.** `wc -c` counts bytes and accented characters cost 2 bytes in UTF-8, so it overstates usage (2071 "chars" measured for 2036 real). The budget is characters. Authoritative reader: `scripts/check_memory.ps1`, which uses `(Get-Content -Raw).Length`; Python equivalent `len(open(f, encoding='utf-8').read())`.
-- **Les deux lecteurs ci-dessus divergent sur un fichier en CRLF** : `Get-Content -Raw` conserve les fins de ligne et compte chaque `\r\n` pour 2 caractères, une lecture Python en mode texte universel les ramène à 1. L'écart est exactement le nombre de fins de ligne (22 chars sur un fichier de 22 lignes) et **n'est pas un écart de contenu** : citer la valeur du script, nommer le lecteur, et ne pas partir chasser un drift de contenu inexistant. `MEMORY.md` est en LF (les deux lecteurs concordent), `USER.md` peut être en CRLF — vérifier avant de comparer.
-- `check_memory.ps1` alert thresholds (MEMORY 2100 / USER 1300) differ from the `config.yaml` limits (2200 / 1375). Name the reader you are quoting — otherwise "under the threshold" and "above the target" coexist and nobody can tell which applies.
-- `check_memory.ps1` is **read-only**: it writes no file and creates no `.bak`. Do not attribute sanitising backups to it.
-- `memories/USER.md` (~1000 chars) holds stable preferences; `MEMORY.md` holds environment facts and standing ops rules.
-- `recovery_runbook.md` is the durable ops reference — record ESTOP semantics, channel/bot mapping, and verification commands there with tags `[telegram pause resume bots surveillance assistance]` so future sessions can `search_files` it.
-- Tag new ops facts with all relevant keywords in the same line so keyword search finds them without scanning full history.
+Voir [references/memory-bookkeeping.md](references/memory-bookkeeping.md).
 
 ## References
 
@@ -1108,3 +192,22 @@ procédure : une tentative de patch upstream échouée sur du code frais se rejo
 - `scripts/scan_history_secrets.py` — scanner rejouable de **tout l'historique** d'un dépôt
   (`rev-list --objects --all` + `cat-file --batch`), qui rend blob / chemin / taille / occurrences /
   `sha256[:16]`, propose la liste `--purge-cmds` et sort en 1 si un motif matche (gate utilisable).
+
+Extraits créés par la compression A.3 (2026-10-06) — un fichier par domaine, contenu verbatim :
+
+- `references/background-review.md` — la revue d'arrière-plan du curateur écrit dans tes fichiers pendant ta session (détection, conduite à tenir).
+- `references/inspection-config-noninteractive.md` — inspecter et configurer Hermes sans interaction (état, clés, profils, lecteurs autoritaires).
+- `references/agent-session-multiplexers.md` — héberger plusieurs sessions d'agents : tmux / Herdr, et ce qu'Hermes n'a PAS en natif.
+- `references/scheduled-tasks-windows.md` — créer une tâche planifiée Hermes sous Windows (schtasks, compte, déclencheur, échecs).
+- `references/config-git-snapshot.md` — versionner la config dans `docs/` : snapshot git, exclusions, contrôles avant push.
+- `references/bot-api-message.md` — envoyer un message ponctuel (récap de fin de chantier) par l'API Bot Telegram.
+- `references/update-procedure.md` — procédure de mise à jour Hermes : ordre des étapes, préflight, restart du gateway.
+- `references/inter-agent-limits.md` — limites inter-agents : ce que `delegate_task` et A2A ne savent pas faire.
+- `references/masque-recursif.md` — état du masque récursif (profils/ACL) : ce qui est masqué et ce qui ne l'est pas.
+- `references/a2a-activation.md` — A2A : procédure d'activation (préparée, non activée), cas d'usage stratégiques et pièges.
+- `references/gateway-supervision-windows.md` — supervision du gateway sur Windows (le trou de surveillance), double process, restart et vérification.
+- `references/pitfalls.md` — pièges Hermes : ESTOP vs `/resume`, commandes gateway-only, webhooks non gelés, etc.
+- `references/cron-profil.md` — cron d'un profil : créer, tester, vérifier, diagnostiquer un run en échec, relire `state.db`.
+- `references/tokens-secrets-measurement.md` — jetons et secrets : mesurer sans divulguer (empreintes, `getMe`, rotation hors chat).
+- `references/verification.md` — vérification post-opération : ce qui prouve que l'état est bien celui annoncé.
+- `references/memory-bookkeeping.md` — tenue de `memories/MEMORY.md` et du runbook : budget en caractères, lecteurs autoritaires.

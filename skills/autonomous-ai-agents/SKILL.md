@@ -1,6 +1,6 @@
 ---
 name: autonomous-ai-agents
-description: "Orchestrate autonomous AI coding agents — delegate coding tasks to Claude Code, OpenAI Codex, or OpenCode with patterns for one-shot tasks, interactive sessions, parallel execution, PR reviews, and CI integration."
+description: "Orchestrate Claude Code, Codex, OpenCode coding agents."
 version: 1.0.0
 author: Hermes Agent (consolidated from claude-code, codex, opencode)
 license: MIT

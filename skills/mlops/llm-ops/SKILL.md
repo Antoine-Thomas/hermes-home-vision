@@ -1,6 +1,6 @@
 ---
 name: llm-ops
-description: "Run and evaluate LLMs — local GGUF inference (llama.cpp), production serving (vLLM), benchmarking (lm-eval-harness), and refusal removal (OBLITERATUS)."
+description: "Run/eval LLMs: GGUF, vLLM, lm-eval, OBLITERATUS."
 version: 1.0.0
 author: Hermes Agent (consolidated from llama-cpp, serving-llms-vllm, evaluating-llms-harness, obliteratus)
 license: MIT
@@ -104,3 +104,49 @@ Piece jointe : les scripts d'exemple diffusers (`train_dreambooth_lora_sdxl.py`)
 version publiee avec `This example requires a source install from HuggingFace diffusers` et un
 `check_min_version("X.dev0")`. Non, il n'y a pas besoin d'installer depuis les sources : neutraliser
 cette ligne suffit, le script tourne tres bien sur la version PyPI epinglee.
+
+## Ollama — API de decision `/v1/systemone` (modeles a capacite `decision`)
+
+Un modele dont le manifeste declare `CAPABILITY decision` (ex. `clef-flash`, base qwen3.5
+post-entrainee) ne se sert NI sur `/api/generate` NI sur `/v1/chat/completions` : Ollama rend 400
+`"<modele>" does not support generate`. La route est `POST /v1/systemone {model, state,
+questions}` ; un `GET` sur la meme URL rend 405 (la route existe), et le code du POST tranche la
+cause :
+
+- **400 = forme de la requete** (repond en < 10 ms) : `type must be choice, noul, or score` (le type
+  `boolean` est refuse), `questions must contain 1-64 fields`, `unknown noul criterion "<x>"` (les
+  `criteria` d'un `noul` doivent etre des libelles connus, pas du texte libre).
+- **500 = cote modele** (voir ci-dessous).
+
+Reponse : `{model, answers:{<id>:{type, noul | choice+probabilities | score+legend}},
+usage:{input_tokens, output_tokens}}`. `output_tokens` vaut **0** — c'est une tete de decision, il
+n'y a aucune generation : le debit en tokens/s n'existe pas, la seule metrique utile est la latence
+PAR DECISION (mesure sur un 9B : 1,3-1,5 s a chaud, 59,8 s au premier appel qui charge les poids).
+
+**`500 "Clef: non-finite logit"` : comparer les OFFSETS des tenseurs de tete, pas la taille du
+fichier.** Mesure : `clef-flash` (9,1B, 10,01 GB) echoue sur 100 % des requetes, `clef` (27B,
+17,06 GB) repond juste — la difference n'est donc pas la taille. Le parseur GGUF montre que les 122
+tenseurs `clef.*` (la tete de decision) sont a **9,53-10,01 GB dans clef-flash** (au-dela de 4 GiB)
+mais a **0,01-0,52 GB dans clef** (sous 2 GiB) : un `seekg` tronque a 32 bits lit le mauvais octet
+-> NaN -> logit non fini. Compter les tenseurs au-dela de 4 GiB ne discrimine rien (739/973 pour le
+27B qui marche, 418/549 pour le 9B qui echoue) : c'est l'emplaCEMENT DU BLOC DE TETE qui decide.
+Verification : lire l'en-tete du blob `model` du manifeste
+(`~/.ollama/models/blobs/sha256-<digest>`, celui liste par `manifests/registry.ollama.ai/library/<m>/latest`).
+La table des tenseurs suit les KV : pour chaque tenseur (nom, n_dims u32, dims u64 x n_dims, type
+u32, offset u64) ; l'offset est relatif au debut des donnees, aligne sur `general.alignment`
+(32 par defaut) — donc `offset absolu = data_start + offset`.
+
+**Une sonde de decision FAIT tourner le modele : ce n'est jamais gratuit.** Un POST charge les poids
+(`llama-server started in 30,6 s` mesure pour le 27B) et occupe la memoire jusqu'a `OLLAMA_KEEP_ALIVE`
+(15 min mesures) : 7,6 Go / 8,2 Go de VRAM et 19,5 Go de WorkingSet pour `llama-server`. Sur 8 Go de
+VRAM le 27B est scinde (`offloaded 16/65 layers`, `CUDA0 4405 MiB` + `CUDA_Host 11365 MiB` avec
+`OLLAMA_GPU_LAYERS=35`), d'ou ~1,4 s par decision. Ne pas sonder un modele local juste avant un run
+video/GPU : la memoire n'est rendue qu'a l'unload.
+
+**Les messages d'Ollama ne disent pas si la ressource existe encore.** `ollama stop <m>` ->
+`couldn't find model "<m>" to stop` et `ollama rm <m>` -> `model "<m>" not found` s'affichent aussi
+quand le modele a DEJA ete decharge/supprime : ne pas conclure a un echec d'appel. L'etat reel se lit
+sur `GET /api/ps` (vide) et `GET /api/tags` ; l'heure d'une suppression se lit dans le log serveur
+(`%LOCALAPPDATA%\Ollama\server.log`) sur les lignes `[GIN] <date> | 200 | ... DELETE "/api/delete"`
+— c'est ce qui a date la suppression de `clef`/`clef-flash` a 13:09:06-07, soit AVANT toute
+commande de nettoyage.

@@ -59,3 +59,30 @@ pu faire : des archives gardées par un correctif antérieur passent en quaranta
 supprimées. **Chiffrer la conséquence du correctif** (quels fichiers, quel délai, quelle preuve
 d'audit) et la soumettre à validation avant d'appliquer — un correctif peut être plus dangereux que
 la panne qu'il répare.
+
+## Codes de sortie précis : 0xC000013A (console fermée) ≠ 0x41306 (limite de temps)
+
+Quand une tâche meurt en cours d'exécution, le code `LastTaskResult` sépare deux causes que rien
+d'autre ne distingue aussi nettement :
+
+- `0xC000013A` (STATUS_CONTROL_C_EXIT) = la console du process a été fermée / Ctrl+C / fin de
+  session. Le process a été tué pendant son run, PAS par la limite de temps. Typique d'une action qui
+  lance un exécutable console sans fenêtre cachée, tué quand sa console ou sa session se ferme.
+- `0x41306` (SCHED_E_TASK_TERMINATED) = la tâche a été arrêtée par le Planificateur
+  (`ExecutionTimeLimit` dépassée, ou arrêt manuel).
+
+Ne pas attribuer une mort à `ExecutionTimeLimit` tant que le code n'est pas `0x41306` — deux signaux
+contradictoires (mort à 2 min alors que la limite est 30 min) réfutent la piste, la dire explicitement.
+Pour trancher, lire le journal `Microsoft-Windows-TaskScheduler/Operational` (l'activer via
+`wevtutil sl Microsoft-Windows-TaskScheduler/Operational /e:true` s'il est désactivé) :
+
+- `100` tâche démarrée, `200` action démarrée, `201` action terminée (porte le code de sortie),
+  `102` tâche terminée, `111` tâche arrêtée par la limite.
+
+La durée exacte (`200` → `201`) tranche : une mort à ~2 min = console fermée ; une mort à ~la limite
+configurée (ex. 30 min) = `ExecutionTimeLimit`. Écarter veille/hibernation/reboot par `LastBootUpTime`
+(uptime) et l'absence d'événements Kernel-Power (42 veille / 107 reprise) ou EventLog (6005/6006/6008) :
+un `LastBootUpTime` antérieur à la panne prouve que la machine est restée éveillée en continu.
+
+Correctif d'une mort « console fermée » : lancer l'action sans fenêtre via un wrapper .vbs
+(`sh.Run cmd, 0, True` puis `WScript.Quit(code)`) — voir la section tâches du SKILL.md.

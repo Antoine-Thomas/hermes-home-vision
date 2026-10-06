@@ -1,13 +1,14 @@
 ---
 name: tts-voice-cloning
-description: Use when cloning a voice or generating speech locally — XTTS-v2 (Coqui) for natural French, VibeVoice for long-form/multi-speaker.
+description: "Clone a voice or TTS locally: XTTS-v2, Piper, VibeVoice."
 ---
 
-# Local TTS + Voice Cloning (XTTS-v2 + VibeVoice)
+# Local TTS + Voice Cloning (XTTS-v2 + Piper + VibeVoice)
 
 ## When to use
-User wants to clone a voice or generate speech locally. Two engines are installed:
-- **XTTS-v2 (Coqui)** — PREFERRED for natural FRENCH (VibeVoice's French output has a foreign accent + diction bugs).
+User wants to clone a voice or generate speech locally. Three engines are installed:
+- **XTTS-v2 (Coqui)** — PREFERRED for natural FRENCH with a CLONED voice (VibeVoice's French output has a foreign accent + diction bugs).
+- **Piper `fr_FR-tom-medium`** — PREFERRED for a LONG, stable narration: deterministe, CPU, 40 s pour 6 min d'audio, 0 phrase ajoutee, 0 boucle. A sortir des qu'un moteur autoregressif (XTTS, Chatterbox) fait payer le tirage trop cher.
 - **VibeVoice** (community fork `vibevoice-community/VibeVoice`) — long-form / multi-speaker dialogue.
 
 ## XTTS-v2 (Coqui) — preferred for French voice cloning
@@ -152,7 +153,24 @@ tts.tts_to_file(text=texte, speaker_wav=\"voix_reference.wav\", language=\"fr\",
 - **Re-transcribe the assembled voice** with faster-whisper and diff it against the script
   before rendering video: a 15 s hole in the transcript is not silence (check the RMS) —
   it is an unintelligible passage that has to be rewritten.
-- **GPU Incompatibility:** XTTS-v2 requires `gpu=True` for speed, but ensure the venv has the matching CUDA torch version (cu124 for local 13.x setup usually works).
+- **Installer torch CUDA dans un venv dedie (Windows) — PyPI ne suffit pas.** La roue `torch`
+  publiee sur PyPI pour Windows est un build **CPU** : elle s'annonce `2.14.1+cpu` et
+  `torch.cuda.is_available()` renvoie `False`. Le CUDA ne vient que de l'index PyTorch, et il faut
+  choisir l'index d'apres le CUDA UMD affiche par `nvidia-smi` :
+  ```bash
+  curl -s https://download.pytorch.org/whl/cu130/torch/ | grep -oE 'torch-[0-9.]+%2Bcu130-cp312-cp312-win_amd64' | sort -uV | tail -6
+  uv pip install --python "$VENV/Scripts/python.exe" --index-url https://download.pytorch.org/whl/cu130 \
+      --no-deps --reinstall-package torch --reinstall-package torchaudio "torch==2.14.1+cu130" "torchaudio==2.11.0+cu130"
+  ```
+  Le `+` des noms de roues est encode `%2B` dans ces listings : un `grep '\+cu130'` ne trouve rien.
+  **Piege uv :** avec `--extra-index-url https://pypi.org/simple`, uv REFUSE la roue `+cuXXX`
+  (« dependency confusion protection » : il voit `torch` sur PyPI d'abord et s'arrete la).
+  Installer depuis l'index PyTorch SEUL, version epinglee, avec `--no-deps` — les dependances sont
+  deja presentes. Verifier : `python -c "import torch;print(torch.__version__, torch.cuda.is_available(), torch.version.cuda)"`.
+- **onnxruntime-gpu remplace onnxruntime (meme nom d'import) : desinstaller l'ancien d'abord.**
+  `uv pip uninstall onnxruntime && uv pip install onnxruntime-gpu`, puis verifier
+  `ort.get_available_providers()`. L'echec du TensorRT EP est normal sans les libs TensorRT : le
+  repli sur `CUDAExecutionProvider` est automatique et non bloquant — ne pas le traiter en panne.
 
 ## Fine-tuner XTTS : le corpus decide, pas la VRAM
 
@@ -232,7 +250,228 @@ GPU 52 -> 53 degC, memoire rendue apres le run. Le fine-tune, lui, montait a 7,9
   `.m4a` ; un WAV arrive en document (a telecharger pour ecouter). Convertir en MP3 192k et envoyer
   le MP3 par `sendAudio`, le WAV par `sendDocument` pour l'archive.
 
+## TTS cloud MiniMax (quand le local ne convient pas)
+
+MiniMax T2A v2 est une alternative cloud (voix FR natives). Endpoint, voix, codes d'erreur et
+pieges (`.env` qui corrompt la cle, concat multi-chunks) : `references/minimax-tts-api.md`.
+Regle : un `status_code=1008 'insufficient balance'` signifie cle VALIDE mais compte a sec —
+le signaler, ne pas fabriquer d'audio, et ne pas boucler sur d'autres modeles/hotes.
+
+## Kokoro / KokoClone — evalue, francais inutilisable en narration
+
+`Ashish-Patnaik/kokoclone` = Kokoro-82M ONNX (voix FR `ff_siwis`) + Kanade 12.5 Hz (conversion
+vocale zero-shot). Installe et mesure : toute la chaine technique fonctionne, **le francais ne
+passe pas**. Ne pas refaire l'installation sur l'espoir d'un meilleur tirage — l'anglais et le
+francais passent par le meme modele, seul le francais casse.
+
+Mesure decisive, pipeline identique : un paragraphe de 30 mots en **anglais** revient mot pour mot
+sans une erreur ; le meme en **francais** deraille des le 9e mot (`la série Hermès` ->
+`la cédille de Metz`, `un protoagent opensource` -> `un animat, c'est pour toi que je te parle`).
+Dossier, recette d'install, mesures et commandes : `references/kokoro-kokoclone.md`.
+
+Regles qui en sortent — valables pour l'evaluation de N'IMPORTE QUEL moteur TTS local :
+
+- **Faire tourner un CONTROLE dans une autre langue sur le pipeline identique avant d'accuser
+  l'installation.** Si l'anglais est parfait et le francais casse, le modele, le venv, le vocodeur
+  et l'appel d'API sont innocentes : c'est la tete linguistique du moteur. Sans ce controle on
+  cherche des heures un bug d'installation qui n'existe pas.
+- **Isoler les couches avant d'accuser le clonage.** Transcrire l'audio AVANT conversion (TTS seul)
+  et APRES. Ici les deux sont egalement degrades : la conversion vocale n'y est pour rien.
+- **Ne jamais juger sur un clip isole de moins d'une seconde.** Whisper invente sur les clips courts
+  (`la série` -> `Voici d'y`, `Hermès` -> `E-mess !`) : ces transcriptions ne prouvent rien.
+  Toujours juger sur un paragraphe d'au moins 20-30 mots. `scripts/audit_tts.py` fait l'aller-retour.
+  **La regle vaut aussi pour le SYNTHETISEUR, pas seulement pour Whisper** : une phrase courte isolee
+  fait derailler le moteur lui-meme (Chatterbox force l'EOS et abime la fin de phrase), et un jeton qui
+  echoue dans une sonde de 8 mots peut ressortir a 1,000 dans une phrase de longueur naturelle. Un
+  echec de sonde est un tirage, pas un verdict — re-tester le jeton dans une phrase reelle avant de
+  changer la graphie, de reecrire le script ou de supprimer le mot.
+- **Verifier la couche graphie->phoneme separement de l'acoustique.** Imprimer les phonemes
+  (`EspeakG2P(language="fr-fr")(texte)[0]`) : phonemes justes + audio faux = defaut de synthese,
+  pas de graphie. Supprimer les accents de stress (`ˈ`, `ˌ`) ne corrige rien quand la synthese est
+  en cause — c'est meme pire.
+- **Ecrire les ordinaux en toutes lettres.** Le G2P espeak FR lit `7e` comme `sˈɛt ˈə` (« set e »)
+  au lieu de `sɛtjˈɛm` ; `septième` rend correctement. Vaut pour tout moteur phonemise par
+  espeak-ng (Kokoro, Piper) — meme famille de correctif que le labo de graphies XTTS.
+- **Un signal propre n'est pas une diction correcte.** Mesurer bruit/crete SEPAREMENT du contenu :
+  ici plancher -75,8 dBFS et 0 ecretage, et pourtant inintelligible. Ne pas conclure « pas de
+  bruit » = « diction OK ».
+- **Une duree cible annoncee a l'oreille se verifie par le nombre de mots** (~130-150 mots/min)
+  avant de signaler un ecart : 18 mots annonces « 12-15 s » font en realite ~8 s.
+
+## Piper (fr_FR-tom-medium) — narration FR stable, CPU, 40 s par rendu
+
+Moteur retenu pour la narration longue quand le tirage d'un moteur autoregressif coute trop cher.
+**Deterministe et non autoregressif** : un seul passage pour tout le script, aucun decoupage en
+segments, aucun « garder le meilleur tirage », aucun GPU. Mesures sur une narration de 921 mots :
+374,096 s d'audio (44100 Hz mono s16) en **40 s de CPU**, 0 phrase ajoutee, 0 boucle, derniere phrase
+intacte. Installation, commandes exactes et tri des ecarts : `references/piper-narration-fr.md`.
+
+- **Installer le binaire autonome, pas la roue.** `piper_windows_amd64.zip` de la release
+  `rhasspy/piper` 2023.11.14-2 (22,5 Mo) : `piper.exe` + les 4 DLL + `espeak-ng-data/` doivent rester
+  ENSEMBLE dans le meme dossier (le zip les met dans un sous-dossier `piper/` : deplacer le CONTENU
+  puis supprimer le dossier vide). Les releases `OHF-Voice/piper1-gpl` ne publient que des roues
+  Python — inutiles pour un `piper.exe`. Voix : `rhasspy/piper-voices` sur HuggingFace, `.onnx` **et**
+  `.onnx.json` (le json porte le `sample_rate` et la voix espeak).
+- **Ne pas supposer le sample rate d'une voix : le lire.** `fr_FR-tom-medium` sort en **44 100 Hz**,
+  pas en 22 050 Hz comme les autres « medium ». Lire `audio.sample_rate` du `.onnx.json` et confirmer
+  par `ffprobe` sur un essai de 5 s AVANT de calculer quoi que ce soit (atempo, resample, duree).
+- **Alimenter par stdin, en UTF-8 sans BOM, tout le script en UNE passe.**
+  `cat texte_utf8.txt | ./piper.exe --model voix.onnx --config voix.onnx.json --output_file out.wav --quiet`.
+  Le script du projet peut avoir un BOM (`utf-8-sig`) : le relire en `utf-8-sig` et le reecrire en
+  `utf-8` avant de l'envoyer, sinon le premier phoneme part en binaire.
+- **Le texte doit rester SANS chiffres** (c'est deja le cas des scripts du projet) : Piper phonemise
+  via espeak-ng FR, donc la regle « ordinaux en toutes lettres » et toute la classe nombres / port /
+  URL s'appliquent ici comme sur Kokoro.
+- **Ralentir : `atempo = duree_mesuree / duree_cible`, et ne PAS extrapoler `--length_scale`.**
+  Mesure : 374,096 s -> 420 s = `atempo 0,890704` (`ffmpeg -af atempo=… -ar 24000` dans la meme
+  passe, voix 12,3 % plus lente). L'alternative native `--length_scale 1,12274` (= 420/374,096 suppose
+  lineaire) a rendu **413,55 s** : la duree n'est pas lineaire en `length_scale`. Garder l'atempo pour
+  la conformite a la procedure, mais proposer le rendu natif en variante A/B.
+- **Sortir les trois fichiers avec des noms explicites** : `…_nat` (44,1 kHz, sortie brute du moteur),
+  le livrable ralenti 24 kHz, et `…_16k` pour MuseTalk (`ffmpeg -i final.wav -ar 16000 -c:a pcm_s16le`).
+  Les confondre fait perdre la trace de ce qui a ete ralenti.
+- **Trier les ecarts Whisper avant de conclure a un echec de diction.** Sur un texte dense en sigles,
+  le seuil demande (0,90) se joue entierement sur ce tri : mesure **0,8865 brut / 0,9093 sigles
+  normalises** sur la MEME prise. Artefact (audio juste) : `JEV` -> `gev` (en francais **J et G = meme
+  son [ʒ]**), `Laya` -> `leia`, `RAG` -> `rhag`/`rhybe`, `L L M` -> `LLM`, `c'est` -> `cette`
+  (homophones), `deux a cinq` -> `2 a 5`, `zéro virgule quatre-vingt-dix-huit` -> `0,98`, pluriels
+  normalises, `Obsidian` -> `obsidien`, `Kokoclone` -> `coco clone`, `fail` -> `faille`. Vraie faute
+  (mot francais ou terme deforme) : `protoagent` -> `protouage`, `GitHub` -> `jhub`, `git clone` ->
+  `jclone`, `Markdown` -> `marklan`, `Si Yüan` -> `sidiouan`, `ONNX` -> `ox`, `une IA` -> `unia`,
+  `MEMORY point M D / USER point M D` -> `md et usée md`. Automatiser : lister les opcodes non egaux
+  de `difflib.SequenceMatcher` sur les mots normalises, puis separer ceux dont un cote est un
+  sigle/nombre connu de ceux qui touchent un mot francais. **Rapporter les DEUX similarites.**
+- **Verifier trois choses, pas une** : similarite, phrases AJOUTEES (transcript plus long que la
+  reference), BOUCLES (6-grammes repetes >= 3x). 0 ajout et 0 boucle la ou un moteur autoregressif
+  ajoutait une phrase parasite en fin de segment : c'est l'argument principal en faveur de Piper.
+- **Chiffrer le rapport avec le bon outillage** : `ffprobe` imprime des VIRGULES sous locale francaise
+  (`export LC_ALL=C` des qu'une duree est parsee en bash, sinon `printf` echoue sur `374,095873`),
+  et `ffmpeg -v error` SUPPRIME la sortie de `volumedetect` (journalisee en info — l'appeler sans
+  `-v error`). `max_volume: 0.0 dB` ne prouve pas l'ecretage : compter les echantillons a
+  `abs(x) >= 32767` (ici 85 sur 16 497 628, ~2 ms, deja presents dans la sortie brute Piper, non
+  causes par l'atempo).
+
+## Chatterbox (chatterbox-tts 0.1.7) — narration FR clonee
+
+Moteur de narration longue retenu a la place d'XTTS. Meme discipline que XTTS (sonder, segmenter,
+verifier par Whisper), mais **aucune graphie phonetique** : le texte reste de l'orthographe normale,
+donc lisible et corrigeable — et c'est une INTERDICTION, pas un confort (mesure ci-dessous). Recette
+de sonde, API, mesures et pieges : `references/chatterbox-narration.md`.
+
+- **Le labo de graphies d'XTTS NE TRANSFERE PAS a Chatterbox.** Respeller en phonetique fait epeler le
+  sigle ou le denature, mesure sur les 11 segments d'une narration : `Ji-E-Vé` rendu `J V` / `JLV` /
+  `J.E.V` (la graphie d'origine `JEV` passait telle quelle), `Si You-an` rendu `C-U-N`, `Omi-Raoute`
+  rendu `au miraout` / `Omira ou Turag` (`Omni Route` rendait `OmniRoute`), `La-ya` rendu `l'aia`.
+  Les deux seules reecritures qui aident (`Obsidian`->`Obsidiane`, `L L M`->`Èle-Èle-Ème` rendu `LLM`)
+  ne compensent pas : moyenne des similarites **0,856 -> 0,839**, verdict complet **2/10 -> 1/11**.
+  Seule reecriture utilisable : **reformuler la phrase** (`un repli regex : fail open,` ->
+  `un repli par règle expresse : en cas de panne, la décision passe quand même,`), jamais respeller
+  le terme.
+- **Une reecriture phonetique n'est pas locale : elle change le tirage de TOUT le segment.** Le modele
+  regenere differemment autour du terme touche — `trois piliers, JEV` (rendu juste au tirage
+  precedent) est devenu `3 PIDs, JLV et`, une phrase entiere s'est ajoutee en fin de deux segments, et
+  un segment a perdu ~35 mots. Juger une variante sur le segment ENTIER et sur tous les termes qui y
+  apparaissent, jamais sur le seul terme reecrit ; pour comparer deux runs, recalculer la MEME
+  metrique sur les deux jeux de transcriptions.
+
+- **Venv dedie `data/chatterbox/.venv`** (torch 2.6.0+cu124). Mesures : LOAD 13-16 s, VRAM pic
+  3,9 Go, ~9-12 s par phrase courte, sortie 24 kHz mono. `ChatterboxMultilingualTTS.from_pretrained(device="cuda")`
+  puis `model.generate(texte, language_id="fr", audio_prompt_path=<voix_reference.wav>)`.
+  **Deux installs coexistent :** `data/chatterbox` = 0.1.7 (`MODEL_VARIANT v2`, pas de `t3_model`) et
+  `data/chatterbox_v3` = clone master (`MULTILINGUAL_T3_MODELS` present,
+  `from_pretrained(device="cuda", t3_model="v3")`, LOAD_S 11,6, VRAM pic 4 461 Mo, 310 s de GPU pour
+  11 segments / 268,0 s d'audio). Verifier `inspect.signature(...).parameters` au lieu de supposer la
+  variante.
+- **Le rapport mots/seconde par segment est le detecteur le moins cher d'un contenu perdu ou ajoute**,
+  et il ne coute aucun GPU. Base mesuree sur 11 segments : **2,6-3,6 mots/s**. Un segment a
+  5,33 mots/s (27,2 s pour 145 mots quand le tirage precedent en prenait 40,0) avec un transcript plus
+  COURT que la reference = du contenu manque ; un transcript plus LONG que la reference = une phrase
+  ajoutee. Les deux se sont produits sur le meme run, invisibles au seul score de similarite.
+- **`ModuleNotFoundError: No module named 'pkg_resources'` au chargement de perth** = setuptools >= 81 :
+  `uv pip install --python <venv>/Scripts/python.exe "setuptools<81"`. Sans ce correctif le modele
+  plante a l'instanciation du watermarker, avant toute generation.
+- **Pas de parametre `speed` dans 0.1.7.** Ralentir avec ffmpeg `atempo`, et CALCULER le facteur :
+  `atempo = duree_mesuree / duree_cible`. **Le debit mesure sur des sondes courtes sous-estime le debit
+  reel** : 128 mots/min sur des phrases isolees contre **187 mots/min mesures sur une narration complete**
+  (921 mots -> 294,9 s). Ne jamais extrapoler une duree depuis des phrases isolees : mesurer le WAV
+  concatene. Annoncer le facteur ET sa consequence audible : ici `294,9/420 = 0,702`, soit -30 % de
+  debit, ce qui s'entend — le signaler, pas l'appliquer en silence.
+- **Sonder les jetons risques AVANT la narration complete** : une phrase courte par graphie candidate,
+  toutes dans UN SEUL processus (le chargement du modele coute plus cher que les generations), puis
+  transcription Whisper `medium` en CPU et jugement sur mots de contenu MANQUANTS + mots EN TROP +
+  presence de chaque jeton technique — la similarite seule ne suffit pas (0,990 avec une fin avalee).
+- **Nombres, ports, URL et noms composes sont la classe qui casse : les retirer du texte parle plutot
+  que de chercher une graphie.** Mesure : « 8 200 » passe (« 8200 ») mais « 6 806 » est perdu
+  (« porc si croisant 6 »), et le passage d'URL echoue deux tirages de suite a l'identique (« GitHub »
+  -> « Jtube », les deux « tiret » disparus). Mettre le port et le lien a l'ecran / dans la description
+  YouTube — c'est aussi ce qui rend le script reutilisable par un autre utilisateur. « point com » se
+  reduit proprement a « .com » : ne pas le corriger.
+- **Compter les forcages d'EOS** (handler `logging` sur le logger racine, motifs `forcing EOS` /
+  `repetition of token`) : present sur 3/3 des sondes y compris celles qui transcrivent parfaitement —
+  signal de risque, pas preuve de defaut. Ce qui prouve la troncature est la disparition du DERNIER
+  mot de contenu attendu (`indexe mes notes` -> `index mi-note`), pas l'horodatage du dernier segment.
+- **Verdict par segment** : similarite >= 0,90 ET aucun jeton technique absent. Quatre pieges de ce
+  verdict, tous mesures :
+  - **Une variante morphologique ou une normalisation de Whisper est un PASS.** `indexe` transcrit
+    `index`, `Niveau un` -> `Niveau 1`, `cinq principes` -> `5 principes`, `zéro virgule
+    quatre-vingt-dix-huit` -> `0,98`, `Omni Route` -> `OmniRoute` : Whisper normalise nombres et
+    composes, le score baisse alors que l'audio est juste. Un controle mot-a-mot strict fabrique des
+    faux KO et fait reecrire un texte bon.
+    **Filtrer le -s muet AVANT de juger, y compris sur les jetons critiques et les mots manquants.**
+    Mesure du 04/10 sur 3 segments de complement : `En open source. Deja configures.` est revenu
+    `deja configure.` et `mets un like` est revenu `met un like` — le -s final du pluriel francais est
+    muet, Whisper ecrit ce qu'il entend, et le verdict automatique a rendu `A REVOIR` sur DEUX segments
+    justes (sim 0,800 et 0,917). Trois faux KO emboites : la similarite, la liste des mots manquants
+    (`configures` vs `configure`), ET la liste de jetons critiques comparee a l'orthographe de
+    REFERENCE contre une hypothese deja normalisee. Recette : normaliser ref, hyp et la liste critique
+    avec la meme regle (retirer le -s final des mots de 4 lettres et plus, appliquee des deux cotes
+    donc sans risque), rapporter les DEUX similarites, et ne decider que sur la triee. Apres triage :
+    0,800 -> 1,000 et 0,917 -> 1,000.
+    **Sonder la SOURCE avant de coller, pas seulement les segments.** Une generation Chatterbox peut
+    recoller un bout de phrase ULTERIEURE au milieu d'une phrase : mesure du 04/10, « Abonne-toi si tu
+    veux suivre la suite de la serie [commentaire. Ca aide vraiment la chaine a se faire connaitre.
+    Merci a tous] si tu veux suivre la suite de la serie Hermes. » au lieu de la phrase simple. Un
+    diagnostic par blocs peut le manquer : relire la CTA mot a mot, horodatee, avant de conclure.
+    **Placer une coupe sur le TIMING DES MOTS des que la zone a retirer est de la parole continue.**
+    Un minimum d'energie ne trouve un blanc que s'il y en a un : la clause dupliquee ci-dessus etait
+    continue (-12 dBFS de moyenne), et la coupe au minimum d'energie a laisse « ...serie a serie... »
+    a l'oreille. Couper a la frontiere de mot donnee par Whisper (word_timestamps) + fondus de 8 ms :
+    saut max a la collure 0,4-0,5x le p99,999 du fichier = pas de clic audible.
+    **Juger sur la similarite CANONICALISEE, pas brute.** Whisper ne rend pas stablement les sigles
+    epeles, les noms propres ni les nombres : texte lu correctement, on mesure 0,8917 brut / 0,8981
+    apres triage du -s muet / 0,9560 apres canonicalisation (MEMORY point M D, Omni Route, zero
+    virgule quatre-vingt-dix-huit -> 0,98, L L M, JEV/Laya/Si Yuan/GitHub). Sans cette etape on
+    declare l'audio infidele a tort et on regenere pour rien.
+    **Ne jamais dire qu'une phrase est absente avec un appariement par fenetre exacte.** Sur un texte
+    a phrases proches ou repetees il fabrique ~50 fausses absences (mesure du 04/10) sur un audio bon.
+    Mesurer les etendues non appariees (opcodes difflib) et la presence des mots de contenu.
+  - **Une similarite haute ne prouve rien.** 0,955 avec `Shatterbox` (Chatterbox) et `Coco clone`
+    (Kokoclone) dedans : ce qui fait le travail est la liste de jetons critiques construite depuis le
+    texte du segment, pas le seuil.
+  - **Accepter les graphies equivalentes d'un meme jeton** (espaces, accents, `point M D` rendu
+    `.md`), sinon le controle fabrique des KO sur des segments bons.
+  - **Comparer la similarite au texte D'ORIGINE, pas au texte respelle.** Les graphies a tirets se
+    decoupent en plusieurs jetons (`A-nima` en deux), ce qui fait chuter le score d'une diction juste
+    et rend le chiffre incomparable aux runs precedents. Mesurer aussi la similarite contre le texte
+    respelle, mais c'est la premiere qui sert de critere.
+  Segmenter par 6-12 phrases / 75-80 mots : **un segment trop long casse** (147 mots -> 0,708, phrases
+  reordonnees et boucle en fin). Ne jamais fusionner le reliquat dans le dernier segment pour lui
+  eviter d'etre court — lui donner son propre segment court.
+- **Garder le MEILLEUR tirage, jamais le dernier, et le scorer AVANT de remplacer.** Mesure sur 11
+  segments : regenerer a degrade 6 segments sur 11 (moyenne prise 1 = 0,835, prise 2 = 0,840) et un
+  pipeline qui ecrase la prise 1 sans comparer detruit les bonnes (0,957 -> 0,879). Copier le WAV de
+  cote quand le score s'ameliore, puis reconstruire l'assemblage depuis les meilleurs fichiers.
+- **Si la premiere passe echoue au seuil sur la plupart des segments, arreter de regenerer.** Le
+  tirage est une piece de monnaie, pas un levier (11 KO, 11 reprises, aucune amelioration moyenne).
+  Le correctif est dans le TEXTE (retirer le jeton, le reecrire court) ou dans le choix du moteur :
+  le rapport doit le dire et proposer les options, pas boucler sur le GPU.
+
 ## Reference Files
+- `references/piper-narration-fr.md` — Piper : installation du binaire autonome, commandes, atempo vs length_scale, tri des ecarts Whisper, niveaux/ecretage
+- `references/chatterbox-narration.md` — Chatterbox : API, recette de sonde, mesures des jetons risques, atempo
+- `references/kokoro-kokoclone.md` — Kokoro-82M ONNX + Kanade : install, mesures, verdict FR
+- `scripts/audit_tts.py` — aller-retour Whisper sur un WAV genere (audit de diction d'un moteur)
+- `references/minimax-tts-api.md` — MiniMax T2A v2 : endpoint, voix FR, erreurs, pieges d'env
 - `references/xtts-v2-setup.md`
 - `references/french-diction-tricks.md`
 - `references/fine-tune-xtts.md` — recette d'entrainement (corpus, pas, A/B) et les quatre pieges qui font echouer la mise en route

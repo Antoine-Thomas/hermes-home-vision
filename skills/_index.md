@@ -40,7 +40,7 @@ Restauration: `cp -r ~/AppData/Local/hermes/skills_backup_20260910_131442/* ~/Ap
 ## autonomous-ai-agents (4)
 
 - **agent-tooling** — Use when building/tooling for agents: author new Hermes skills, reconcile agent merge conf… `autonomous-ai-agents/agent-tooling/SKILL.md`
-- **autonomous-ai-agents** — Orchestrate autonomous AI coding agents — delegate coding tasks to Claude Code, OpenAI Cod… `autonomous-ai-agents/SKILL.md`
+- **autonomous-ai-agents** — Orchestrate Claude Code, Codex, OpenCode coding agents. `autonomous-ai-agents/SKILL.md`
 - **computer-use** — Drive the desktop background-first; escalate on signal. `autonomous-ai-agents/computer-use/SKILL.md`
 - **hermes-agent** — Configure, extend, or contribute to Hermes Agent. `autonomous-ai-agents/hermes-agent/SKILL.md`
 
@@ -81,7 +81,7 @@ Restauration: `cp -r ~/AppData/Local/hermes/skills_backup_20260910_131442/* ~/Ap
 
 ## email (1)
 
-- **email-suite** — Email suite: HTML campaigns, inbox triage, and terminal email via Himalaya — templates, sm… `email/email-suite/SKILL.md`
+- **email-suite** — HTML campaigns, inbox triage, terminal email (Himalaya). `email/email-suite/SKILL.md`
 
 ## github (1)
 
@@ -102,10 +102,10 @@ Restauration: `cp -r ~/AppData/Local/hermes/skills_backup_20260910_131442/* ~/Ap
 ## mlops (7)
 
 - **audiocraft-audio-generation** — AudioCraft: MusicGen text-to-music, AudioGen text-to-sound. `mlops/models/audiocraft/SKILL.md`
-- **llm-ops** — Run and evaluate LLMs — local GGUF inference (llama.cpp), production serving (vLLM), bench… `mlops/llm-ops/SKILL.md`
+- **llm-ops** — Run/eval LLMs: GGUF, vLLM, lm-eval, OBLITERATUS. `mlops/llm-ops/SKILL.md`
 - **model-ops** — Model Hub + NVIDIA NIM APIs — download/upload models from HuggingFace, inference via NVIDI… `mlops/model-ops/SKILL.md`
 - **segment-anything-model** — SAM: zero-shot image segmentation via points, boxes, masks. `mlops/models/segment-anything/SKILL.md`
-- **tts-voice-cloning** — Use when cloning a voice or generating speech locally — XTTS-v2 (Coqui) for natural French… `mlops/tts-voice-cloning/SKILL.md`
+- **tts-voice-cloning** — Clone a voice or TTS locally: XTTS-v2, Piper, VibeVoice. `mlops/tts-voice-cloning/SKILL.md`
 - **vibevoice-tts** — Use for VibeVoice TTS: voice cloning and long-form audio. `mlops/vibevoice-tts/SKILL.md`
 - **weights-and-biases** — W&B: log ML experiments, sweeps, model registry, dashboards. `mlops/evaluation/weights-and-biases/SKILL.md`
 

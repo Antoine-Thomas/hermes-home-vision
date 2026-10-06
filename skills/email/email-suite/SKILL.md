@@ -1,6 +1,6 @@
 ---
 name: email-suite
-description: "Email suite: HTML campaigns, inbox triage, and terminal email via Himalaya — templates, smtplib delivery, Gmail auth, IMAP, and brand template management."
+description: "HTML campaigns, inbox triage, terminal email (Himalaya)."
 version: 1.0.0
 platforms: [windows, linux, macos]
 metadata:
@@ -37,6 +37,8 @@ One router for all email work: HTML campaigns, inbox triage, and terminal email 
 - CSV-Driven Prospecting Campaign -> `references/campaign/campaign-csv-driven-prospecting-campaign.md`
 - Multi-Stage Email Sequences -> `references/campaign/campaign-multi-stage-email-sequences.md`
 - Contact Verification Before Sending -> `references/campaign/campaign-contact-verification-before-sending.md`
+| Recuperer les correspondants Gmail sans API OAuth (IMAP, lecture seule) -> `references/gmail-imap-contact-harvest.md`
+| Classer une boite Gmail par labels existants en IMAP (STORE +X-GM-LABELS) -> `references/gmail-imap-label-classification.md`
 - Google Contacts Import -> `references/campaign/campaign-google-contacts-import.md`
 - Post-Campaign Response Checking (IMAP) -> `references/campaign/campaign-post-campaign-response-checking-imap.md`
 - B2B Prospection Outreach (from absorbed `contacts-prospection`) -> `references/campaign/campaign-b2b-prospection-outreach-from-absorbed-contacts-prospection.md`
