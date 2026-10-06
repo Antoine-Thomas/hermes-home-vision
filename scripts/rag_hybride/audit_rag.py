@@ -23,6 +23,8 @@ from pathlib import Path
 RACINE = os.path.dirname(os.path.abspath(__file__))
 CHUNKS = os.path.join(RACINE, "chunks.jsonl")
 MANIFESTE = os.path.join(RACINE, "manifeste.json")
+# Les fragments `wiki` portent un chemin RELATIF a la racine du wiki (voir indexer.source_wiki).
+WIKI = os.path.join(os.environ["LOCALAPPDATA"], "hermes", "wiki")
 RECHERCHES_LOG = os.path.join(RACINE, "recherches.log")  # à créer/maintenir par le routeur/serveur
 
 # Seuil de similarité pour détecter redondance (cosinus sur embeddings normalisés = produit scalaire)
@@ -73,9 +75,18 @@ def detecter_obsolète(chunk: dict) -> list:
     chemin = chunk.get("chemin", "")
     source = chunk.get("source", "")
 
-    # Chemins locaux qui n'existent plus (siyuan a un hpath virtuel, pas un chemin disque)
-    if source in ("skill", "script_v4", "wordpress") and chemin and not os.path.exists(chemin):
-        raisons.append(f"chemin_inexistant:{chemin}")
+    # Chemins locaux qui n'existent plus (siyuan a un hpath virtuel, pas un chemin disque).
+    # `wiki` porte un chemin RELATIF a wiki/ : il se resout contre WIKI et non contre le CWD,
+    # sinon 100 % des fragments wiki seraient signales « chemin_inexistant » a tort.
+    if chemin:
+        if source == "wiki":
+            cible = os.path.join(WIKI, chemin)
+        elif source in ("skill", "script_v4", "wordpress"):
+            cible = chemin
+        else:                                    # siyuan : hpath virtuel, rien a tester
+            cible = None
+        if cible and not os.path.exists(cible):
+            raisons.append(f"chemin_inexistant:{chemin}")
 
     # Outils/versions obsolètes (patterns connus)
     patterns_obsolètes = [

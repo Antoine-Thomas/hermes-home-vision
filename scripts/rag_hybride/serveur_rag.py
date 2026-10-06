@@ -78,7 +78,7 @@ def vider_cache():
 class RequeteRecherche(BaseModel):
     question: str = Field(..., description="question en langage naturel")
     k: int = Field(5, ge=1, le=50)
-    source: str = Field(None, description="filtre : siyuan, skill, script_v4, wordpress")
+    source: str = Field(None, description="filtre : siyuan, skill, wiki, script_v4, wordpress")
     complet: bool = Field(False, description="renvoyer le fragment entier au lieu d'un extrait")
 
 
@@ -89,7 +89,7 @@ class RequeteEmbeddings(BaseModel):
 
 
 app = FastAPI(title="RAG local Hermes", version="1.0",
-              description="Second cerveau interrogeable : SiYuan, skills, scripts v4, WordPress.")
+              description="Second cerveau interrogeable : SiYuan, skills, wiki, WordPress.")
 
 
 def manifeste():
@@ -115,9 +115,9 @@ def sante():
 def search(r: RequeteRecherche):
     if not r.question.strip():
         raise HTTPException(status_code=400, detail="question vide")
-    if r.source and r.source not in ("siyuan", "skill", "script_v4", "wordpress"):
+    if r.source and r.source not in ("siyuan", "skill", "wiki", "script_v4", "wordpress"):
         raise HTTPException(status_code=400,
-                            detail="source inconnue : siyuan, skill, script_v4, wordpress")
+                            detail="source inconnue : siyuan, skill, wiki, script_v4, wordpress")
     t0 = time.time()
     brut = moteur.chercher(r.question, k=r.k, source=r.source)
     resultats = []

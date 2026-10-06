@@ -4,8 +4,13 @@
 Sources, par ordre de priorite :
   1. SiYuan      : tous les documents, via l'API (kramdown nettoye)
   2. skills      : les fichiers SKILL.md du dossier de skills Hermes
-  3. scripts v4  : Desktop\\hermes_tuto_v4 (*.py, *.sh, *.txt, *.md)
-  4. wordpress   : le depot hermes-wordpress-skills present sur le disque
+  3. wiki        : le wiki d'architecture %LOCALAPPDATA%\hermes\wiki (*.md uniquement)
+  4. scripts v4  : Desktop\hermes_tuto_v4 (*.py, *.sh, *.txt, *.md) — retiree le 27/09/2026
+  5. wordpress   : le depot hermes-wordpress-skills present sur le disque
+
+Sortie : la racine RACINE ci-dessous. La variable d'environnement HERMES_RAG_RACINE permet de
+rediriger la SORTIE vers un dossier temporaire (indexation a blanc, verifiee avant bascule) ;
+les sources restent lues a leurs chemins reels.
 
 Modele : intfloat/multilingual-e5-small. Attention : les modeles e5 exigent les prefixes
 "passage: " (indexation) et "query: " (recherche), sinon la qualite chute nettement.
@@ -22,12 +27,17 @@ import re
 import sys
 import urllib.request
 
-RACINE = os.path.expanduser(os.path.join(os.environ["LOCALAPPDATA"], "hermes", "data", "rag"))
+# Surcharge optionnelle de la racine de SORTIE (indexation a blanc, verifiable avant bascule) :
+# HERMES_RAG_RACINE=<dossier> redirige index.faiss / chunks.jsonl / manifeste.json / cache.db
+# vers cet emplacement. Les sources (skills, wiki, .env SiYuan) restent lues a leurs chemins reels.
+_SURCHARGE = os.environ.get("HERMES_RAG_RACINE")
+RACINE = os.path.expanduser(_SURCHARGE or os.path.join(os.environ["LOCALAPPDATA"], "hermes", "data", "rag"))
 INDEX = os.path.join(RACINE, "index.faiss")
 CHUNKS = os.path.join(RACINE, "chunks.jsonl")
 MANIFESTE = os.path.join(RACINE, "manifeste.json")
 MODELE = "intfloat/multilingual-e5-base"   # small insuffisant sur le vocabulaire metier
 SKILLS = os.path.join(os.environ["LOCALAPPDATA"], "hermes", "skills")
+WIKI = os.path.join(os.environ["LOCALAPPDATA"], "hermes", "wiki")
 SCRIPTS_V4 = os.path.join(os.environ["USERPROFILE"], "Desktop", "hermes_tuto_v4")
 DEPOT_WP = os.path.join(os.environ["USERPROFILE"], "Code", "hermes-wordpress-skills")
 SIYUAN = "http://127.0.0.1:6806"
@@ -194,6 +204,35 @@ def source_wordpress():
     return out
 
 
+def source_wiki():
+    """Wiki d'architecture Hermes (%LOCALAPPDATA%\\hermes\\wiki), un fragment par section.
+
+    Seuls les *.md sont indexes : le dossier contient aussi scripts/ (*.py, __pycache__/*.pyc),
+    qui sont des outils et non du contenu. Le champ `chemin` est RELATIF a wiki/ (le wiki est
+    versionne et deplace avec le home) ; audit_rag.py resout donc ce chemin contre WIKI.
+    """
+    out = []
+    if not os.path.isdir(WIKI):
+        return out
+    for racine, sous_dirs, fichiers in os.walk(WIKI):
+        sous_dirs[:] = [d for d in sous_dirs if d != "__pycache__"]
+        for f in sorted(fichiers):
+            if not f.lower().endswith(".md"):
+                continue
+            chemin = os.path.join(racine, f)
+            try:
+                if os.path.getsize(chemin) > 1_000_000:
+                    continue
+                txt = io.open(chemin, encoding="utf-8", errors="replace").read()
+            except OSError:
+                continue
+            rel = os.path.relpath(chemin, WIKI).replace(os.sep, "/")
+            for i, frag in enumerate(decouper(txt)):
+                out.append({"source": "wiki", "titre": rel, "chemin": rel,
+                            "partie": i, "texte": frag})
+    return out
+
+
 def construire(seulement=None):
     import faiss
     import numpy as np
@@ -204,7 +243,7 @@ def construire(seulement=None):
     # (suppression definitive, corbeille vide). source_scripts() reste definie plus bas
     # pour ne casser aucun import, mais n'est plus appelee (elle renvoyait deja []).
     for nom, fonction in (("siyuan", source_siyuan), ("skill", source_skills),
-                          ("wordpress", source_wordpress)):
+                          ("wiki", source_wiki), ("wordpress", source_wordpress)):
         if seulement and nom not in seulement:
             continue
         avant = len(morceaux)
@@ -247,7 +286,7 @@ def construire(seulement=None):
     manifeste = {"modele": MODELE, "fragments": len(morceaux), "dimensions": int(vecteurs.shape[1]),
                  "index_octets": os.path.getsize(INDEX),
                  "par_source": {s: sum(1 for m in morceaux if m["source"] == s)
-                                for s in ("siyuan", "skill", "wordpress")}}
+                                for s in ("siyuan", "skill", "wiki", "wordpress")}}
     io.open(MANIFESTE, "w", encoding="utf-8").write(json.dumps(manifeste, ensure_ascii=False, indent=1))
     print("index ecrit :", INDEX, "(%.1f Mo)" % (os.path.getsize(INDEX) / 1e6))
 
