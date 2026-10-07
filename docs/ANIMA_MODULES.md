@@ -1,4 +1,4 @@
-# ANIMA 0.1 — Modules
+# ANIMA 0.2 — Modules
 
 Chaque composant : rôle, port, sonde de santé, dépendances.
 

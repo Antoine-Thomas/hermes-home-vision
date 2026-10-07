@@ -1,4 +1,4 @@
-# ANIMA 0.1 — Spécification du module Crypto (document de conception)
+# ANIMA 0.2 — Spécification du module Crypto (document de conception)
 
 > Statut : **spécification uniquement**. Aucune implémentation, aucune clé,
 > aucun accès réseau blockchain. Ce document fixe la cible pour un futur module.

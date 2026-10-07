@@ -18,7 +18,7 @@ Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Win
 
 ---
 
-## ANIMA 0.1 — supervision et mémoire hiérarchique
+## ANIMA 0.2 — supervision et mémoire hiérarchique
 
 Sous-système qui enveloppe Hermes : **Hermes = le moteur, ANIMA = le système
 intégré**. ANIMA surveille 15 composants (OmniRoute, RAG, SiYuan, Ollama, jobs,

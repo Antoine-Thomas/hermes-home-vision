@@ -1,9 +1,13 @@
-# ANIMA 0.1 — Certification
+# ANIMA 0.2 — Certification
 
-- **Version** : ANIMA 0.1
+- **Version** : ANIMA 0.2
 - **Date** : 2026-09-29
 - **Périmètre** : 4 profils (default, watch, veille, docs-writer) · 15 composants
   supervisés · 1 plugin E2E (`anima-memoire-router`)
+- **Bascule documentaire vers 0.2** : 2026-10-07. **Aucune re-certification n'a été effectuée** :
+  les mesures ci-dessus datent du 2026-09-29 et font foi pour cette date. L'état mesuré le
+  2026-10-07 est `FAILED` (ollama et wazuh arrêtés) — détail dans
+  [`CHANGELOG-ANIMA-v0.2.md`](CHANGELOG-ANIMA-v0.2.md).
 
 ## État des composants (supervision health_anima)
 

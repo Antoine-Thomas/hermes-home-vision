@@ -1,14 +1,14 @@
 ---
 title: ANIMA
 created: 2026-09-29
-updated: 2026-09-29
+updated: 2026-10-07
 type: concept
 tags: [hermes, omniroute, rag, jev, cron, provider, model]
 sources: [raw/notes/siyuan-20260922-chaine-de-repli-finalisee-5-niveaux-22-09-2026.md]
 confidence: high
 ---
 
-# ANIMA 0.1 — supervision et mémoire hiérarchique
+# ANIMA 0.2 — supervision et mémoire hiérarchique
 
 ANIMA est la couche qui enveloppe Hermes : **Hermes est le moteur, ANIMA est le
 système intégré**. Elle surveille 15 composants ([[omniroute]], RAG, SiYuan,

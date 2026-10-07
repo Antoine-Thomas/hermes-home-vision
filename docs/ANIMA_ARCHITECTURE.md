@@ -1,4 +1,4 @@
-# ANIMA 0.1 — Architecture
+# ANIMA 0.2 — Architecture
 
 ANIMA est la couche de supervision et de mémoire hiérarchique d'Hermes : elle
 surveille les composants, route les questions vers la bonne source de mémoire

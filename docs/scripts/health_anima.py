@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Supervision ANIMA 0.1 — états normalisés READY / DEGRADED / FAILED / BLOCKED.
+"""Supervision ANIMA 0.2 — états normalisés READY / DEGRADED / FAILED / BLOCKED.
 
 Ce module NE REMPLACE PAS ``health_architecture.py`` : il est appelé par lui
 (``superviser()``) et ses sections sont fusionnées dans ``health.json`` en plus des
@@ -73,7 +73,7 @@ ENDPOINTS = {
 }
 
 SYSTEM_NAME = "ANIMA"
-SYSTEM_VERSION = "0.1"
+SYSTEM_VERSION = "0.2"
 
 READY, DEGRADED, FAILED, BLOCKED = "READY", "DEGRADED", "FAILED", "BLOCKED"
 ETATS = (READY, DEGRADED, FAILED, BLOCKED)
@@ -91,7 +91,7 @@ SEUILS = {
     "omniroute_succes_pct": 80,      # en dessous : OmniRoute DEGRADED (upstreams instables)
     "reindex_age_s": 26 * 3600,      # fraîcheur de l'index RAG (reindex quotidien 03:00)
     "memoire_pct_alerte": 90,        # occupation d'un budget mémoire (USER.md / MEMORY.md)
-    "cout_24h_usd": 5.0,             # budget 24 h provisoire (ANIMA 0.1) — abaissé (L3a)
+    "cout_24h_usd": 5.0,             # budget 24 h provisoire (ANIMA 0.2) — abaissé (L3a)
     "repli_payant_24h_usd": 0.50,    # alerte si le repli payant (bascule vers deepseek-flash) dépasse 0,50 $/24 h
     "rag_top": 3,                    # critère : document attendu dans le top 3
     "jev_appel_recent_j": 7,         # âge max du dernier appel JEV jugé « fonctionnel »
@@ -794,7 +794,7 @@ def sonde_laya(etat_global, cfg):
         det["detail_health"] = {k: v for k, v in list(h.items())[:8] if k != "model"}
     except Exception:
         pass
-    corps = {"state": {"contexte": "ANIMA 0.1 — supervision"},
+    corps = {"state": {"contexte": "ANIMA 0.2 — supervision"},
              "instructions": "Quelle couche doit repondre a une question sur un document deja indexe ?",
              "options": ["wiki_L1", "memoire_native", "rag_L2"]}
     ok2, code2, lat2, t2, e2 = http(ENDPOINTS["laya"] + "/v1/choice", "POST", corps, timeout=90)
@@ -839,7 +839,7 @@ def _raison_technique(ligne):
 
 
 def sonde_jev(etat_global, cfg):
-    """JEV : abstention (seuil) et panne (technique) sont DISTINGUÉES (ANIMA 0.1 E4/A1).
+    """JEV : abstention (seuil) et panne (technique) sont DISTINGUÉES (ANIMA 0.2 E4/A1).
 
     Le health check expose cinq niveaux de preuve — service accessible / modèle
     accessible / appel fonctionnel / décision valide / repli regex — et deux d'entre eux
@@ -1235,14 +1235,23 @@ def sonde_fallback(etat_global, cfg, etats):
         utilises = {((r[2] or "").lower() + "/" + (r[1] or "")) for r in rows if r[1]}
         det["etages_utilises_recemment"] = sorted(
             {m for m in utilises if m in modeles_chaine or m.split("/")[0] == "ollama-local"})
-        prim = (primaire.get("provider") or "").lower() + "/" + (primaire.get("model") or "")
+        prim = (primaire.get("provider") or "").lower() + "/" + (primaire.get("default") or primaire.get("model") or "")
         det["primaire"] = dict(primaire, cle_courante=prim)
         det["repli_active"] = bool(rows) and not any(
-            (r[1] or "") == (primaire.get("model") or "") and (r[2] or "").lower() == (primaire.get("provider") or "").lower()
+            (r[1] or "") == (primaire.get("default") or primaire.get("model") or "") and (r[2] or "").lower() == (primaire.get("provider") or "").lower()
             for r in rows)
         if chaine:
             dernier = (chaine[-1].get("provider") or "").lower() + "/" + (chaine[-1].get("model") or "")
-            det["dernier_etage_atteint"] = dernier in utilises
+            # Le dernier etage peut etre identique au modele primaire (cas de cette config :
+            # fallback_providers se termine sur deepseek/deepseek-flash, deja primaire). Ce n'est
+            # alors pas un etage de REPLI : il est utilise normalement, et « dernier etage
+            # atteint » serait vrai par construction — ce n'est pas un signal. On ne le compte
+            # que s'il est distinct du primaire.
+            dernier_est_primaire = (
+                (chaine[-1].get("provider") or "").lower() == (primaire.get("provider") or "").lower()
+                and (chaine[-1].get("model") or "") == (primaire.get("default") or primaire.get("model") or ""))
+            det["dernier_etage_est_primaire"] = dernier_est_primaire
+            det["dernier_etage_atteint"] = bool(dernier in utilises and not dernier_est_primaire)
         if det["repli_active"]:
             erreurs.append("repli activé récemment (dernier modèle utilisé : %s/%s)"
                            % (rows[0][2], rows[0][1])) if rows else None
