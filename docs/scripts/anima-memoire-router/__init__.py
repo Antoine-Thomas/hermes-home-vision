@@ -45,7 +45,9 @@ def _settings(ctx) -> dict:
         "mode": str(ctx.get_config("mode", "off") or "off").strip().lower(),
         "rag_url": str(ctx.get_config("rag_url", "http://127.0.0.1:8200")
                        or "http://127.0.0.1:8200"),
-        "rag_k": num("rag_k", 3, int),
+        "rag_k": num("rag_k", 5, int),
+        "rag_k_complexe": num("rag_k_complexe", 20, int),
+        "routeur": str(ctx.get_config("routeur", "on") or "on").strip().lower(),
         "timeout_s": num("timeout_s", 4.0, float),
         "max_chars": num("max_chars", 4000, int),
         "log_path": str(ctx.get_config("log_path", "") or ""),
@@ -96,6 +98,36 @@ def _rag_search(settings: dict, question: str, k: int) -> dict:
         return json.loads(resp.read().decode("utf-8"))
 
 
+def _decider_complexite(question: str):
+    """Classe la question (simple / moderee / complexe) via data/rag/routeur_complexite.py.
+
+    Ne leve jamais : sans le module, on retourne None et le hook retombe sur
+    l'ancien comportement (RAG top-k systematique).
+    """
+    try:
+        rag_dir = _hermes_home() / "data" / "rag"
+        if str(rag_dir) not in sys.path:
+            sys.path.insert(0, str(rag_dir))
+        import routeur_complexite as rc  # noqa: E402
+        return rc.decider(question)
+    except Exception as exc:
+        logger.debug("anima-memoire-router: routeur complexite indisponible: %s", exc)
+        return None
+
+
+def _selectionner(question: str, candidats: list, k: int) -> list:
+    """Selection locale des k fragments d'un chemin « complexe » (aucun reranker externe)."""
+    try:
+        rag_dir = _hermes_home() / "data" / "rag"
+        if str(rag_dir) not in sys.path:
+            sys.path.insert(0, str(rag_dir))
+        import routeur_complexite as rc  # noqa: E402
+        return rc.selectionner(list(candidats), question, k=k)
+    except Exception as exc:
+        logger.debug("anima-memoire-router: selection locale indisponible: %s", exc)
+        return list(candidats)[:k]
+
+
 def _block(results: list, max_chars: int) -> str:
     """Le bloc injecté : extraits RAG, borné à max_chars."""
     lines = []
@@ -141,18 +173,33 @@ def make_hook_handler(ctx):
             if 3 not in niveaux:
                 log(settings, {"outcome": "no_rag", "niveaux": niveaux, "source": source})
                 return None
+            # Phase B : le routeur de complexite decide AVANT le POST /search.
+            # simple -> aucune recherche ; moderee -> top-k ; complexe -> top-N puis selection locale.
+            decision = _decider_complexite(text) if settings["routeur"] == "on" else None
+            classe = (decision or {}).get("classe")
+            if classe == "simple":
+                log(settings, {"outcome": "no_rag_simple", "classe": classe,
+                               "raisons": (decision or {}).get("raisons"),
+                               "niveaux": niveaux, "source": source})
+                return None
+            k_recherche = int((decision or {}).get("k_recherche") or settings["rag_k"])
+            k_injecte = int((decision or {}).get("k_injecte") or k_recherche)
             try:
-                data = _rag_search(settings, text, settings["rag_k"])
+                data = _rag_search(settings, text, k_recherche)
             except urllib.error.URLError as exc:
-                log(settings, {"outcome": "rag_error", "error": str(exc)[:120]})
+                log(settings, {"outcome": "rag_error", "classe": classe,
+                               "k_recherche": k_recherche, "error": str(exc)[:120]})
                 return None
             results = list(data.get("resultats") or [])
             if not results:
-                log(settings, {"outcome": "rag_empty", "source": source})
+                log(settings, {"outcome": "rag_empty", "source": source, "classe": classe})
                 return None
+            if classe == "complexe":
+                results = _selectionner(text, results, k_injecte)
             block = _block(results, settings["max_chars"])
-            log(settings, {"outcome": "injected", "n": len(results), "source": source,
-                           "niveaux": niveaux, "chars": len(block)})
+            log(settings, {"outcome": "injected", "classe": classe, "k_recherche": k_recherche,
+                           "k_injecte": len(results), "source": source, "niveaux": niveaux,
+                           "chars": len(block), "raisons": (decision or {}).get("raisons")})
             return {"context": block}
         except Exception as exc:  # un routeur cassé ne casse jamais un tour
             logger.debug("anima-memoire-router: hook error (fail-open): %s", exc)
@@ -172,8 +219,9 @@ def setup_cli(subparser: argparse.ArgumentParser) -> None:
 def _cmd_status(ctx, settings: dict) -> int:
     print("mode:     %s" % settings["mode"])
     print("rag_url:  %s" % settings["rag_url"])
-    print("rag_k:    %s   timeout: %ss   max_chars: %s" % (settings["rag_k"],
-          settings["timeout_s"], settings["max_chars"]))
+    print("rag_k:    %s (moderee)   rag_k_complexe: %s   routeur: %s" % (
+        settings["rag_k"], settings["rag_k_complexe"], settings["routeur"]))
+    print("timeout:  %ss   max_chars: %s" % (settings["timeout_s"], settings["max_chars"]))
     print("log:      %s" % log_file(settings))
     return 0
 
@@ -184,6 +232,14 @@ def _cmd_check(ctx, settings: dict) -> int:
     print("router_memoire: %s" % ("OK (source=%s, niveaux=%s)" % (
         r.get("source_decision"), r.get("niveaux_a_consulter")) if r else "FAIL (import/route)"))
     ok = ok and bool(r)
+    dec = _decider_complexite("Compare le port du RAG et celui de ComfyUI : lequel est apparu en premier ?")
+    print("routeur:       %s" % ("OK (classe=%s, k=%s)" % (dec.get("classe"), dec.get("k_recherche"))
+                                 if dec else "FAIL (import routeur_complexite)"))
+    ok = ok and bool(dec)
+    dec_simple = _decider_complexite("Bonjour")
+    print("routeur simple: %s" % ("OK (classe=%s -> aucune recherche)" % dec_simple.get("classe")
+                                   if dec_simple else "FAIL"))
+    ok = ok and bool(dec_simple) and dec_simple.get("classe") == "simple"
     try:
         d = _rag_search(settings, "Quel modèle d'embedding utilise mon RAG local ?", 1)
         n = len(d.get("resultats") or [])

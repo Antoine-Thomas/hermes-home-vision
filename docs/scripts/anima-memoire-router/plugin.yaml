@@ -1,10 +1,11 @@
 name: anima-memoire-router
-version: 0.1.0
+version: 0.2.0
 description: >-
   Route la question utilisateur vers la couche mémoire (JEV, repli regex) avant
-  l'appel LLM ; si le niveau 3 (RAG) est requis, interroge le RAG local et injecte
-  les extraits dans le contexte sous <rag_context>. Fail-open, mode off par défaut.
-  Stdlib uniquement.
+  l'appel LLM ; classe ensuite sa complexité (simple -> aucune recherche,
+  modérée -> RAG top-5, complexe -> RAG top-20 puis sélection locale de 5) et
+  injecte les extraits sous <rag_context>. Fail-open, mode off par défaut.
+  Stdlib uniquement, aucun reranker externe.
 author: ANIMA 0.1
 license: MIT
 requires_hermes: ">=0.21"
@@ -25,8 +26,16 @@ config_schema:
     description: "Base URL du RAG local (127.0.0.1 par défaut)"
   rag_k:
     type: int
-    default: 3
-    description: "Nombre d'extraits injectés"
+    default: 5
+    description: "Nombre d'extraits injectés pour une question modérée"
+  rag_k_complexe:
+    type: int
+    default: 20
+    description: "Profondeur de recherche pour une question complexe (sélection locale de 5 ensuite)"
+  routeur:
+    type: str
+    default: "on"
+    description: "on = routeur de complexité actif · off = ancien comportement (RAG top-k systématique)"
   timeout_s:
     type: float
     default: 4.0
