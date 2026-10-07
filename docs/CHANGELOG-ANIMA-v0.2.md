@@ -101,3 +101,24 @@ FAILED`. C'est un constat honnête : **ollama et wazuh sont arrêtés et la 0.2 
   JEV étant la route locale `rag` via `wiki/scripts/jev_router.py`, avec la mention « aucun repli
   vers un second moteur ». Accord JEV ↔ Laya mesuré : **6/10 (60 %, cible 80 %)**. Arbitrage en
   attente, consigné dans `wiki/contradictions.md`.
+
+## Mise à jour du 2026-10-07 12:00
+
+Redémarrage de Docker Desktop (Wazuh) et du service Ollama. Le tableau du 11:47:04 ci-dessus
+reste en place : il fait foi pour cette date.
+
+| Composant | 11:47:04 | 11:59:40 |
+|---|---|---|
+| ollama | FAILED (75 échecs) | **READY** (0) |
+| wazuh | FAILED (75 échecs) | **READY** (0) |
+| fallback | READY | READY |
+| cron | DEGRADED | DEGRADED (veille-hebdo, 504 OmniRoute — inchangé) |
+| overall_state | FAILED | **DEGRADED** |
+| critical_state | FAILED | **READY** |
+
+Le seul composant encore dégradé est `cron`, à cause du job `veille-hebdo` en 504 OmniRoute
+(4 échecs consécutifs, prochain run 2026-10-12T10:00). Le planificateur lui-même est sain.
+
+Détails mesurés :
+- ollama : PID 21404, port 11434, /api/tags → qwen2.5:7b (4,68 Go) intact
+- wazuh : 3 conteneurs Up (dashboard 8443, indexer 9200, manager 55085), indexer_code 200
