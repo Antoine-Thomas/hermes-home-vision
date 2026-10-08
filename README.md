@@ -1,19 +1,21 @@
 # Hermes Home Vision
 
-> **Version actuelle : `1.4`** — Hermes Aegis (préparée, non publiée)
-> **Version stable précédente : `1.3`** — Hermes Psychopomp
+> **Version actuelle : `1.5`** — Hermes Aegis-Sec (publiée)
+> **Version stable précédente : `1.4`** — Hermes Aegis (préparée, non publiée)
+> **Version stable publiée antérieure : `1.3`** — Hermes Psychopomp (tag `v1.3`)
 > **Version précédente : `1.2`** — version améliorée
 > **Version originale : `1.1`** — figée, téléchargeable
 
-> Installation personnelle de Hermes Agent — 4 profils isolés, supervision continue, veille automatique,
+> Installation personnelle de Hermes Agent — 5 profils isolés, supervision continue, veille automatique,
 > sécurité vérifiable.
 
 Dépôt **public** : `https://github.com/Antoine-Thomas/hermes-home-vision` — il contient **tout** : le
 runtime Hermes (configuration, profils, skills, scripts) **et** sa documentation rangée sous `docs/`.
 Un seul `git clone` restaure l'ensemble. L'historique a été audité le 21/09/2026 par
-`docs/scripts/scan_secrets_history.py` : aucune valeur de secret réelle. Détail en §8.
+`docs/scripts/scan_secrets_history.py`, et le contrôle a été **rejoué le 08/10/2026** après l'ancrage du
+motif `sk-` : `objets=3875`, `blobs=2210` — **0 valeur de secret réelle**, code de sortie 0. Détail en §8.
 
-Version de référence : **Hermes Agent v0.21.5+7519.ga928a95**, config version 49, upstream `a928a959e3`.
+Version de référence : **Hermes Agent v0.21.6+131.g38880bd**, config version 50, upstream `38880bd2`.
 Chemin de l'installation sur la machine d'origine : `%LOCALAPPDATA%\hermes` (Windows natif, pas WSL).
 
 ---
@@ -40,14 +42,16 @@ Flux E2E : message → profil → routeur (JEV/regex) → LLM (combo) → RAG �
 | **1.2** | Stable | `v1.2-ameliorations` / `v1.2` | [Fiche détaillée](docs/IMPROVEMENTS.md) · [Changelog](docs/CHANGELOG-v1.2.md) · [Wiki](../../wiki/Version-1.2) |
 | **1.3** | **Stable (recommandée)** | tag `v1.3` | [Changelog v1.3](docs/CHANGELOG-v1.3.md) · [Release 1.3](../../releases/tag/v1.3) |
 | **1.4** | **Préparée, non publiée** — bloqueurs B1/B2 ouverts | `main`, **aucun tag** | [Architecture Aegis](docs/ARCHITECTURE_AEGIS.md) · [Changelog v1.4](docs/CHANGELOG-v1.4.md) |
+| **1.5** | **Publiée** — Aegis-Sec (couche sécurité outillée) | `main`, tag `v1.5` | [Changelog v1.5](docs/CHANGELOG-v1.5.md) |
 
-Les quatre versions restent **téléchargeables indépendamment** : la 1.1 sur le tag `v1.1-original`, la 1.2
+Les cinq versions restent **téléchargeables indépendamment** : la 1.1 sur le tag `v1.1-original`, la 1.2
 sur la branche `v1.2-ameliorations` (tag `v1.2`), la 1.3 sur le tag `v1.3`, la 1.4 sur `main` — **aucun tag
-1.4 n'existe**. Aucune version n'est supprimée ni réécrite.
+1.4 n'existe** — et la 1.5 sur `main` (tag `v1.5`). Aucune version n'est supprimée ni réécrite.
 
-**Branche par défaut du dépôt : `main`** — elle porte la documentation de la **1.4 Aegis, préparée et non
-publiée** ; la version stable reste la **1.3** (tag `v1.3`), et la 1.4 ne sera taguée qu'après ses deux
-bloqueurs (voir §10).
+**Branche par défaut du dépôt : `main`** — elle porte la **1.5 Aegis-Sec, publiée** (tag `v1.5`). La
+**1.4 Aegis reste préparée et non publiée** (aucun tag) : elle ne sera taguée qu'après ses deux bloqueurs
+(voir §10), reportés en issues connues de la 1.5. La version stable publiée antérieure reste la **1.3**
+(tag `v1.3`).
 
 ### Installation rapide (1.3)
 
@@ -64,7 +68,7 @@ Prérequis, étapes complètes et vérifications : [Wiki — Installation 1.2](.
 
 ## 1. Qu'est-ce que c'est
 
-Hermes Agent déployé en configuration **multi-profils** sur Windows 11. Quatre profils isolés — chacun
+Hermes Agent déployé en configuration **multi-profils** sur Windows 11. Cinq profils isolés — chacun
 son `config.yaml`, son `.env`, son bot Telegram, sa clé OmniRoute, son modèle par défaut et sa chaîne
 de repli :
 
@@ -157,8 +161,8 @@ Détail complet, fichiers concernés et notes de migration : [`docs/CHANGELOG-v1
 ╚═══════════════════════════════════════════════════════════════════════════════════════════╝
 ```
 
-**Les quatre couches.** ① **Profils** — quatre environnements isolés (`default`, `watch`, `veille`,
-`docs-writer`), chacun son `config.yaml`, son `.env` et ses credentials. ② **Routage** — OmniRoute
+**Les quatre couches.** ① **Profils** — cinq environnements isolés (`default`, `watch`, `veille`,
+`docs-writer`, `security`), chacun son `config.yaml`, son `.env` et ses credentials. ② **Routage** — OmniRoute
 (20128) et le proxy NIM (20200) : gratuit d'abord, payant en dernier, bascules tracées. ③ **Cerveau** —
 RAG (8200), SiYuan (6806), JEV (décision typée via OpenRouter) et Laya (accélérateur
 ONNX local). ④ **Sécurité** — ACL minimales, secrets hors git, Wazuh, plages de ports Windows.
@@ -226,6 +230,7 @@ document SiYuan daté et le livre sur Telegram.
     ├── A2A_PREPARATION.md       procédure d'activation A2A (non activée)
     ├── architecture_2_agents.md décision d'architecture du pair local
     ├── CHANGELOG-v1.4.md        changelog de la 1.4 Aegis (préparée, non publiée)
+    ├── CHANGELOG-v1.5.md        changelog de la 1.5 Aegis-Sec (publiée)
     ├── CHANGELOG-v1.4-draft.md  post-mortem de la production du volet 6 (document de travail)
     ├── README.md                rôle du dossier docs et notes de fusion
     ├── RAPPORT_*.md             rapports de session
@@ -406,6 +411,14 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
   `huggingface_token: 0`, `pem_private_key: 0`, et **1 seul blob `sk_*` classé placeholder**
   (16 caractères, exemple pédagogique dans une référence de skill). Conclusion du script :
   `aucune valeur de secret reelle dans l'historique`.
+- **Contrôle rejoué le 08/10/2026** pour la version 1.5, sur l'historique complet : `objets=3875`,
+  `blobs=2210`, `volume=19.9 Mo` — `telegram_bot_token: 0`, `google_api_key: 0`, `github_token: 0`,
+  `huggingface_token: 0`, `pem_private_key: 0`, et **2 blobs `sk_*` classés placeholder**. Le motif
+  `sk-key` a été **ancré par lookbehind gauche** (`(?<![A-Za-z0-9])sk-…`) après identification d'un faux
+  positif sur `skills/autonomous-ai-agents/hermes-agent/SKILL.md` : la « valeur » signalée était un
+  fragment du nom de fichier `delegate-task-concurrency-diagnosis.md` (24 car, 100 % minuscules, aucun
+  chiffre ni majuscule — profil impossible pour une clé). Conclusion : `aucune valeur de secret reelle
+  dans l'historique`, **exit 0**.
 - **Visibilité** : le dépôt est **public** depuis le 22/09/2026, après audit complet de l'historique
   (`scan_secrets_history.py`, historique purgé par `git filter-repo` le 21/09). Le dépôt ne contient
   aucune valeur de secret, ni dans les fichiers suivis, ni dans les commits passés.
@@ -456,6 +469,7 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
 | `docs\CHANGELOG-v1.2.md` | changelog de la version 1.2 (Keep a Changelog, convention SemVer) |
 | `docs\ARCHITECTURE_AEGIS.md` | architecture de la 1.4 « Aegis » : les **4 couches** (profils, routage, cerveau, sécurité), principes directeurs, limites connues et contournements, commandes de vérification |
 | `docs\CHANGELOG-v1.4.md` | changelog de la 1.4 (préparée, non publiée) : sécurité et ACL, Wazuh, JEV, Laya, skills, RAG, dépendances, bloqueurs B1/B2 |
+| `docs\CHANGELOG-v1.5.md` | changelog de la 1.5 (publiée) : profil security, gateway 5 profils, ancrage du motif `sk-key`, faux positif corrigé, bloqueurs B1/B2 reportés |
 
 ### Voir aussi
 
@@ -463,6 +477,7 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
 - [`docs/CHANGELOG-v1.2.md`](docs/CHANGELOG-v1.2.md) — changelog de la 1.2
 - [`docs/ARCHITECTURE_AEGIS.md`](docs/ARCHITECTURE_AEGIS.md) — architecture de la 1.4 en 4 couches
 - [`docs/CHANGELOG-v1.4.md`](docs/CHANGELOG-v1.4.md) — changelog de la 1.4 (préparée, non publiée)
+- [`docs/CHANGELOG-v1.5.md`](docs/CHANGELOG-v1.5.md) — changelog de la 1.5 (publiée)
 - [Wiki du dépôt](../../wiki) — accueil, installation 1.2, améliorations détaillées, migration
   depuis la 1.1, archives 1.1, FAQ
 

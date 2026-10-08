@@ -1,0 +1,13 @@
+model:
+  default: mistralai/mistral-large-4-0
+  provider: openrouter
+_config_version: 50
+fallback_providers:
+  - provider: openrouter
+    model: cohere/north-mini-code:free
+  - provider: openrouter
+    model: nvidia/nemotron-3-ultra-550b-a55b:free
+  - provider: openrouter
+    model: nvidia/nemotron-3-super-120b-a12b:free
+agent:
+  api_max_retries: 4

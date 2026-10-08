@@ -27,7 +27,7 @@ import sys
 PATTERNS = {
     "telegram_bot_token": rb"[0-9]{8,12}:[A-Za-z0-9_-]{30,40}",
     "google_api_key": rb"AIza[0-9A-Za-z_-]{35}",
-    "sk_key": rb"sk-[A-Za-z0-9_-]{20,}",
+    "sk_key": rb"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}",  # frontiere gauche : ne mord plus dans "delegate-ta|sk-concurrency-..."
     "github_token": rb"ghp_[A-Za-z0-9]{36}",
     "huggingface_token": rb"hf_[A-Za-z0-9]{30,}",
     "pem_private_key": rb"-----BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY-----",

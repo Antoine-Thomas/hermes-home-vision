@@ -44,3 +44,4 @@ Router only. Full content split verbatim into `references/hermes-agent-body/`. N
 - Petdex (mascottes animées) -> `references/petdex.md`
 - Nous Portal — apps tierces -> `references/portal-auth-for-third-party-apps.md`
 - delegate_task : diagnostic du plafond de concurrence -> `references/delegate-task-concurrency-diagnosis.md`
+- Verifier un plugin tiers avant de l'installer (PyPI, licence, commande annoncee, config) -> `references/verifier-un-plugin-tiers.md`
