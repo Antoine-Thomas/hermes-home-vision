@@ -178,6 +178,15 @@ d'un verrou résiduel : `references/etat-alertes-moniteur.md`.
   document sort en 2e/3e au lieu de convertir un `200` en « service OK ».
 - **Un service sans sonde se marque INCONNU, jamais READY par defaut** — sinon un tableau de bord
   vert certifie un perimetre qu'il ne couvre pas.
+- **Un composant qui reste DEGRADED (ou READY) en continu est un faux positif STRUCTUREL, pas une
+  panne.** Verifier que chaque condition de la sonde lit une cle que son PARSEUR remplit reellement :
+  rejouer le parseur seul, imprimer le dict obtenu et comparer aux cles lues par la sonde — une cle
+  absente rend `None`, la comparaison est toujours fausse et l'etat ne bougera plus jamais (mesure :
+  une sonde comparait `primaire["model"]` quand le parseur remplissait la cle `default`). Meme piege
+  pour un critere vrai PAR CONSTRUCTION : « dernier etage de la chaine atteint » est forcement vrai
+  quand le dernier etage EST le modele primaire, donc il n'informe sur rien. Apres correction, prouver
+  les DEUX sens : le cas reel sort de l'alerte, ET un contre-cas (un repli reel, distinct, effectivement
+  utilise) doit encore alerter — sinon on a eteint un signal au lieu de corriger un faux positif.
 
 ## Etendre un heartbeat existant : etats normalises et rapport additif
 
@@ -216,7 +225,7 @@ Quand l'utilisateur répond « Manage » au bilan quotidien (`update_checker.py`
 jour + remettre en route les services arrêtés :
 
 1. `winget upgrade --all --silent --accept-package-agreements --accept-source-agreements --disable-interactivity` — via un `.ps1` ASCII pur lancé par `powershell -NoProfile -File` (sous git-bash, winget échoue avec « stdin is not a tty » ; et un `.ps1` avec accents sans BOM casse le parseur PowerShell 5.1 — ParserError).
-2. Démarrer Ollama (`ollama serve`) et Docker Desktop (le manager Wazuh vit en conteneur : si Docker est arrêté, le check Wazuh renvoie « ? »).
+2. Démarrer Ollama (`ollama serve`) et Docker Desktop (le manager Wazuh vit en conteneur : si Docker est arrêté, le check Wazuh renvoie « ? »). La pile Wazuh (`~/wazuh-docker/single-node`, projet `single-node-wazuh`) est en `restart: always` : elle remonte SEULE dès que le démon Docker est prêt (~10 s), donc `docker compose up -d` est inutile — un rapport qui attribue le retour à cette commande est faux. Trois conteneurs : `indexer` (9200), `dashboard` (8443), `manager` (55085 → 55000 dans le conteneur). Le compose porte DEUX couples d'identifiants, et les confondre fabrique une fausse panne : `INDEXER_*` sert l'indexer, `API_*` sert le manager — `POST /security/user/authenticate` sur 55085 rend `401` avec les identifiants indexer et `200` + JWT avec `API_*`. Une API qui répond `401` prouve que le service est DEBOUT. La section Wazuh d'ANIMA ne sonde que l'indexer (`https://127.0.0.1:9200/_cluster/health`, attendu `200`, `status: green`) : c'est cette route qu'il faut valider, puis relancer la sonde (`health_anima.py --resume`).
 3. Relister `winget upgrade` (lecture seule) pour séparer les réussites des échecs (« fichiers utilisés » = app ouverte ; « élévation » = admin à l'écran).
 
 Cas « fichiers utilisés » qui résiste à la fermeture de l'app (vu sur OBS) — escalade :

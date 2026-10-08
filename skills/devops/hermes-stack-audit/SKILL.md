@@ -71,9 +71,17 @@ prendre la skill dediee (`security-monitoring`, `omniroute-*`, `windows-ops`).
 Le rapport valide, les corrections s'appliquent une par une, chacune avec sa preuve.
 
 1. **Backup de l'objet avant toute ecriture**, nom horodate a cote du fichier
-   (`cp <f> <f>.bak_$(date +%Y%m%d_%H%M%S)`) ; pour des ACL, un dump dans le scratch
-   (`icacls <f> > cache/scratch/<f>_acl_backup_<horodatage>.txt`). Citer le chemin du backup dans le
-   rapport : c'est la commande de retour.
+   (`cp <f> <f>.bak_$(date +%Y%m%d_%H%M%S)`). Citer dans le rapport le chemin du backup ET la commande
+   de retour REELLEMENT utilisable.
+   Pour une ACL il n'y a pas de fichier a copier : le dump
+   `icacls <f> > cache/scratch/<f>_acl_backup_<horodatage>.txt` est un CONSTAT (format d'affichage, non
+   reimportable), pas un artefact de restauration. La commande de retour se construit autrement — `/reset`
+   (recale la DACL sur l'heritage du parent intact) ou la paire `icacls /save` + `/restore` — et elle ne
+   fonctionne que la ou l'appelant peut ecrire la DACL : relever donc AUSSI le PROPRIETAIRE de chaque objet
+   (`Get-Acl -LiteralPath <objet>` -> `Owner`) et compter les objets accessibles AVANT
+   (`scripts/verifier-acces-dacl.py`, skill `devops/hermes-install-troubleshooting`). Sans ces deux
+   mesures, une propagation qui vide des DACL sur des objets dont l'utilisateur n'est pas proprietaire
+   n'est ni detectable ni reparable sans elevation.
 2. **Construire le diff SUR UNE COPIE, jamais sur la cible.** Ecrire la version proposee dans
    `cache/scratch/`, puis `diff -u <original> <copie>` ; l'original reste intact tant que le diff
    n'est pas valide. Avant d'annoncer le diff, **compter l'occurrence du bloc a remplacer** et exiger
@@ -150,6 +158,13 @@ Le rapport valide, les corrections s'appliquent une par une, chacune avec sa pre
   dans un clone tiers en HEAD detache, avec des modifications locales preexistantes. Dans ce cas on
   ne committe rien et on le signale — et on previent que le prochain `git checkout`/`pull` du clone
   effacera la correction.
+
+- **Une ecriture d'ACL de masse ne se verifie pas par le bilan d'`icacls`.** Un `/T` dont le grant porte
+  des drapeaux d'heritage (`(OI)(CI)`) les applique aussi aux FICHIERS, ou ils n'ont pas de sens : vue
+  sur ce parc, DACL videe sur la majorite d'un arbre de 3188 objets, bilan annonce « echec du traitement
+  de 0 fichiers » — et les objets dont l'utilisateur n'est pas proprietaire ne sont plus reparables que
+  par un shell eleve (`takeown` + `icacls /reset`). Controle par l'ACCES avant/apres, jamais par le
+  bilan : `scripts/verifier-acces-dacl.py` dans `devops/hermes-install-troubleshooting`.
 
 ## Files
 

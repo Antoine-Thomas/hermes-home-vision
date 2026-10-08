@@ -1,6 +1,7 @@
 # Hermes Home Vision
 
-> **Version actuelle : `1.5`** — Hermes Aegis-Sec (publiée)
+> **Version actuelle : `1.6`** — Hermes Aegis-Sec+ (publiée)
+> **Version stable publiée précédente : `1.5`** — Hermes Aegis-Sec (tag `v1.5`)
 > **Version stable précédente : `1.4`** — Hermes Aegis (préparée, non publiée)
 > **Version stable publiée antérieure : `1.3`** — Hermes Psychopomp (tag `v1.3`)
 > **Version précédente : `1.2`** — version améliorée
@@ -43,15 +44,17 @@ Flux E2E : message → profil → routeur (JEV/regex) → LLM (combo) → RAG �
 | **1.3** | **Stable (recommandée)** | tag `v1.3` | [Changelog v1.3](docs/CHANGELOG-v1.3.md) · [Release 1.3](../../releases/tag/v1.3) |
 | **1.4** | **Préparée, non publiée** — bloqueurs B1/B2 ouverts | `main`, **aucun tag** | [Architecture Aegis](docs/ARCHITECTURE_AEGIS.md) · [Changelog v1.4](docs/CHANGELOG-v1.4.md) |
 | **1.5** | **Publiée** — Aegis-Sec (couche sécurité outillée) | `main`, tag `v1.5` | [Changelog v1.5](docs/CHANGELOG-v1.5.md) |
+| **1.6** | **Publiée** — Aegis-Sec+ (références Wazuh et plugin tiers versées, plugin `anima-memoire-router`, liens cassés de la 1.5 clôturés) | `main`, tag `v1.6` | [Changelog v1.6](docs/CHANGELOG-v1.6.md) |
 
-Les cinq versions restent **téléchargeables indépendamment** : la 1.1 sur le tag `v1.1-original`, la 1.2
+Les six versions restent **téléchargeables indépendamment** : la 1.1 sur le tag `v1.1-original`, la 1.2
 sur la branche `v1.2-ameliorations` (tag `v1.2`), la 1.3 sur le tag `v1.3`, la 1.4 sur `main` — **aucun tag
-1.4 n'existe** — et la 1.5 sur `main` (tag `v1.5`). Aucune version n'est supprimée ni réécrite.
+1.4 n'existe** — la 1.5 sur `main` (tag `v1.5`) et la 1.6 sur `main` (tag `v1.6`).
+Aucune version n'est supprimée ni réécrite.
 
-**Branche par défaut du dépôt : `main`** — elle porte la **1.5 Aegis-Sec, publiée** (tag `v1.5`). La
-**1.4 Aegis reste préparée et non publiée** (aucun tag) : elle ne sera taguée qu'après ses deux bloqueurs
-(voir §10), reportés en issues connues de la 1.5. La version stable publiée antérieure reste la **1.3**
-(tag `v1.3`).
+**Branche par défaut du dépôt : `main`** — elle porte la **1.6 « Aegis-Sec+ », publiée** (tag `v1.6`),
+précédée de la **1.5 Aegis-Sec** (tag `v1.5`). La **1.4 Aegis reste préparée et non publiée** (aucun
+tag) : elle ne sera taguée qu'après ses deux bloqueurs (voir §10), reportés en issues connues de la 1.5.
+La version stable publiée antérieure reste la **1.3** (tag `v1.3`).
 
 ### Installation rapide (1.3)
 
@@ -186,21 +189,28 @@ modèles et paramètres rejetés), **RAG** (8200, index vectoriel du second cerv
 connaissances, **7 notebooks**, local seulement). **Wazuh** complète la pile côté sécurité : API
 manager `127.0.0.1:55085` (remap du 55000, cf. §8) et indexer `0.0.0.0:9200`.
 
-**Supervision.** Un **seul gateway multiplexé** sert **trois des quatre profils** : la tâche Windows
-`Hermes_Gateway` lance le gateway du profil `default`, et `gateway.multiplex_profiles: true`
-(`config.yaml`) fait servir les profils `watch` et `veille` par ce même processus — il n'existe
-**aucune** tâche `Hermes_Gateway_watch` ni `Hermes_Gateway_veille` séparée. Le profil `docs-writer`
-n'est pas servi par le gateway : c'est un profil de rédaction en ligne de commande, sans canal de
-messagerie. La tâche
-`Hermes_Gateway_HealthCheck` (toutes les 5 minutes) vérifie que le gateway est vivant (PID **et**
-commande `gateway run` — un PID recyclé ne compte pas), le relève par `Start-ScheduledTask`, alerte
-sur Telegram **uniquement sur transition d'état** et écrit une ligne `[battement]` par heure dans
-`logs/gateway-health.log`, ce qui donne un historique de disponibilité sur 24 h.
+**Supervision** (mesuré le 08/10/2026, gateway non redémarré). Un **seul gateway multiplexé** sert les
+**cinq profils** : la tâche Windows `Hermes_Gateway` lance le gateway du profil `default` —
+`hermes gateway status` rend `Gateway process running (PID: 11700)` — et
+`gateway.multiplex_profiles: true` (`config.yaml`) fait servir les profils `docs-writer`, `security`,
+`veille` et `watch` par ce même processus : il n'existe **aucune** tâche `Hermes_Gateway_docs-writer`,
+`Hermes_Gateway_security`, `Hermes_Gateway_watch` ni `Hermes_Gateway_veille` séparée. Mesure :
+`hermes profile list` rend les cinq profils et les cinq sont `running` ;
+`hermes -p {docs-writer,security,veille,watch} gateway status` répond « Gateway is running via the
+default-profile multiplexer » et renvoie sur « ✓ default — PID 11700 » — un seul processus `python.exe`
+de gateway sur la machine, cinq configurations de profil. `gateway.scale_to_zero.idle_timeout_minutes:
+5` : un profil au repos est déchargé sans quitter le multiplexeur. La tâche `Hermes_Gateway_HealthCheck`
+(toutes les 5 minutes ; dernier passage mesuré 08/10 17:55, suivant 18:00) vérifie que le gateway est
+vivant (PID **et** commande `gateway run` — un PID recyclé ne compte pas), le relève par
+`Start-ScheduledTask`, alerte sur Telegram **uniquement sur transition d'état** et écrit une ligne
+`[battement]` par heure dans `logs/gateway-health.log`, ce qui donne un historique de disponibilité
+sur 24 h.
 
-> **Note — multiplexage des profils.** Les profils `watch` et `veille` sont servis par le
-> multiplexeur du gateway `default` (`config.yaml` → `gateway.multiplex_profiles: true`) : un seul
-> processus gateway, trois configurations de profil, un seul point de supervision. Ne pas recréer une
-> tâche de gateway par profil — un second gateway sur le même bot Telegram se neutralise.
+> **Note — multiplexage des profils.** Les profils `docs-writer`, `security`, `veille` et `watch` sont
+> servis par le multiplexeur du gateway `default` (`config.yaml` → `gateway.multiplex_profiles: true`) :
+> un seul processus gateway (PID **11700**), cinq configurations de profil, un seul point de
+> supervision. Ne pas recréer une tâche de gateway par profil — un second gateway sur le même bot
+> Telegram se neutralise.
 
 **Cadence métier.** Le job cron `veille-hebdo` du profil `veille` part le lundi à 08h00, produit un
 document SiYuan daté et le livre sur Telegram.
@@ -219,7 +229,9 @@ document SiYuan daté et le livre sur Telegram.
 ├── profiles\
 │   ├── watch\                   config.yaml + .env.example + skills\ du profil watch
 │   ├── veille\                  config.yaml + .env.example + skills\ du profil veille
-│   └── docs-writer\             config.yaml + .env.example (profil de rédaction, sans bot)
+│   ├── docs-writer\             config.yaml + .env.example (profil de rédaction, sans bot)
+│   └── security\                config.yaml + .env.example (profil de sécurité)
+├── plugins\                     plugins locaux du runtime : anima-memoire-router (hook pre_llm_call)
 ├── scripts\                     automatisations du runtime (healthcheck, tâches, A2A, vérification)
 ├── cron\                        jobs du profil default et leur historique d'exécution
 ├── gateway-service\             lanceurs VBS des gateways (démarrage masqué, hors Job Object)
@@ -231,6 +243,7 @@ document SiYuan daté et le livre sur Telegram.
     ├── architecture_2_agents.md décision d'architecture du pair local
     ├── CHANGELOG-v1.4.md        changelog de la 1.4 Aegis (préparée, non publiée)
     ├── CHANGELOG-v1.5.md        changelog de la 1.5 Aegis-Sec (publiée)
+    ├── CHANGELOG-v1.6.md        changelog de la 1.6 Aegis-Sec+ (publiée)
     ├── CHANGELOG-v1.4-draft.md  post-mortem de la production du volet 6 (document de travail)
     ├── README.md                rôle du dossier docs et notes de fusion
     ├── RAPPORT_*.md             rapports de session
@@ -422,10 +435,13 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
 - **Visibilité** : le dépôt est **public** depuis le 22/09/2026, après audit complet de l'historique
   (`scan_secrets_history.py`, historique purgé par `git filter-repo` le 21/09). Le dépôt ne contient
   aucune valeur de secret, ni dans les fichiers suivis, ni dans les commits passés.
-- **ACL des `.env` (couche Aegis)** — les quatre fichiers de secrets (`default`, `watch`, `veille`,
-  `docs-writer`) portent exactement **3 ACE non héritées** : `Système(F)` · `Administrateurs(F)` ·
-  `searc(F)`. La ACE héritée `CodexSandboxUsers:(I)(RX)` — posée par un outil tiers, qui laissait un
-  groupe applicatif lire les secrets — a été retirée des quatre :
+- **ACL des `.env` (couche Aegis)** — les **cinq** fichiers de secrets (`.env` du profil `default`,
+  puis `watch`, `veille`, `docs-writer` et `security`) portent exactement **3 ACE non héritées** :
+  `Système(F)` · `Administrateurs(F)` · `searc(F)`. La ACE héritée `CodexSandboxUsers:(I)(RX)` — posée
+  par un outil tiers, qui laissait un groupe applicatif lire les secrets — a été retirée des cinq. Un
+  profil créé **après** le durcissement ré-hérite la ACE du dossier parent : re-mesurer les `.env`
+  après toute création de profil (`icacls "<profil>\.env"` → 3 `(F)`, 0 `(I)`) — le détail et la
+  correction sont dans `skills/devops/security-ops` (couche Aegis) :
   ```powershell
   icacls "<fichier>.env" /inheritance:r /grant:r "Système:(F)" "Administrateurs:(F)" "%USERNAME%:(F)"
   ```
@@ -445,6 +461,15 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
   **54985-55084** (mesuré : `netsh int ipv4 show excludedportrange protocol=tcp`) : le port est
   **remappé** juste au-dessus plutôt que forcé (`"127.0.0.1:55085:55000"`). Preuve de vie de l'API :
   `curl -sk -X POST "https://localhost:55085/security/user/authenticate?raw=true"` → **200 + un jeton d'API** (préfixe `ey`).
+- **Plus aucun lien cassé dans les références de skills** — les **4 références signalées cassées en
+  1.5** (absentes du dépôt alors que les `SKILL.md` les citaient) sont désormais versionnées, chemins
+  en clair : `skills/devops/security-ops/references/wazuh-security-audit.md`,
+  `skills/devops/security-ops/references/wazuh-securite-corrections.md`,
+  `skills/devops/security-ops/references/certificat-api-wazuh.md`,
+  `skills/autonomous-ai-agents/hermes-agent/references/verifier-un-plugin-tiers.md`. Contrôle :
+  `git cat-file -e HEAD:<chemin>` doit réussir pour chacune des quatre. Les deux fichiers que ces
+  mêmes skills citent (`scripts/verifier-acces-dacl.py` dans `devops/hermes-install-troubleshooting`,
+  `templates/elevated_child.ps1` dans `devops/wazuh-agent-lifecycle`) sont versionnés avec elles.
 - **Règle** : avant toute modification de la visibilité (public → privé ou l'inverse), rejouer
   `python docs/scripts/scan_secrets_history.py --repo .` et vérifier 0 occurrence. Un dépôt n'est pas
   un coffre : tout ce qui entre reste dans l'historique.
@@ -470,6 +495,7 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
 | `docs\ARCHITECTURE_AEGIS.md` | architecture de la 1.4 « Aegis » : les **4 couches** (profils, routage, cerveau, sécurité), principes directeurs, limites connues et contournements, commandes de vérification |
 | `docs\CHANGELOG-v1.4.md` | changelog de la 1.4 (préparée, non publiée) : sécurité et ACL, Wazuh, JEV, Laya, skills, RAG, dépendances, bloqueurs B1/B2 |
 | `docs\CHANGELOG-v1.5.md` | changelog de la 1.5 (publiée) : profil security, gateway 5 profils, ancrage du motif `sk-key`, faux positif corrigé, bloqueurs B1/B2 reportés |
+| `docs\CHANGELOG-v1.6.md` | changelog de la 1.6 (publiée) : les 4 références signalées cassées en 1.5 versées (liens morts clôturés), plugin `anima-memoire-router` 0.2.0 publié, mesures ACL/Wazuh/sondes capitalisées dans les skills |
 
 ### Voir aussi
 
@@ -478,6 +504,7 @@ pas un vrai abort ; `a2a_orchestrate(mode="best")` renvoie la réponse **la plus
 - [`docs/ARCHITECTURE_AEGIS.md`](docs/ARCHITECTURE_AEGIS.md) — architecture de la 1.4 en 4 couches
 - [`docs/CHANGELOG-v1.4.md`](docs/CHANGELOG-v1.4.md) — changelog de la 1.4 (préparée, non publiée)
 - [`docs/CHANGELOG-v1.5.md`](docs/CHANGELOG-v1.5.md) — changelog de la 1.5 (publiée)
+- [`docs/CHANGELOG-v1.6.md`](docs/CHANGELOG-v1.6.md) — changelog de la 1.6 (publiée)
 - [Wiki du dépôt](../../wiki) — accueil, installation 1.2, améliorations détaillées, migration
   depuis la 1.1, archives 1.1, FAQ
 

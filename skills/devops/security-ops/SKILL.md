@@ -28,7 +28,42 @@ Audit de securite systeme et depannage de la stack Wazuh. Les skills proteges `s
 
 - Fichiers cibles, procedure de scan, cron hebdomadaire.
 - Limites du scanner et pieges rencontres.
-- Un hit `sk-*` se qualifie par son alphabet avant tout verdict : majorite de minuscules + tirets et aucun chiffre ni majuscule = fragment de mot, jamais une cle. Exiger au moins un chiffre ou une majuscule, ou ancrer par frontiere de mot.
+- **Un hit de scanner se qualifie AVANT tout verdict, et le verdict n'est pas binaire.** Ordre qui marche :
+  1. caracteriser la valeur SANS jamais l'afficher (longueur exacte, alphabet : minuscules / majuscules /
+     chiffres / tirets, prefixe de 8 caracteres au plus). Un `sk-*` majoritairement minuscule, a tirets et
+     sans un seul chiffre ni majuscule n'est pas une cle mais un fragment de mot : le motif `sk-` nu mord
+     dans `delegate-task-concurrency-...`. Corriger la CAUSE au niveau du scanner (frontiere de mot, ou
+     exiger un chiffre / une majuscule), pas le fichier signale.
+  2. compter les occurrences (fichier courant ET historique complet) et dire si la chaine est versionnee.
+  3. etablir l'ATTEIGNABILITE distante avant de parler d'urgence : un blob ne s'interroge pas par
+     `git branch -r --contains <blob>` (la commande veut un COMMIT) — passer par
+     `git log --all --format=%H --find-object=<blob>`, puis `git branch -r --contains <commit>` et
+     `git tag --contains <commit>`. Completer par la visibilite du depot
+     (`gh repo view <owner>/<repo> --json visibility`) : elle change la SEVERITE, pas la methode.
+  4. rendre le verdict nomme (placeholder / chaine reelle jamais poussee / chaine reelle deja sur le
+     distant) et proposer la correction sans l'executer. Le sha tronque affiche par le scanner peut etre
+     celui du BLOB du fichier et non celui de la valeur : le dire avant de conclure.
+- **Un durcissement d'ACL ne se propage PAS au profil cree ensuite.** Le pass precedent avait ramene les
+  `.env` existants a 3 ACE non heritees ; le `.env` du profil cree apres portait **4 ACE toutes
+  heritees**, dont le groupe applicatif (`CodexSandboxUsers:(I)(RX)`) que ce pass avait justement retire
+  des autres. Apres toute creation de profil, remesurer chaque fichier de secrets :
+  `icacls "<profil>\.env"` doit rendre 3 ACE non heritees (`Systeme(F)`, `Administrateurs(F)`,
+  `<utilisateur>(F)`) et 0 `(I)` ; correction = `icacls "<f>" /inheritance:r /grant:r ...`. Enumerer les
+  fichiers par le DISQUE (`profiles/*/.env` plus la racine), jamais par le README ni par un document de
+  version : ils ne citent que les profils qui existaient a leur redaction, et c'est exactement par la
+  qu'un nouveau profil passe entre les mailles.
+- **Compter les ACE sur la sortie BRUTE d'`icacls`, jamais par un filtre indirect.** Un comptage filtre
+  (`Select-String` sur `(F)|(I)`) a rendu une ACE la ou il y en a trois : `icacls` imprime la premiere ACE
+  sur la MEME ligne que le chemin, et l'indirection de quoting mange le motif. Une sonde qui rend un
+  compte plus petit que la sortie brute est une sonde cassee, pas une ACL correcte — relire les lignes
+  brutes avant de conclure.
+- **Le durcissement d'un `.env` est une ACL de FICHIER : le dossier parent n'est pas couvert, et une
+  operation d'ACL ulterieure sur l'arbre peut l'ANNULER.** Un `/reset` (ou un `/inheritance:e`) ramene
+  l'heritage : le `.env` repasse a 4 ACE heritees et le groupe applicatif qu'on venait de retirer
+  redevient lecteur du secret. Tout fichier NOUVEAU cree dans le dossier (`config.yaml`, sauvegarde de
+  `.env`, copie de secours) re-herite la ACE du parent. Consequence : re-mesurer les `.env` APRES toute
+  ecriture d'ACL portant sur les profils, et traiter le DOSSIER — pas seulement ses fichiers — quand
+  c'est la re-heritage qu'on veut fermer.
 
 Voir `references/security-audit.md` (214l, decoupee en refs par H2).
 

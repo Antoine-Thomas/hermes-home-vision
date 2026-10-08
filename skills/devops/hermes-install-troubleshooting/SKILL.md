@@ -331,6 +331,9 @@ sous `tools\` et `plugins\`, pas le code ni le python.
   `Fichier introuvable` (exit 1, PAS `Acces refuse`) et `icacls`/`listdir` repondent `chemin
   introuvable` (WinError 3). Prouver l'existence par `if exist` (cmd) ou un vrai essai d'ouverture,
   jamais d'un `dir` seul — et ne jamais rapporter « fichier inexistant » sur cette base.
+  Meme conclusion fausse par un autre chemin : un chemin MSYS (`/c/Users/...`) passe a un **Python natif**
+  rend `FileNotFoundError` (chemin non resolu) et masque l'erreur reelle — convertir par `cygpath -w`
+  AVANT de tester l'ouverture, sinon une DACL vide se lit « fichier absent ».
 - **Lire la DACL, pas le fichier** : `Get-Acl` -> `AreAccessRulesProtected` (heritage coupe) + les ACE
   par SID. Forme cassee mesuree sur ce parc :
   `D:P(A;OICI;FA;;;OW)(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)` = OWNER RIGHTS (S-1-3-4) + SYSTEM +
@@ -412,6 +415,19 @@ Réparation si cassé :
 takeown /f <dir> /r /d O      (attention : O majuscule sur Windows FR)
 icacls <dir> /reset /T /C
 ```
+
+Toujours d'abord sur un **DOSSIER TEMOIN** (scratch, deux ou trois fichiers et un sous-dossier) :
+y reproduire l'ecriture, la verifier par l'ACCES et par le compte d'ACE, et ne toucher l'arbre reel
+qu'apres. Le temoin tranche la forme et le mecanisme en deux commandes : sur un FICHIER,
+`/grant:r "X:(OI)(CI)(F)"` laisse le chemin affiche SANS aucune ACE (fichier illisible), alors que la
+meme commande sur le DOSSIER reussit ; et un dossier protege par `(OI)(CI)` fait heriter les 3 ACE (et
+pas celles du parent) a tout fichier cree ensuite — c'est cette derniere mesure qui prouve que la
+re-heritage du groupe applicatif est fermee.
+
+Un `icacls <dir> /T > dump.txt` est au format d'AFFICHAGE : il sert de constat avant/apres, **pas**
+d'artefact de restauration. Le retour arriere utilisable est `/reset` (heritage du parent intact) ; la
+seule sauvegarde rejouable est `icacls <dir> /save <fichier>` (relue par `/restore`). Dire lequel des
+deux on detient AVANT d'annoncer un rollback.
 
 ## Supporting files
 
