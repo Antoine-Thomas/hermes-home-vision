@@ -1,7 +1,7 @@
 # Changelog — Version 1.6 « Hermes Aegis-Sec+ »
 
 > **Statut : publiée.** Tag annoté `v1.6` sur `main` (posé dans le même commit que ce changelog).
-> La version **publiée** antérieure reste la **1.5 « Aegis-Sec »** (tag `v1.5` → `3be8041`).
+> La version **publiée** antérieure reste la **1.5 « Aegis-Sec »** (tag annoté `v1.5`, objet `3be8041` → commit `8f15b6c`).
 > Toutes les valeurs ci-dessous sont **mesurées le 08/10/2026** sur la machine d'origine
 > (`%LOCALAPPDATA%\hermes`, Windows 11 natif), avec Hermes Agent **v0.21.6+131.g38880bd (2026.9.24)**,
 > upstream `38880bd2`, Python **3.11.16**. Dépôt `hermes-home-vision` (public), branche `main`,
@@ -128,8 +128,9 @@ contient pas de README** : la description ci-dessous vient de `plugin.yaml` et d
 
 - **Commit intermédiaire, déjà publié** : `7e459eb docs(skills): consigne le piège ACL (OI)(CI) sur
   fichier` — **+52/-1** sur `skills/devops/hermes-install-troubleshooting/SKILL.md`, poussé sur
-  `origin/main` **après** le tag `v1.5`. Le tag `v1.5` pointe `3be8041` ; `8f15b6c` est le commit de la
-  fonctionnalité 1.5. La 1.6 s'appuie sur cet état : **aucun commit n'est réécrit**.
+  `origin/main` **après** le tag `v1.5`. Le tag annoté `v1.5` (objet `3be8041`) pointe le commit
+  `8f15b6c` — même schéma que `v1.6` (objet `08c96712` → commit `93acef7`). La 1.6 s'appuie sur cet
+  état : **aucun commit n'est réécrit**.
 - **Durcissement des dossiers `profiles/` : reporté, hors périmètre 1.6.** Une opération d'ACL de masse
   sur l'arbre peut ré-ouvrir l'héritage des `.env`, et tout fichier **créé** ensuite dans un dossier
   ré-hérite la ACE du parent : fermer l'héritage au niveau des **dossiers** exige le **gateway arrêté**
