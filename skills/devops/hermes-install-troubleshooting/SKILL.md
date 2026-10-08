@@ -355,9 +355,36 @@ sous `tools\` et `plugins\`, pas le code ni le python.
   chaque objet ou aucun SID utilisable n'apparait, agrège par zone et publie `TOTAL_ANOMALIES=N`.
 - **Reparation** : `icacls "<dir>" /inheritance:e /grant "%USERNAME%:(OI)(CI)F" /T /C` — reactiver
   l'heritage suffit quand le parent porte encore `<utilisateur>:(OI)(CI)(F)` ; le verifier d'abord
-  (`icacls "<parent>"`) et n'ajouter l'ACE que s'il ne l'a pas.
+  (`icacls "<parent>"`) et n'ajouter l'ACE que s'il ne l'a pas. Sur un arbre MIXTE, preferer DEUX passes :
+  le dossier avec `(OI)(CI)(F)`, puis ses fichiers avec `(F)` seul — un grant qui porte des drapeaux
+  d'heritage est applique tel quel aux FICHIERS, ou ces drapeaux n'ont pas de sens.
+- **Une ecriture d'ACL de masse se prepare avant, jamais pendant** :
+  - **Inventorier les PROPRIETAIRES d'abord** (`Get-Acl -LiteralPath <objet>` -> `Owner`). Un objet dont le
+    proprietaire n'est pas l'utilisateur courant qui perd sa DACL (un `/inheritance:r` dont le grant
+    n'atterrit pas) devient IREPARABLE sans elevation : le droit implicite du proprietaire (READ_CONTROL +
+    WRITE_DAC) ne joue que pour lui. Prevoir des le depart le script de reparation ELEVE
+    (`takeown /f <dir> /r /d y` puis `icacls <dir> /reset` + `/reset /T /C`) au lieu de le decouvrir apres.
+  - **Ne pas propager sur un arbre dont des services tiennent les fichiers ouverts** (state.db, .lock, logs
+    du gateway) : ces objets sont ceux qui finissent casses, et le partage bloque ensuite la reecriture de
+    leur DACL. Arreter les detenteurs, ou les exclure et les traiter a part.
+  - **Verifier par l'ACCES, jamais par le bilan d'`icacls`.** `N fichiers correctement traites; echec du
+    traitement de 0 fichiers` ne prouve RIEN : un grant mal forme a vide des DACL sur la majorite d'un
+    arbre de 3188 objets en rapportant zero echec. Lancer `scripts/verifier-acces-dacl.py` sur tout l'arbre
+    AVANT et APRES, et comparer les deux compteurs.
+  - **Retour arriere = `/reset`, pas `/inheritance:e`.** `/reset` recalcule la DACL depuis l'heritage du
+    parent (etat d'origine quand le parent est intact) ; `/inheritance:e` seul AJOUTE l'heritage aux ACE
+    explicites deja posees et laisse la cible dans un etat hybride. `/reset` n'agit que la ou l'appelant
+    peut ecrire la DACL : le compte de ses echecs EST la liste des objets a reparer en eleve.
+  - **Annoncer le retour a l'etat anterieur comme une regression assumee** : restaurer les ACL remet
+    l'exposition d'origine (un groupe applicatif qui heritait de la racine re-herite de tout) et peut
+    annuler un durcissement de fichier valide plus tot. Le dire au present, avec la mesure.
 - **Ne pas reparer avant d'avoir identifie l'ECRIVAIN de la DACL** : le meme acteur reapplique la
   forme cassee au prochain install. Rapporter, puis attendre la validation avant tout `icacls` mutant.
+  L'ecrivain se trouve en REMONTANT les parents : `Get-Acl` sur chaque ancetre, et l'ACE qui porte
+  `inherited=False` est la source de tout ce qui est en dessous. Mesure de ce parc : une ACE explicite
+  posee sur `%USERPROFILE%\AppData` (groupe applicatif, `ReadAndExecute`) est heritee par TOUT l'arbre
+  sous lui, donc par `AppData\Local\hermes` et chaque profil — la corriger au niveau des sous-dossiers
+  ne traite que les branches qu'on a nommees, et la source continue de propager aux futures.
 - **Un update avorte laisse des enfants vivants qui continuent de muter l'arbre.** Mesure : pendant un
   diagnostic en lecture seule, un dossier de sauvegarde `.previous-python-*` et un `plugins\<nom>`
   presents a l'ouverture avaient disparu quelques minutes plus tard, avec des `python.exe` encore
@@ -365,6 +392,26 @@ sous `tools\` et `plugins\`, pas le code ni le python.
   conclure : un objet mesure present peut ne plus l'etre.
 - Signature SDDL, table sain/casse, recette de reproduction, perimetre et pistes ELIMINEES :
   `references/windows-acl-denied-tree.md`.
+
+## Piège ACL : (OI)(CI) sur un fichier = DACL vide
+
+Les drapeaux d'héritage (OI)(CI) ne sont valides que pour les DOSSIERS.
+Appliqués à un fichier avec /inheritance:r, la DACL devient vide, mais
+icacls rapporte « échec 0 » — trompeur.
+
+Forme correcte :
+```
+Dossiers : icacls <dir>  /inheritance:r /grant:r "X:(OI)(CI)(F)"
+Fichiers : icacls <file> /inheritance:r /grant:r "X:(F)"
+Ordre    : dossiers AVANT fichiers (les enfants héritent du parent)
+Contexte : gateway arrêté (fichiers verrouillés refusent la DACL)
+```
+
+Réparation si cassé :
+```
+takeown /f <dir> /r /d O      (attention : O majuscule sur Windows FR)
+icacls <dir> /reset /T /C
+```
 
 ## Supporting files
 
@@ -381,6 +428,10 @@ sous `tools\` et `plugins\`, pas le code ni le python.
   **killing ELEVATED background processes (foreground shell = access denied;
   use UAC `Start-Process -Verb RunAs`)**, and the MSYS single-slash flag pitfall.
 - `templates/retire-stale-venv.ps1` — copy-and-adapt PowerShell for putting a stale venv out of service: aborts while any process still uses it, renames reversibly, then verifies `hermes --version`, the PATH shim, `doctor` and the backend port.
+- `scripts/verifier-acces-dacl.py` — sonde d'ACCES a lancer avant/apres toute ecriture d'ACL de masse :
+ compte les objets que le jeton courant ne peut plus atteindre et classe chaque echec (`ACL` = refus
+ d'ACL, reparation elevee obligatoire / `USAGE` = fichier en cours d'utilisation / `ABSENT`). Le bilan
+ d'`icacls` ne vaut pas cette mesure.
  - `scripts/find-denied-tree.ps1` — scanne une racine et liste chaque objet dont la DACL ne donne aucun
  droit a un jeton NON ELEVE (DACL protegee, aucune ACE utilisable) ; agrege par zone et publie
  `TOTAL_ANOMALIES=N`. A lancer avant toute reparation d'un `WinError 5` sur l'arbre d'install.
