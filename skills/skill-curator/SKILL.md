@@ -180,6 +180,10 @@ a tourne recemment, jamais a le COMPTER.
 donne une *estimation* (« 6 references mortes »). Recompter sur disque, annoncer le nombre reel
 (4, 5 ou 7) et le detail par fichier. Ne jamais recreer un fichier pour retomber sur le chiffre
 annonce, et ne pas relancer l'audit pour le faire coller.
+   Corollaire : un « `Get-Content` renvoie PathNotFound » n'etablit pas qu'un dossier de skill est
+   vide ou casse — relire l'octet sur disque (`Path.read_bytes()`, taille, md5, BOM, CRLF) avant de
+   conclure. Mesure : un SKILL.md annonce casse faisait 19 120 octets, intact ; le diagnostic venait
+   de la commande de lecture, et une fusion a ete planifiee sur une panne inexistante.
 2. **Verifier que la skill est ACTIVE avant de juger une citation.** `_inventaire.json` peut lister
 une skill dont le dossier n'existe plus dans l'arbre actif (absorbee puis deplacee en `.archive/`) :
 ses citations remontent alors en faux positifs. Chemin actif absent = rien a corriger, le signaler
@@ -197,9 +201,31 @@ manquant dont le contenu serait a inventer -> retirer la citation.
 6. Apres reparation : reindexer le RAG (`data/rag`, voir la skill `rag-second-cerveau`) puis
 committer en citant les fichiers touches.
 
+## Placer une lecon dans la bibliotheque (dedoublonnage)
+
+Une lecon tiree d'une session se pose UNE fois, pas dans chaque skill qu'elle effleure. Ordre qui marche :
+
+1. **Inventorier ce qui a bouge avant d'ecrire** : `git status --porcelain` filtre sur `skills/` (+ `git
+diff --stat HEAD -- skills/`) — une session parallele a souvent deja ecrit la meme lecon (fichiers ` M`
+dont le mtime n'est pas celui de la session courante), et la fusionner vaut mieux que la redupliquer.
+2. **Chercher la lecon dans TOUTE la bibliotheque**, pas dans le seul dossier qui l'a fait naitre :
+`git grep -l "<motif>" -- '*.md'` sur un terme distinctif du mecanisme (nom de la fonction, du groupe, du
+parametre). Les fichiers qui traitent le meme sujet se listent ainsi en une commande.
+3. **Choisir UNE source de verite** : le skill dont la classe de tache EST ce sujet, et y mettre le detail.
+Les voisins qui ne font qu'effleurer le sujet recoivent **une ligne de renvoi**, jamais la copie.
+4. **Compter avant/apres** (`grep -c "<motif>" <fichier>`) et relire le diff : remplacer un doublon par un
+renvoi ne doit toucher aucun point voisin.
+5. **Rapporter le partage** : quelle file est la source, quels fichiers n'ont qu'un renvoi — c'est ce
+tableau que l'operateur valide avant le commit du lot.
+
 ## Pitfalls
 
-- Archive avant suppression — `hermes curator archive <name>` vers `.archive/` garde rollback ET supprime du re-seed; move manuel vers `_archive/` est inefficace (pas exclu, re-sémé) et casse les imports.
+- **Reecrire un SKILL.md long : `write_file` refuse si le fichier a ete lu avec une pagination**, meme quand la lecture a couvert tout le fichier (« was last read with offset/limit pagination »). Deux sorties : relire sans parametre `limit`, ou deplacer l'ancien fichier vers le backup puis ecrire le nouveau (aucun garde-fou sur un chemin inexistant). La deuxieme est preferrable : elle laisse une trace de la version d'avant.
+- **Controle d'integrite d'un decoupage en `references/` : decouper en unites, pas en lignes.** Une puce repliee sur plusieurs lignes doit etre rejointe (les continuations sont indentees), un paragraphe ne doit pas etre coupe a chaque ligne, et toute unite non exacte doit etre redecoupee phrase par phrase avant d'etre declaree manquante — sinon un decoupage correct remonte des dizaines de faux « paragraphe perdu ». Les separateurs `:` et `;` fabriquent aussi des fragments a filtrer.
+- **Avant de fondre un skill A dans un skill B, lire les renvois internes de A.** Une reference de A peut citer une regle qui ne vit que dans le SKILL.md de A (« see the 'do not declare failure early' rule in SKILL.md ») : archiver A sans porter cette regle dans B laisse un renvoi pendant. Cartographier les deux textes section par section AVANT d'ecrire, avec un statut par point (absorbe / a fusionner / a ajouter / conflit), et traiter deux textes qui donnent des mesures differentes du meme run comme un conflit a arbitrer, jamais comme un chiffre a corriger d'office.; move manuel vers `_archive/` est inefficace (pas exclu, re-sémé) et casse les imports.
+- **`hermes curator archive <name>` ne repare PAS un marqueur manquant** : sur un skill deja dans `.archive/` il repond `curator: skill '<nom>' not found` et n'ecrit rien dans `.curator_suppressed` (mesure : 0 occurrence apres l'appel). Pour rattraper un bundle archive sans marqueur (re-seed garanti au prochain `skills_sync`), ajouter le nom a la main dans `.curator_suppressed` — verifier l'absence avant d'ecrire, et comparer l'arbre avant/apres pour prouver qu'aucun skill n'a bouge.
+- **Un dossier `*.bak` cree a cote d'un skill est un skill ACTIF.** `mlops/lora-training.bak`, copie octet pour octet de `lora-training`, apparaissait `enabled` dans `hermes skills list` et dans l'index du prompt, avec la meme description que l'original ⇒ routage indecidable entre les deux. Ne jamais faire une « sauvegarde » par copie de dossier dans l'arbre actif : deplacer vers `.archive/` (+ marqueur) et garder la copie hors de `skills/`.
+- **Croiser « jamais vues » et `state == 'stale'` avant d'annoncer un compte.** Les deux ensembles different dans les deux sens (mesure : `view_count == 0` -> 27, `state == 'stale'` -> 28, intersection 3). Un rapport qui annonce 28 pour une operation qui traite 27 fait douter d'un resultat juste ; publier les deux chiffres et la definition retenue.
 - Vérifie le mtime 7 jours avant toute fusion/archivage — les skills protégées récentes échouent silencieusement si ignorées et forcent une restauration.
 - Backup d'abord, inventaire ensuite — sans `skills_backup_<TS>` vérifié, toute erreur de migration devient irréversible.
 - Ignore les globs et braces lors du check refs cassées — `references/*.md` n'est pas un fichier manquant.
