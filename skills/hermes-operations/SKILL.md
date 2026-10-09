@@ -148,6 +148,71 @@ Voir [references/verification.md](references/verification.md).
 
 Voir [references/memory-bookkeeping.md](references/memory-bookkeeping.md).
 
+## Archivage du profil watch et nettoyage post‑curateur
+
+When the background curator of the watch profile has archived skills (move to .archive/), you can commit the deletions and clean temporary files:
+
+1. **Pré‑vol** – verify that only the archived skills are staged for deletion:
+   ```bash
+   git status --porcelain -- profiles/watch/skills/ | grep '^ D' | wc -l   # should match number of archived files
+   find profiles/watch/skills/.archive/ -type f | wc -l                    # at least the archived count
+   git status --porcelain | grep '^ D' | wc -l                           # should equal the same number (no other deletions)
+   ```
+
+2. **Commit** – add the changes and commit with a message describing the archivage:
+   ```bash
+   git add -A -- profiles/watch/skills/
+   git commit -F /path/to/commit_msg.txt   # message LF, see template below
+   git push origin main
+   ```
+
+   Commit message template (LF):
+   ```
+   chore(profiles/watch): enregistre l'archivage curateur — X skills, Y fichiers
+
+   Le curateur d'arrière-plan du profil watch a archivé X skills en deux vagues :
+   - <date> : <list>
+   - <date> : <list>
+
+   Les fichiers ont été DÉPLACÉS vers profiles/watch/skills/.archive/ (move, contenu inchangé). Preuve : Y/Y sha256 avant = après selon le ledger du curateur (.curator_ledger.jsonl, Z actions archive, actor=curator).
+
+   Le contenu archivé n'est PAS celui de HEAD (A/B différents) : c'est la dérive runtime non‑committée qui a été archivée. HEAD porte la version du <date> (commit <hash>).
+
+   Aucune perte : version archivée sur disque + blobs git disponibles.
+
+   Le profil watch est intact (N profils running, gateway PID ####).
+   ```
+
+3. **Déplacer les filets** (backups) from cache/scratch to a safe location (e.g., backups_H_phaseB/):
+   ```bash
+   mkdir -p backups_H_phaseB/
+   mv cache/scratch/backup_*.tar.gz backups_H_phaseB/
+   mv cache/scratch/release_notes_*.md backups_H_phaseB/
+   # verify hashes unchanged
+   sha256sum backups_H_phaseB/backup_*.tar.gz backups_H_phaseB/release_notes_*.md
+   ```
+
+4. **Nettoyage du bruit** – remove temporary directories and files:
+   ```bash
+   rm -rf cache/scratch/wiki_verify/ cache/scratch/relecture_v13/ cache/scratch/typesafe-skills/ cache/scratch/acltest/
+   rm -f cache/scratch/commit_msg_*.txt cache/scratch/_pending_block.txt
+   # verify remaining items
+   ls cache/scratch/ | wc -l   # expected small number
+   du -sh cache/scratch/
+   ```
+
+5. **Vérification finale** – ensure no ghost files remain and gateway untouched:
+   ```bash
+   git status --porcelain -- profiles/watch/skills/ | wc -l   # should be 0
+   hermes gateway status   # confirm PID unchanged
+   ```
+
+**Pitfalls**
+- Never use `--force` when pushing; the commit should be a plain fast‑forward.
+- Do not touch curator internal files (.usage.json, .curator_*, .bundled_manifest).
+- Do not delete cache/uv/ (outside scope).
+- Always verify SHA256 before and after moving backups.
+
 ## References
 
 - `references/estop-matrix.md` — command matrix (Telegram vs CLI, aliases, what is/is-not gated).

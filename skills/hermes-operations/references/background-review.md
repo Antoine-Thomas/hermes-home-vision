@@ -38,3 +38,14 @@ session, fin d'heure, avant un push important) avec la preuve de stabilité de 3
 accepter la re-dérive. Une passe survenue pendant le gel se ramasse au gel suivant ; la voir réapparaître
 n'est pas l'échec du commit précédent.
 
+### Un skill archivé disparaît de l'arbre git — c'est un DÉPLACEMENT documenté
+
+`hermes curator archive <skill>` et la passe automatique (« auto: N marked stale, M archived ») **déplacent**
+le dossier du skill vers `<skills>/.archive/<skill>/` : l'entrée de ledger `action:"archive"` porte le **même
+`sha256`** dans `before` et `after`, et le run se résume dans `skills/.curator_state` (`last_run_summary`,
+`last_run_at`, `run_count`). Conséquence à ne pas prendre pour un incident : dans un arbre où `skills/` (ou
+`profiles/*/skills/`) est suivi par git, ces archivages apparaissent en ` D` — tout en restant invisibles
+comme copies, car `.archive/` est ignoré. Un fichier suivi qui disparaît **sans** entrée `archive` au ledger,
+lui, est un vrai incident. Procédure de preuve complète, script de croisement et pièges (ne jamais conclure
+par comparaison à `HEAD` : le contenu déplacé est de la dérive runtime, plus récente) : `windows-file-forensics`.
+
