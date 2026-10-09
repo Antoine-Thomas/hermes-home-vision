@@ -1,9 +1,9 @@
 {
-  "last_report_path": "C:\\Users\\searc\\AppData\\Local\\hermes\\profiles\\watch\\logs\\curator\\20260912-094911",
-  "last_run_at": "2026-09-21T19:29:47.673441+00:00",
-  "last_run_duration_seconds": 26.830617,
-  "last_run_summary": "auto: 24 marked stale, 33 archived",
+  "last_report_path": "C:\\Users\\searc\\AppData\\Local\\hermes\\profiles\\watch\\logs\\curator\\20261005-214939",
+  "last_run_at": "2026-10-05T21:49:39.573252+00:00",
+  "last_run_duration_seconds": 52.064514,
+  "last_run_summary": "auto: 13 marked stale, 10 archived; llm: skipped (consolidation off)",
   "last_run_summary_shown_at": "2026-09-04T14:05:28.365459+00:00",
   "paused": false,
-  "run_count": 11
+  "run_count": 13
 }
