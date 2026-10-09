@@ -424,6 +424,44 @@ meme commande sur le DOSSIER reussit ; et un dossier protege par `(OI)(CI)` fait
 pas celles du parent) a tout fichier cree ensuite — c'est cette derniere mesure qui prouve que la
 re-heritage du groupe applicatif est fermee.
 
+**Les ACE heritees ne sont pas stockees dans l'objet : elles se recalculent a la lecture depuis la
+chaine de parents.** Ce mecanisme explique les deux comportements qu'on croit contradictoires :
+`/inheritance:r` sur un DOSSIER retire la ACE `(I)` de tout son sous-arbre **sans toucher un seul
+enfant** (le durcissement est donc effectif des le dossier, avant la passe sur les fichiers — l'ordre
+« dossiers puis fichiers » sert a FIGER les fichiers en explicite, pas a propager) ; et un fichier dont
+TOUTES les ACE portent `(I)` n'est pas durci du tout, il ne fait que refleter son parent — n'importe
+quelle operation d'ACL sur un ancetre le change sans qu'on l'ait touche.
+**Verifier un durcissement par l'ABSENCE du marqueur `(I)`, jamais par le nombre d'ACE** : un fichier
+qui affiche « 4 ACE » se lit comme protege alors qu'aucune n'est explicite. Mesure : sur 5 fichiers de
+secrets, 3 lisaient 3-4 ACE **toutes heritees** (groupe applicatif de retour en lecture) quand 2
+portaient bien 3 ACE sans `(I)` — c'est la comparaison des DEUX formes qui a tranche, pas un compte.
+**Mesurer la PORTEE avant de durcir un dossier** : `find <dir> -mindepth 1 | wc -l` d'abord. Un dossier
+de profil pese quelques milliers d'objets ; la racine d'un home en porte des millions (`data/`, clone
+amont, venvs) — y appliquer `/inheritance:r` est une operation de service, pas une etape de
+durcissement, et la decision se prend sur ce compte, jamais sur la liste des chemins du plan.
+**Poser une ACE HERITABLE sur un dossier reecrit les ACE derivees de TOUT son sous-arbre, enfants
+existants compris** : le `icacls` sans `/T` n'y change rien, c'est l'OS qui propage des que la cible
+porte `(OI)(CI)`. « Je ne touche que ce dossier » est donc faux des qu'il a des descendants, et ce
+nombre d'objets n'est pas un garde-fou mais le COUT de l'operation — a traiter comme un sous-arbre
+entier, ou a ne pas toucher. Corollaire : un dossier cible inchange n'exclut pas que ses enfants aient
+deja ete reecrits (et inversement), l'ordre de parcours n'etant pas documente.
+- **Une propagation interrompue (shell tue, timeout) laisse un arbre HETEROGENE.** Ne jamais conclure
+  « rien n'a bouge » ni « tout est fait » depuis l'objet vise : mesurer branche par branche (`Get-Acl`
+  sur les dossiers, echantillon sur les fichiers) et publier le partage. Prouver l'ARRET par une
+  empreinte : hasher la liste des ACE d'un jeu FIXE de chemins, deux fois a quelques minutes d'ecart,
+  et comparer — sans cela « propagation finie » et « propagation en cours » se ressemblent.
+- **Un fichier qui resiste a la lecture : distinguer le VERROU de l'ACL en un test.** Ouvrir en lecture
+  seule (partage par defaut), puis en lecture avec partage lecture/ecriture : si la seconde reussit,
+  c'est un autre processus qui tient le fichier (`state.db`, `.lock` d'un service vivant) et l'ACL est
+  saine — ne pas « reparer » ce qui n'est pas casse. `UnauthorizedAccessException` sur les DEUX formes
+  est le seul signal d'ACL.
+- **Un objet a DACL illisible est peut-etre un etat PREEXISTANT, pas un degat de la passe en cours** :
+  l'attribuer seulement apres l'avoir vu dans une trace ANTERIEURE (un `find`/listing plus ancien qui
+  le signalait deja), jamais depuis la seule presence du symptome.
+**Les noms de principaux accentues (`Système`) s'ecrivent tels quels depuis bash** (le grant resout,
+`exit 0`) : leur accent ressort en mojibake a l'AFFICHAGE (page de code console) — cosmetique, le
+verdict est la relecture des ACE sur la sortie brute, jamais la ligne d'affichage.
+
 Un `icacls <dir> /T > dump.txt` est au format d'AFFICHAGE : il sert de constat avant/apres, **pas**
 d'artefact de restauration. Le retour arriere utilisable est `/reset` (heritage du parent intact) ; la
 seule sauvegarde rejouable est `icacls <dir> /save <fichier>` (relue par `/restore`). Dire lequel des

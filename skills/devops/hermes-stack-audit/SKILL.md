@@ -82,6 +82,7 @@ Le rapport valide, les corrections s'appliquent une par une, chacune avec sa pre
    (`scripts/verifier-acces-dacl.py`, skill `devops/hermes-install-troubleshooting`). Sans ces deux
    mesures, une propagation qui vide des DACL sur des objets dont l'utilisateur n'est pas proprietaire
    n'est ni detectable ni reparable sans elevation.
+   Voir aussi la PROPAGATION des ACE heritables sur tout un sous-arbre : `devops/hermes-install-troubleshooting/SKILL.md`, section ACL (source unique).
 2. **Construire le diff SUR UNE COPIE, jamais sur la cible.** Ecrire la version proposee dans
    `cache/scratch/`, puis `diff -u <original> <copie>` ; l'original reste intact tant que le diff
    n'est pas valide. Avant d'annoncer le diff, **compter l'occurrence du bloc a remplacer** et exiger

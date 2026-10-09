@@ -52,6 +52,7 @@ Audit de securite systeme et depannage de la stack Wazuh. Les skills proteges `s
   fichiers par le DISQUE (`profiles/*/.env` plus la racine), jamais par le README ni par un document de
   version : ils ne citent que les profils qui existaient a leur redaction, et c'est exactement par la
   qu'un nouveau profil passe entre les mailles.
+  Voir aussi la propagation des ACE heritables sur tout un sous-arbre : `devops/hermes-install-troubleshooting/SKILL.md`, section ACL (source unique).
 - **Compter les ACE sur la sortie BRUTE d'`icacls`, jamais par un filtre indirect.** Un comptage filtre
   (`Select-String` sur `(F)|(I)`) a rendu une ACE la ou il y en a trois : `icacls` imprime la premiere ACE
   sur la MEME ligne que le chemin, et l'indirection de quoting mange le motif. Une sonde qui rend un
