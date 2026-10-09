@@ -47,5 +47,7 @@ compilation, cf. `compilation-non-agentique.md`).
   le frontmatter est la source de verite machine, `contradictions.md` n'est que le
   registre lisible. Ne jamais ecraser une position : ajouter une section datee avec
   les deux positions et l'arbitrage, et incrementer `updated`.
+- **Reciprocite : verifier le bon sens.** La page citante A doit verifier que B liste A (et non que A figure dans sa propre liste) ; charger tout le frontmatter en une passe AVANT de tester, sinon les pages non encore lues remontent de faux « non reciproque ». Test minimal : `A.contradictions` contient B ET `B.contradictions` contient A.
+- **Compter les entrees du registre en ignorant l'exemple de format** du bloc ``` de tete : `contradictions.md.split('## Contradictions tranchees')[0].count('\n## [')` gonfle le total d'une unite.
 - Le job peut tourner DEUX fois dans la meme journee : la 2e entree de `log.md`
   porte la meme date que la 1re — preciser « second passage » dans le corps.
