@@ -127,19 +127,29 @@ revenir l'alias dans `eco`.
 reconstructive) et `scripts/probe_omniroute.py` (celui que le cron execute, additif + elagage).
 Patcher `scripts/` et le verifier par `grep -n "auto/" <fichier>` — un `patch` sur le mauvais fichier
 ne leve pas d'erreur explicite, il liste des suggestions sans rapport.
-**Une TROISIEME copie hors `AppData` peut remettre les `auto/*` dans `eco`.** Mesure 2026-09-21 :
+**Une TROISIEME copie hors `AppData` a deja remis les `auto/*` dans `eco` — FAIT HISTORIQUE.**
+Mesure 2026-09-21 :
 `Projets\hermes-home-vision\scripts\probe_omniroute.py` (copie de publication du home Hermes) contenait
 encore `auto/gemini` + `auto/zai` dans `CANDIDATES` (l. 59-60) ; sa relance manuelle a ecrit `eco` a
 12:01:57Z (`updatedAt`), remettant les 2 alias en tete. La version active ne peut PAS les retirer :
 l'elagage ne considere que les membres d'eco presents dans `CANDIDATES` ayant un statut terminal courant,
-et `auto/*` n'y figure plus. Verifier donc `grep -rn "auto/gemini" ~/Projets/*/scripts/` avant de conclure
-que le retrait a tenu ; le corriger des deux cotes si la copie sert de source de redeploiement.
-**CORRIGE le 2026-09-21 17:08** : la copie `Projets\hermes-home-vision\scripts\probe_omniroute.py` a ete
-rendue **identique octet pour octet** a la version active (`auto/best-free`, `auto/gemini`, `auto/zai`
-retires de `CANDIDATES`) ; backup `probe_omniroute.py.bak-20260921` a cote. Controle qui doit rester vrai :
-`diff <(sed 's/\r$//' $LOCALAPPDATA/hermes/scripts/probe_omniroute.py) <(sed 's/\r$//' ~/Projets/hermes-home-vision/scripts/probe_omniroute.py)` vide.
-Les deux fichiers sont en **LF** : editer en bytes, pas en `open(...,'w')` texte ; un `replace` cale sur `\r\n`
-matche 0 fois (assertion `count==1` obligatoire, sinon l'edition passe pour un no-op silencieux).
+et `auto/*` n'y figure plus. Verifier donc `grep -n "auto/" $LOCALAPPDATA/hermes/scripts/probe_omniroute.py`
+avant de conclure que le retrait a tenu — il n'y a plus qu'UNE copie a controler (voir ci-dessous).
+**CORRIGE le 2026-09-21 17:08** : la copie de publication avait ete rendue **identique octet pour octet**
+a la version active (`auto/best-free`, `auto/gemini`, `auto/zai` retires de `CANDIDATES`) ; backup
+`probe_omniroute.py.bak-20260921` a cote. L'invariant de comparaison a deux copies
+(`diff <(sed 's/\r$//' $LOCALAPPDATA/hermes/scripts/probe_omniroute.py) <(sed 's/\r$//' ~/Projets/hermes-home-vision/scripts/probe_omniroute.py)` vide)
+**n'a plus d'objet** depuis le 2026-10-09 : voir le fait historique ci-dessous.
+**La copie de publication `~/Projets/hermes-home-vision/` a ete SUPPRIMEE le 2026-10-09** (menage git :
+HEAD ancetre de `origin/main`, arbre propre, 0 fichier non suivi, aucune tache ne la citait ; les 2 objets
+orphelins qu'elle portait sont conserves dans l'archive). Archive de reference :
+`cache/scratch/backup_clone_Projets_20261009.tar.gz`, sha256
+`3f04e167a7bd97c8432c22ab17b835a8e7682182bf4e8369d3eb69899fa1a202` (12 Mo, 4046 entrees, `tar -tzf` relu
+en entier). Il n'existe donc PLUS qu'UNE copie : `$LOCALAPPDATA/hermes/scripts/probe_omniroute.py`, celle
+que `cron/jobs.json` execute (job `5c9dd16aaa37`, `enabled=False`), sha256
+`51331bd3d6cc0d0772fa396cf1ac5e971a48559bbbd9eae39423278238d16252` (9412 o).
+**Editer ce fichier** : il est en **LF** — editer en bytes, pas en `open(...,'w')` texte ; un `replace` cale
+sur `\r\n` matche 0 fois (assertion `count==1` obligatoire, sinon l'edition passe pour un no-op silencieux).
 **Retirer les alias de la copie ne les sort PAS d'`eco`** (le script ne `PUT` que sur `changed`) : apres une
 relance de la copie, remettre `eco` a 3 cibles reelles par `PUT /api/combos/<ECO_ID>` avec le corps complet
 (`models` + `strategy: priority` + `config` repris de la lecture), apres backup du combo dans
