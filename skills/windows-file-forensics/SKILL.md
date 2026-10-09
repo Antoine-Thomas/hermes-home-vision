@@ -23,6 +23,8 @@ disparu entre 13:58:19 et 13:58:56, cause inconnue ».
 - Une mission lecture seule qui exige « cause identifiee ou hypotheses classees par probabilite, avec
   les preuves (fichier, ligne, log) ».
 - Un rapport anterieur affirme quelque chose sur un incident et il faut le verifier, pas le croire.
+- Un fichier suivi disparait du disque et apparait en ` D` dans `git status` (arbre de profil, `skills/`) :
+  prouver l'archivage avant de parler de perte.
 - Pour un audit de sante Hermes/Windows sans incident : `hermes-stack-audit`, `windows-ops`.
 
 ## Regles durables
@@ -47,7 +49,10 @@ disparu entre 13:58:19 et 13:58:56, cause inconnue ».
 - **Un chiffre annonce par un rapport anterieur se re-mesure contre la source, pas contre le rapport.**
   Un fichier d'etat annexe (jobs cron, index, caches) ne fait que grossir et garde ses entrees
   desactivees : deux comptes contradictoires peuvent etre tous deux vrais a leur date. Trancher par le
-  contenu (ensembles de noms, horodatages) et par les copies horodatees, jamais par le chiffre.
+  contenu (ensembles de noms, horodatages) et par les copies horodatees, jamais par le chiffre. Le
+  **perimetre** se re-mesure aussi : « skills/ hors index = 3 » peut etre exact ET laisser 81 suppressions
+  ailleurs dans l'arbre. Compter `git status --porcelain` par categorie (` M` / ` D` / `??`) avant
+  d'accepter un etat de depot annonce — un chiffre porte sur un sous-arbre, pas sur le depot.
 
 ## Procedure
 
@@ -72,6 +77,45 @@ disparu entre 13:58:19 et 13:58:56, cause inconnue ».
 9. **Rendre le rapport et s'arreter** : etabli / ecarte / hypotheses par probabilite decroissante,
    plus les risques residuels (durabilite de l'emplacement ou l'arbre a ete deplace). Redater l'etat
    de l'arbre AU MOMENT du rapport : un releve du debut de mission est un instantane, pas un constat.
+
+## Un ` D` dans git n'est pas une suppression : prouver l'archivage du curateur
+
+Un fichier suivi qui disparait du disque se lit ` D` dans `git status`. Dans un arbre de profil Hermes, la
+cause la plus frequente n'est PAS une suppression : le curateur d'arriere-plan ARCHIVE un skill en le
+DEPLACANT vers `<skills>/.archive/<skill>/`. Rien n'est detruit, mais git ne voit que la disparition.
+Preuve, dans cet ordre, avant toute restauration :
+
+1. **Le dossier d'arrivee existe-t-il ?** Lister `<skills>/.archive/` et ses dossiers dates (mtime du
+   jour des vagues d'archivage), compter ses fichiers.
+2. **Le ledger documente-t-il le deplacement ?** `.curator_ledger.jsonl` porte des entrees
+   `action:"archive"`, `actor:"curator"`, avec une paire `before[]`/`after[]` de `{path, sha256}`. Un
+   deplacement authentique a le MEME sha256 avant et apres, et le chemin d'arrivee existe sur disque
+   avec ce sha.
+3. **Croiser programmatiquement** les chemins ` D` avec le ledger : couverts / fichier d'arrivee
+   present / sha identique. Attendre N/N et nommer tout ecart. `scripts/prouver-archivage-curateur.py`
+   fait ce croisement (code de sortie 3 au premier ecart).
+4. **Corroborer par le resume du run** dans `<skills>/.curator_state` : `last_run_summary` annonce le
+   nombre d'archivages (« auto: N marked stale, M archived »), `run_count` et `last_run_at` donnent
+   l'historique.
+
+- **Ne jamais conclure par comparaison a HEAD.** La copie archivee differe presque toujours de
+  `git show HEAD:<chemin>`, et ca ne prouve RIEN : le contenu deplace est de la derive runtime non
+  committée, donc plus RECENTE que HEAD (mtime des sources anterieurs, contenu enrichi apres le dernier
+  commit du chemin). La reference qui prouve un deplacement est le couple `before`/`after` du ledger,
+  pas HEAD. Annoncer « N ecarts vs HEAD » sans le qualifier fait passer une derive pour une perte.
+- **Un arbre `profiles/*/skills/` peut etre a MOITIE dans git.** Une regle `.gitignore` sur
+  `profiles/*/skills/` n'arrete pas le suivi des fichiers deja indexes : les suppressions apparaissent en
+  ` D` alors que les copies `.archive/` (non suivies ET ignorees) ne produisent AUCUN `??`. Un
+  `git status -uall` sans fichier non suivi, alors que le disque en compte plus que l'index, est donc
+  normal : recompter par `find` + `git ls-files`, pas par `git status`.
+- **Le nom du skill n'est pas toujours a la position N du chemin.** Un skill a la racine de l'arbre (pas
+  de dossier de categorie) decale tout decoupage positionnel (`awk -F/`, `$4"/"$5`) et fabrique un faux
+  skill nomme d'apres le fichier. Extraire le nom en le comparant au dossier connu, jamais par index de
+  champ.
+- **Prouve ne veut pas dire committe.** Une fois le deplacement etabli, l'action proposee est un commit
+  unique qui nomme le ledger et les vagues (git cesse de porter des fichiers fantomes) ; la restauration
+  (`git checkout --`, qui remet la version de HEAD et recree l'ecart avec `.archive/`) est l'action
+  INVERSE, a proposer et non a decider.
 
 ## Pitfalls
 
@@ -114,3 +158,6 @@ suivante echoue sur son `cd` avant d'avoir tourne. C'est une preuve horodatee gr
 
 - `references/recettes-preuves.md` — commandes verifiees : journal USN (codes de raison, bornes),
   heures de creation, fenetres de mtime, ids d'evenements d'attribution, relecture de `state.db`.
+- `scripts/prouver-archivage-curateur.py` — croise les suppressions ` D` d'un arbre de profil avec
+  `.curator_ledger.jsonl` : couverture, existence de la destination, sha256 identique, et le contraste
+  explicite « vs HEAD » (derive, pas perte). Sortie 0 = deplacement prouve, 3 = ecart a nommer.
