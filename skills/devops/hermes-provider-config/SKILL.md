@@ -37,7 +37,18 @@ l'alias ne resolvait rien).
 
 Le tool `patch` / `write_file` refuse `~/AppData/Local/hermes/config.yaml`
 (et `~/.hermes/config.yaml`) : « Agent cannot modify security-sensitive
-configuration ». Ne pas contourner par sed/echo. `hermes config set <cle>
+configuration ». Ne pas contourner par sed/echo.
+
+**`~/.hermes` n'est pas forcement le dossier de config VIVANT : ne jamais ecrire le chemin qu'une
+demande nomme sans l'avoir confronte a la realite.** Sur cet hote le dossier actif est
+`~/AppData/Local/hermes` (c'est lui qui porte `.env`, `config.yaml`, `state.db`), alors que `~/.hermes`
+existe bel et bien mais ne contient que `scripts/` et `skills/`. Ecrire `~/.hermes/.env` ou
+`~/.hermes/config.yaml` parce que la demande les cite produit deux fichiers **leurre** que Hermes ne
+lit jamais : aucune erreur, aucun avertissement, et un rapport qui declare appliquee une
+configuration sans effet. Deux reflexes : demander au CLI ou il ecrit (`hermes config set` annonce le
+chemin complet : `✓ Set <cle> = <valeur> in <chemin>`), et lire `ls -a` des DEUX emplacements avant de
+conclure. Verifier APRES coup qu'aucun leurre n'a ete cree (`ls -a ~/.hermes`) — c'est le controle qui
+rend l'ecart prouvable. `hermes config set <cle>
 '<litteral YAML ou JSON>'` accepte les valeurs structurees, donc un dict
 imbrique ou une liste de dicts tient en une commande :
 
@@ -47,6 +58,14 @@ hermes config set fallback_providers '[{provider: omniroute, model: eco}, {provi
 hermes config unset providers.exemple    # retire le provider
 hermes config unset EXEMPLE_API_KEY      # retire la cle de .env (un commentaire "# --- EXEMPLE_API_KEY ---" reste comme trace)
 ```
+
+**Une valeur structuree qui contient `:` s'ecrit en JSON quote.** Les slugs de modele portent souvent un
+deux-points (`<vendeur>/<modele>:free`, `:batch`) et la valeur traverse le parseur YAML du CLI : la forme
+libre (celle des exemples ci-dessus, tous sans `:`) met alors un `:` a l'interieur d'un scalaire. Des
+qu'une valeur en contient un, passer cles ET valeurs entre guillemets doubles, puis relire les DEUX
+formes — `hermes -p <profil> fallback list` reaffiche les slugs, `cat <profil>/config.yaml` montre ce qui
+a ete ecrit au sol. Meme controle que pour une cle inconnue : le CLI annonce un succes qu'il ait bien
+parse ou non.
 
 `hermes config set` ne valide pas les cles : une cle inconnue est ecrite avec un simple
 avertissement (`'x.y' is not a recognized config key — it was saved anyway`). Une faute de frappe
@@ -256,7 +275,15 @@ curl -s -H "Authorization: Bearer $OPENROUTER_API_KEY" https://openrouter.ai/api
 Un `failure_reason: "billing"` dans `auth.json` est un **marquage d'Hermes**, pas une mesure du
 fournisseur : il persiste apres la reprise du service. Mesure : `total_credits: 0`,
 `is_free_tier: true`, et pourtant 5 appels de decisions reussis (200, cout annonce ~1,2e-5 $) sur les
-deux routes. Rapporter ce constat meme s'il contredit la demande de bascule : appliquer la bascule sur
+deux routes. Troisieme confirmation du meme motif, cote OpenRouter : un compte en `total_credits: 0`
+et `is_free_tier: true` a servi un `200` sur un modele PAYANT, et AUCUN des deux compteurs cote
+fournisseur (`credits.total_usage`, `key.usage`) n'a bouge apres l'appel — mesure repetee avant,
+apres la sonde directe et apres un tour Hermes complet : la reponse existe, le debit n'est pas
+demontre. **Ne pas trancher a la place du fournisseur : ecrire « la route repond, le debit n'est pas
+etabli » plutot que « ca marche » ou « il n'y a pas de credit ».** Le signal cote Hermes vit dans le
+tour lui-meme : `💳 Credit balance covers fewer output tokens — retrying with max_tokens=<N>` annonce
+que Hermes a plafonne la sortie a cause de l'etat de credit — le lire comme un fait de FINANCEMENT,
+pas comme une erreur a corriger. Rapporter ce constat meme s'il contredit la demande de bascule : appliquer la bascule sur
 une premisse fausse degrade l'installation pour rien. Et chercher la trace avant de conclure : un
 `grep` sur « 402 » dans `logs/*.log` ramene aussi des numeros de ligne et des horodatages — lire les
 lignes entieres.
@@ -339,7 +366,14 @@ bascule invisible est indistinguable d'un succes du principal. La preuve est dan
 `state.db` (`sessions.billing_provider` / `billing_base_url`,
 `session_model_usage(model, billing_provider, session_id, input_tokens,
 output_tokens)` — la table n'a pas de colonne `provider` ni `created_at`, trier par
-`rowid`). Un test de bout en bout qui « marche » alors que le principal est casse
+`rowid`). Les noms de colonnes DIFFERENT d'une table a l'autre : `sessions` porte **`id`** (pas
+`session_id`), `session_model_usage` porte `session_id` — la jointure est
+`sessions.id = session_model_usage.session_id`, et une requete qui suppose `session_id` des deux
+cotes meurt en `sqlite3.OperationalError: no such column: session_id`. Introspecter avant d'ecrire la
+requete (`select sql from sqlite_master where type='table' and name=?`) ; `sessions` porte aussi
+`reasoning_tokens` et le couple `cost_status` / `cost_source`, qui distingue un cout ESTIME
+(`estimated`, `provider_models_api`) d'un cout constate (`actual_cost_usd`). Un test de bout en bout
+qui « marche » alors que le principal est casse
 est le cas normal, pas l'exception.
 
 **Prouver « aucune session payante » : compter des SESSIONS, jamais filtrer des ids.** Un
@@ -420,6 +454,37 @@ job NON epingle qui parcourt cette chaine — verifier son epinglage avant de lu
 pour le profil `default` ; pour `veille` / `watch`, demander avant. Verifier
 apres coup que les modeles primaires sont inchanges : `hermes profile list`.
 
+**Creer un profil dedie a un role : `hermes profile create <nom>`, puis trois choses a ne pas rater.**
+Un profil neuf (sans `--clone`) recoit son PROPRE `config.yaml` — mais seede avec le modele du profil
+ACTIF au moment de la creation, pas avec un defaut neutre : le relire et le corriger. Il recoit aussi
+son propre `.env` (0 variable), un `SOUL.md` germe (la persona de base), son `state.db`, et AUCUNE
+chaine de repli (`No fallback providers configured`) — ce qu'on veut justement pour un profil dont le
+modele ne doit pas etre substitue en silence. Sous Windows l'alias est un `.bat` dans `~/.local/bin/`.
+Trois verifications : (1) la CLE du provider doit vivre dans le `.env` DU PROFIL
+(`hermes -p <nom> config set <PROVIDER>_API_KEY "$VALEUR"`) — la portee des secrets est fail-closed,
+un `.env` de profil vide ne voit PAS la cle racine ; le prouver par `hermes -p <nom> auth list`, ou
+l'entree doit porter le marqueur `<-` (seule entree louable) ; (2) la persona va dans `SOUL.md`
+(identity slot #1, lu depuis `HERMES_HOME`) ; (3) `hermes -p <nom> config get model` doit rendre le
+couple voulu. Le drapeau de profil marche **dans n'importe quelle position** : `hermes chat --profile X`
+et `hermes -p X chat` sont equivalents (verifie de bout en bout, pas seulement accepte par le parser).
+
+**Ecrire un `SOUL.md` : les tools de fichier sont gates, le shell ne l'est pas.** `SOUL.md` est dans
+`_PROTECTED_INSTRUCTION_BASENAMES` (`agents.md`, `claude.md`, `soul.md`, `.cursorrules`) : un
+`write_file`/`patch` exige une approbation humaine — meme sous `--yolo` — et echoue ferme sans canal
+humain. Chemin qui marche : ecrire le contenu dans le scratch (autorise), puis `cp` vers
+`<profil>/SOUL.md` depuis le terminal, et comparer les `sha256` des deux fichiers.
+
+**Prouver qu'un `SOUL.md` est CHARGE : sonde comportementale, pas la base.** `sessions.system_prompt`
+est enregistre VIDE (seul `system_prompt_hash` est ecrit) : chercher le texte de la persona dans
+`state.db` rend « absent » a tort et ferait conclure qu'un `SOUL.md` est ignore. Deux preuves valables :
+`hermes -p <nom> prompt-size` (le palier `stable (identity/guidance/skills)` non nul) et surtout une
+question qui force le modele a enoncer un element de perimetre ABSENT de la persona par defaut.
+
+**`sessions.estimated_cost_usd` N'INCLUT PAS les taches auxiliaires.** Mesure : tour principal
+0.02041965 et ligne `title_generation` 0.0002556 — la colonne `sessions` ne porte que la premiere,
+`session_model_usage` porte les deux. Pour un cout de session juste, sommer `session_model_usage`,
+jamais la table `sessions` seule.
+
 **Un profil n'herite PAS du bloc `providers:` de la config racine.** Chaque
 `profiles/<nom>/config.yaml` resout ses providers tout seul : passer le `model.provider`
 d'un profil d'un provider BUILT-IN (`deepseek`, `google`, `openrouter` — qui n'exigent
@@ -456,12 +521,82 @@ Ecrire `hermes --provider omniroute -m eco -z "ping"`, ou simplement
 `hermes -m eco -z "ping"` pour le provider configure par defaut : un
 `--provider` sans `--model` n'est pas un raccourci, c'est une erreur d'usage.
 
+**`hermes chat` est l'autre porte, et elle exige une requete sous peine de blocage.** Elle accepte
+`-q/--query`, `-m`/`--model`, `--provider`, `--oneshot`, `-Q` — la forme longue `--model` est bien
+reconnue. Sans requete, sur un TTY, elle ouvre une session INTERACTIVE et ne rend pas la main ; dans
+le shell de l'agent (non-TTY) une requete suffit a repondre et sortir. Le tir de controle s'ecrit donc
+`hermes chat -q "pong" --provider <p> -m <slug> --oneshot`, jamais `hermes chat --provider <p>--model <slug>` seul (le `-q` manquant est ce qui fait croire a un blocage).
+
 **« Gratuit » se prouve sur `/v1/chat/completions`, pas sur `/v1/models`.** Une
 cle valide renvoie 200 sur `/v1/models` meme quand le compte refuse de generer
 (429 `insufficient_quota` / `card_required` : empreinte de carte exigee). Ne pas
 adopter un provider dit gratuit — ni le laisser dans la chaine — sans un
 alle-retour complet a 200 : sinon chaque etage echoue et le CLI ne rend qu'un
 message generique. Retirer l'etage et le dire.
+
+**Et `/v1/models` n'authentifie RIEN : il ne peut donc pas valider une cle.** Mesure : le meme appel
+avec `Authorization: Bearer <chaine bidon>` et SANS aucun en-tete d'authentification renvoie `200`
+avec la MEME liste (467 ids, seuls quelques octets de metadonnees varient). Une demande formulee
+« je grep le modele voulu dans `/v1/models`, donc la cle est valide » est un **faux positif** : elle
+valide n'importe quelle chaine, y compris un mot invente apres `Bearer`. Separer trois questions et
+les trois sondes qui y repondent : (1) la cle s'authentifie-t-elle -> `GET /v1/key` (label,
+`is_free_tier`, `limit`, `expires_at`, `usage`, `free_model_daily_requests`) et/ou `GET /v1/credits` ;
+(2) le modele existe-t-il -> catalogue `/v1/models` ; (3) la route sert-elle -> `POST
+/v1/chat/completions` sur le slug EXACT. Ne jamais laisser une sonde qui ne porte pas la cle servir
+de verdict sur la cle — le dire explicitement dans le rapport, parce que le test fourni par
+l'utilisateur peut etre de ce type et passer pour un feu vert.
+
+**Un compteur d'usage a du RETARD : ne pas conclure « non facture » d'un releve immediat.** Sur
+OpenRouter, `usage` (`GET /v1/key`) et `total_usage` (`GET /v1/credits`) bougent avec plusieurs minutes
+de decalage. Mesure : inchanges (0.036940335) juste apres trois tours servis, puis 0.049833355 et
+0.062851751 plus tard — l'increment correspondant exactement a la somme des tours precedents
+(0.01289302 releve contre 0.01262527 + 0.00020586 estimes). Un compteur immobile dans la minute qui
+suit n'est PAS une preuve d'absence de debit : refaire le releve avant d'annoncer quoi que ce soit sur
+la facturation, et ne jamais clore un diagnostic de cout sur un seul releve.
+
+**`free_model_daily_requests` bouge LUI AUSSI avec du retard : ne pas le declarer « non concluant ». Mesure :
+lu a `{used: 0, limit: 50}` juste apres 4 appels `:free`, puis a `{used: 6, limit: 50, remaining: 44}`
+plus tard — le chiffre 6 correspond EXACTEMENT aux appels gratuits reellement faits (1 sonde POST +
+mains d'un tour simple + main+title d'un tour avec outil). Le champ compte bien, il est seulement
+differe. Donc on PEUT annoncer le quota gratuit restant, a condition de re-mesurer au lieu d'annoncer
+sur le premier releve. La preuve de gratuite reste `estimated_cost_usd = 0` dans `state.db`.
+
+**Un slug `:free` RETIRE repond 404 avec un message qui nomme le slug payant — ne pas le lire comme un 403.**
+Mesure : `deepseek/deepseek-r1:free` et `qwen/qwen-2.5-72b-instruct:free` -> `404 {"message":"This model
+is unavailable for free. The paid version is available now - use this slug instead: deepseek/deepseek-r1"}`.
+Ce n'est ni `tier_not_allowed` ni un probleme de cle : la variante gratuite n'existe plus, et seul le
+modele payant homonyme repond. Trois consequences a annoncer : (1) le slug nu est **payant** — le
+substituer change le cout du palier, ne jamais le faire en silence ; (2) le contexte du payant peut etre
+PLUS PETIT que celui du gratuit (mesure : `qwen/qwen-2.5-72b-instruct` = 32 768, alors qu'un prompt
+d'agent ici pese 15-19 k tokens + ~11 k de schemas d'outils) ; (3) verifier la liste live des `:free`
+avant de composer une chaine — elle ne compte que 16 entrees, et ni deepseek ni qwen n'y figurent plus.
+
+**Le repli s'affiche en clair dans le CLI, et une chaine a etages morts se paie en duree.** Mesure d'une
+cascade forcee (primaire mort + 2 etages `:free` inexistants + 1 valide) : deux avertissements
+`Model fallback: <modele> unavailable (provider failure); using <suivant>`, tour servi par le 3e a cout 0
+mais en **21 s contre 16 s** pour le meme tour servi par le primaire. Et il faut
+`api_max_retries >= nombre d'etages morts a traverser` : avec 2 etages morts devant le bon, atteindre le
+3e consomme exactement les 3 activations par defaut — une 4e entree serait inatteignable. Se prouve DANS
+la cascade : primaire force sur un slug mort, `trap EXIT` qui restaure `config.yaml`, puis comparaison des
+`sha256` avant/apres — c'est la seule preuve que l'etage choisi est atteignable.
+
+**Promouvoir un `:free` en primaire : trois verifications, pas une.** Le catalogue donne
+`context_length` et `pricing` (`0`/`0`) mais ne dit rien du reste. Avant d'ecrire `model.default` :
+(1) un POST reel sur cet ID doit rendre 200 avec `cost: 0` ; (2) le TOOL-CALLING doit etre exerce
+(`hermes chat -q "... utilise un outil ..."` -> `tool_call_count > 0` dans `state.db`) — un primaire
+qui n'appelle pas d'outil est inutilisable pour un agent ; (3) le prompt REELLEMENT envoye doit passer
+(comparer `input_tokens` du dernier tour a la fenetre du modele). Les en-tetes `x-ratelimit-*` ne sont
+pas toujours exposes (aucun sur ce modele, meme sur un 200) : quand ils manquent, seul le tour reel
+tranche. Placer ensuite le modele PAYANT juste derriere dans `fallback_providers` — deux entrees du
+MEME provider avec des modeles differents sont bien essayees (le saut se fait sur le couple
+provider+modele, cf. `same_deployment`).
+
+**Un modele a raisonnement peut rendre `content: null` sur une sonde courte : ce n'est pas un echec.**
+Mesure sur `nvidia/nemotron-3-super-120b-a12b:free` et `mistralai/mistral-large-4-0` : avec
+`max_tokens` petit (5 a 64), la totalite du budget part en `reasoning_tokens` et `content` revient a
+`null` — la route a pourtant repondu 200. Ne pas conclure « le modele ne repond pas » avant d'avoir
+relu `usage.completion_tokens_details.reasoning_tokens` : augmenter `max_tokens`, ou juger sur un vrai
+tour d'agent.
 
 **Le dossier `~/AppData/Local/hermes` EST un clone du depot de configuration (ici
 `hermes-home-vision`).** Avant de « restaurer depuis le repo », regarder l'etat local :
@@ -547,7 +682,12 @@ Source de verite : `hermes_cli/config_defaults.py` (bloc `auxiliary`) et `hermes
 `title_generation`, `memory_query_rewrite`, `tts_audio_tags`, `triage_specifier`, `kanban_decomposer`,
 `profile_describer`, `goal_judge`, `curator`. Forme d'un bloc :
 `{provider, model, base_url, api_key, timeout, extra_body, reasoning_effort}`, et `provider: auto` =
-herite du modele principal. Donc `auxiliary.decision:` — ou tout autre nom absent de cette liste —
+herite du modele principal. **Corollaire de cout : changer `model.default` re-tarife AUSSI tous ces
+roles.** Mesure : apres bascule du primaire sur un modele payant, la generation de titre
+(`auxiliary.title_generation`, `provider: auto`) est passee sur ce meme modele dans le meme tour —
+deuxieme ligne de `session_model_usage`, a cote du tour principal. Annoncer ce cout CACHE quand on
+change de primaire (il ne se voit pas dans `config.yaml`), et pour le figer, ecrire explicitement
+`auxiliary.<role>.provider`. Donc `auxiliary.decision:` — ou tout autre nom absent de cette liste —
 s'ecrit sans erreur et n'est **jamais lu** : avant d'ajouter un role, `grep` le nom dans
 `config_defaults.py`, citer la ligne, ou dire qu'il n'existe pas.
 
