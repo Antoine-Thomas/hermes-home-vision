@@ -99,6 +99,10 @@ cur.execute("select id, session_id, role, tool_name, timestamp, content, tool_ca
   premier niveau), et rapprocher du listing d'origine lu dans la session.
 - Statut git de l'arbre concerne : `git check-ignore -v <chemin>` et `git ls-files <chemin> | wc -l`
   (0 = non versionne : aucune restauration par git, mais aucune perte de contenu versionne non plus).
+- **`check-ignore` sur un DOSSIER avec barre oblique finale peut mentir** : sur un `.gitignore` en CRLF
+  un dossier est ressorti « ignore » avec un motif vide sur une ligne quelconque, alors que ses fichiers
+  ne l'etaient pas. Verifier sur un FICHIER dedans (`git check-ignore -v <dossier>/<fichier>`) ou par
+  `git add --dry-run` avant d'ecrire dans le rapport qu'un arbre est ignore.
 - Les fichiers ecrits par un outil qui fait `write temp + rename` apparaissent comme deux
   enregistrements (`renommage ancien nom` sur `.hermes-tmp.*` puis `renommage nouveau nom`) : c'est le
   mode d'ecriture normal de l'agent, pas un evenement suspect.

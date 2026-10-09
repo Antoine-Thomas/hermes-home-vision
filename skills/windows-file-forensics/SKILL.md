@@ -70,7 +70,8 @@ disparu entre 13:58:19 et 13:58:56, cause inconnue ».
 8. **Rejouer ce qu'une session precedente a observe** quand un rapport anterieur est en cause
    (`state.db` en `mode=ro`) plutot que d'en discuter la formulation.
 9. **Rendre le rapport et s'arreter** : etabli / ecarte / hypotheses par probabilite decroissante,
-   plus les risques residuels (durabilite de l'emplacement ou l'arbre a ete deplace).
+   plus les risques residuels (durabilite de l'emplacement ou l'arbre a ete deplace). Redater l'etat
+   de l'arbre AU MOMENT du rapport : un releve du debut de mission est un instantane, pas un constat.
 
 ## Pitfalls
 
@@ -99,6 +100,15 @@ disparu entre 13:58:19 et 13:58:56, cause inconnue ».
   `data/*/backups/*/jobs.json` ; `enabled` + `state` sont la verite d'execution (`next_run_at`
   reste pointe sur l'heure suivante quand le job est en pause), et chaque profil a son propre
   `profiles/<p>/cron/jobs.json` — un « total » doit dire de quel home il parle.
+
+- **L'arbre peut repartir apres le rapport.** Une remise en place hors bande peut elle-meme etre
+defaite : un arbre restaure un cran trop bas dans `cache/scratch` a ete remonte a sa place quelques
+minutes plus tard, sans trace dans les sessions. Recompter avant chaque conclusion et ne jamais
+presenter le placement comme definitif.
+- **L'heure du premier echec d'une commande est un releve de disparition.** Le shell garde le
+repertoire courant de la session : si le dossier a ete deplace pendant la session, la commande
+suivante echoue sur son `cd` avant d'avoir tourne. C'est une preuve horodatee gratuite (cf.
+`windows-path-handling`, remede `workdir=`).
 
 ## Files
 
