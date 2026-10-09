@@ -39,7 +39,15 @@ L'ecriture reussie garantit que le fichier a ete ecrit au chemin **resolu** ; el
 
 - Bash (MSYS) : `cd /c/Users/...` fonctionne, `~` est developpe par le shell.
 - Outil natif (git, rg, node, python, ffmpeg) : les chemins ne sont PAS traduits, passer `C:/Users/...`. `~` n'est developpe ni par les outils d'ecriture ni par un programme natif.
-- Fichier temporaire qu'un programme natif doit lire : preferer `$LOCALAPPDATA/Temp` a `/tmp`.
+- Fichier temporaire qu'un programme natif doit lire ou ecrire : preferer `$LOCALAPPDATA/Temp` a `/tmp`.
+  **`$TMPDIR` n'est PAS le dossier scratch, meme quand l'en-tete d'environnement de la session
+  l'annonce** : dans le bash de l'agent il vaut `/tmp`, donc `curl -sS -o "$TMPDIR/x.json"` depose le
+  fichier dans `C:\tmp\` et la relecture qui suit (`sed`, `read_file`, `python`) repond
+  `No such file or directory` sur une requete pourtant reussie — le contenu est a `C:/tmp/`, pas perdu.
+  Des qu'un binaire natif produit un fichier qu'on veut relire, ecrire le chemin ABSOLU en `C:/...`
+  (typiquement `C:/Users/<user>/AppData/Local/hermes/cache/scratch/<fichier>`) et confirmer par `ls`
+  de la cible. Ne pas rejouer l'appel pour « recuperer » la sortie : le fichier existe deja, au chemin
+  natif.
 - **Un chemin MSYS passe a un binaire natif est resolu contre la racine du disque courant** :
   `git clone <url> /tmp/wiki` lance depuis bash reussit (`exit 0`, aucune erreur) et cree
   `C:\tmp\wiki` ; le `ls /tmp/wiki` qui suit repond « No such file or directory » sur un clone qui a
@@ -119,11 +127,40 @@ L'ecriture reussie garantit que le fichier a ete ecrit au chemin **resolu** ; el
   (`...\hermes$d`) et repond `Le fichier specifie est introuvable` — un message qui accuse le dossier
   alors que c'est la forme du chemin. Ne pas conclure « absent » : changer la FORME du chemin et
   refaire la mesure.
+- **Un compte localise et accentue ne se passe pas par la ligne de commande : viser son SID.**
+  `icacls … /grant:r "Système:(F)" "Administrateurs:(F)"` part avec un nom mal encode (meme ecart que
+  le nom de tache accentue de `gated-step-missions`) et passe ou echoue selon l'encodage du moment. Les
+  SID sont ASCII et sans ambiguite : `*S-1-5-18` (SYSTEM), `*S-1-5-32-544` (Administrateurs), et le nom
+  du compte utilisateur sans accent. `icacls` les accepte dans `/grant:r` et **reaffiche ensuite les
+  noms canoniques localises** — la coherence avec les fichiers deja durcis se verifie donc a l'oeil sur
+  sa sortie, ce qui est aussi la preuve a joindre. Meme logique pour tout parametre designant un compte
+  (proprietaire, groupe, `-TaskName`).
+- **Construire un chemin Windows dans un champ `sed` casse sur le delimiteur.** `sed 's|^C:/|C:\\|'`
+  rend `sed: unknown option to 's'` : l'antislash final du remplacement echappe le delimiteur fermant.
+  Ne pas bricoler la FORME du chemin en shell — ecrire les chemins natifs une fois et les passer tels
+  quels ; une conversion se fait en Python (`p.replace('/', chr(92))`), jamais dans un `s|…|…|`. Et
+  quand une boucle rend un compteur impossible (0 ACE sur un fichier qui en porte 3), suspecter
+  d'abord la construction du chemin DANS la boucle, pas la mesure : un compteur a zero est un echec de
+  harnais tant qu'une autre forme de chemin ne l'a pas refute.
 - `curl`, `7z`, `tar` : ce sont des binaires natifs, ils ouvrent le fichier de sortie avec l'API
   Windows. Leur passer `C:/...`. Le symptome d'un `/c/...` est TROMPEUR :
   `curl: (23) client returned ERROR on write of N bytes` — ce n'est ni une erreur reseau ni un
   disque plein, c'est le chemin de sortie qui n'a pas pu etre ouvert. Le meme piege se paie deux
   fois dans une session (telecharger, puis ecrire un fichier de sortie en `-o`).
+  **Le meme code 23 arrive SANS chemin fautif** : `curl -s <url> -o /dev/null -w '%{http_code}
+  %{size_download}'` rend un `bytes=0` intermittent alors que le service a bien repondu — le
+  pseudo-device MSYS n'est pas un fichier ouvrable par le binaire natif. Ce n'est PAS une panne du
+  service mesure, et un `bytes=0` sur `-o /dev/null` ne se lit jamais comme « reponse vide ».
+  Toute verification de TAILLE vise un vrai fichier (`-o "<scratch>/reponse.json"` puis `ls -la` /
+  `wc -c`) : la mesure sur fichier est la seule qui vaut.
+- **`tar` lit `C:` comme un HOTE DISTANT avant de voir un chemin.** `tar czf "C:/Users/.../x.tar.gz" …`
+  ne cree rien et rend `tar (child): Cannot connect to C: resolve failed` (puis `Broken pipe`,
+  `exit 2`) : le parseur `hote:chemin` s'applique aussi aux chemins Windows, et le message accuse une
+  connexion reseau qui n'existe pas. Parade verifiee : ecrire par REDIRECTION —
+  `tar czf - -C <dossier> <cible> > "C:/Users/.../x.tar.gz"` (c'est le shell qui ouvre le fichier) —
+  ou se placer dans le dossier (`cd`) et passer un nom relatif. Le meme piege attend `-f` en extraction
+  (`tar xzf "C:/..."`) et tout autre binaire a option `-f`/`--file` qui accepte la syntaxe `hote:chemin`.
+  Ne pas partir chercher un probleme de droits ou de disque plein : la cible n'a jamais ete ouverte.
 - Les executables Windows a options en `/flag` (schtasks, robocopy, reg, sc) ne sont pas proteges de
   la traduction MSYS : `/run` peut partir tel quel ou etre converti en chemin, et la parade reflexe
   `//run` arrive litteralement comme `//run` (`Argument ou option non valide`). Preferer l'equivalent
@@ -185,6 +222,15 @@ L'ecriture reussie garantit que le fichier a ete ecrit au chemin **resolu** ; el
   tue au bout de 180 s alors que les 290 PNG etaient bien sur le disque). Compter en POSIX :
   `ls <dossier> | grep -c '\.png$'`, et `ls -la <dossier>` pour un effet `dir`.
 - Apres un `mkdir -p ~/...`, faire `ls` sur l'arborescence creee AVANT d'y ecrire : le shell et les outils d'ecriture ne developpent pas `~` de la meme facon, et un `mkdir` reussi ne dit rien sur l'endroit ou les outils ecriront.
+- **Un binaire natif peut etre intercepte par un ALIAS du shell : `node` n'est pas `node.exe`.**
+  `type -a node` rend ici `node is aliased to 'winpty node.exe'`. `winpty` exige un TTY : des que
+  stdin n'en est pas un (tache de fond, harnais, sous-processus), l'appel meurt en ~0,1 s avec
+  `stdin is not a tty` et **rc=1 AVANT d'executer le script** — sans aucune erreur metier, ce qui
+  fait accuser a tort ffmpeg, les chemins, le `.env` ou la config. Remede verifie : ecrire
+  **`node.exe`** (ou le chemin complet du binaire), l'alias n'est plus resolu et node demarre
+  normalement. La sonde qui tranche en une commande : `type -a <nom>`. Regle generale : quand un
+  binaire natif echoue instantanement avec un message qui ne vient pas de lui, lire `type -a` AVANT
+  de suspecter le binaire, ses arguments ou l'environnement.
 
 ## Regle 4 — espaces dans les chemins
 
@@ -333,6 +379,15 @@ coup, dans un dossier qui doit rester propre (un skill, un depot). Ecrire les so
 chemin ABSOLU vers `$LOCALAPPDATA/hermes/cache/scratch` (ou `$TMPDIR`), et faire `pwd` avant toute
 commande qui produit un fichier sans chemin complet.
 
+**Un `cd` de session devenu invalide fait echouer TOUTE commande avant qu'elle ne s'execute.**
+`bash: line 4: cd: /c/Users/<user>/.../cache/scratch/scratch: No such file or directory` suivi de
+`exit 126`, avec la commande demandee jamais lancee : le shell de l'outil `terminal` rejoue le
+repertoire courant de la session en tete de chaque appel. Ne pas relancer la meme commande et ne pas
+en conclure que la cible est absente ou que l'outil est casse : passer `workdir=<chemin absolu>` a
+l'appel (il remplace ce `cd`) ou reprendre par un `cd` vers une racine qui existe. Corollaire utile
+sur cet hote : la disparition d'un dossier pendant une session est **visible sans la chercher**, et
+l'heure du premier echec est un releve gratuit quand un arbre vient d'etre deplace.
+
 ## Regle 9 — un outil qui fabrique son arborescence sous un `root` qu'on lui passe
 
 Beaucoup de bibliotheques prennent un `root` / `base_dir` / `cache_dir` et creent **elles-memes**
@@ -371,9 +426,19 @@ Traductions qui marchent :
 - `ps -p N -o pid,cmd` et `/proc/N/cmdline` -> ne voient PAS les processus Windows natifs
   (`ps: unknown option -- o`, `/proc/N/cmdline` vide). Tout ce qui est `.exe` natif (python.exe,
   hermes.exe) passe par `tasklist` ; ne pas en conclure que le processus n'existe pas.
-- `Start-Process -FilePath x -ArgumentList y -NoNewWindow` -> `(x y >"$LOCALAPPDATA/hermes/y.log" 2>&1 &)`
-  dans un appel `terminal` a part : enchainer `(cmd &) echo ...` derriere un `&&` est une erreur de
-  syntaxe bash, et le log reste vide sans aucun message.
+- **Appli Windows GUI (installeur, `.exe` de bureau)** :
+  `powershell -NoProfile -Command "Start-Process -FilePath 'C:\...\app.exe'"`. L'execution
+  directe depuis bash (`./app.exe`, meme avec le bit executable vu par MSYS) peut rendre
+  `Permission denied` avec `exit 126` — ce n'est PAS un binaire corrompu ni un telechargement
+  rate : ne pas re-telecharger, passer par `Start-Process`. Puis **verifier la fenetre** :
+  `Get-Process | Where-Object { $_.MainWindowTitle -ne '' } | Select Id,ProcessName,MainWindowTitle`
+  (un `Get-Process <App>` sans `MainWindowTitle` ne prouve pas que la fenetre est ouverte ;
+  `tasklist` repond `Binary file (standard input) matches` a un `grep` sur sa sortie UTF-16,
+  cf. Regle 6).
+- `Start-Process -FilePath x -ArgumentList y -NoNewWindow` applique a un OUTIL EN LIGNE DE
+  COMMANDE -> `(x y >"$LOCALAPPDATA/hermes/y.log" 2>&1 &)` dans un appel `terminal` a part :
+  enchainer `(cmd &) echo ...` derriere un `&&` est une erreur de syntaxe bash, et le log reste
+  vide sans aucun message.
 - `Invoke-RestMethod -Uri ... -Body ...` -> Python `urllib.request` (plus sur que `curl.exe` pour du
   JSON imbrique), avec `User-Agent` explicite si l'endpoint est derriere Cloudflare.
 - `taskkill /F /PID N` -> marche tel quel (binaire natif) ; c'est l'outil qui libere un venv
