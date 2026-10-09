@@ -188,6 +188,25 @@ fichier connu (comparer la page wiki du meme concept entre les deux copies).
 clone sous `C:\Users\<user>\Projets\<repo>` existe et etait en **retard** — ne pas y ecrire sans
 avoir verifie son HEAD, et le signaler si l'utilisateur croit publier depuis lui. `gh` fonctionne de
 n'importe ou, `git` non : toujours `cd` dans le checkout retenu avant de committer.
+**Un second checkout est soit un clone, soit un WORKTREE lie — les deux ne se traitent pas pareil.**
+`git worktree list` (depuis le depot principal) nomme chaque arbre rattache a la meme base d'objets, avec
+sa branche et son commit. Un worktree lie **tient une branche** : `git checkout main` y echoue
+(`'main' is already checked out at ...`), et c'est le bon comportement — pour le mettre a jour, avancer SA
+branche (`git -C <worktree> merge --ff-only main`, possible seulement si son HEAD est un ancetre de main),
+jamais changer de branche. Et un worktree peut etre le **cwd configure d'un profil**
+(`profiles/<nom>/config.yaml` -> `terminal: cwd:`) : le supprimer sans repointage casse le terminal de ce
+profil — suppression et repointage se font dans le MEME lot (config + les documents qui citent le chemin).
+**Les refs `origin/*` d'un clone perime sont PERIMEES, et elles mentent.** `git status` y affiche « Your
+branch is up to date with 'origin/main' » alors que le distant est des dizaines de commits plus loin : la
+comparaison se fait contre `refs/remotes/origin/main`, jamais contre le reseau. Ne jamais conclure sur
+l'etat du distant depuis `origin/*`, `--not --remotes` ni le statut : le lire avec `git ls-remote origin`
+(lecture seule, aucun `fetch` — donc aucun ecrit dans le depot examine).
+**Avant de supprimer un checkout en double, prouver deux fois qu'il ne porte rien d'unique** : (a) son HEAD
+ET la tete de CHAQUE branche locale sont ancetres de `origin/main` (`git merge-base --is-ancestor <sha>
+origin/main`) ou egaux a une valeur de `ls-remote` — une branche locale non poussee dont le commit est deja
+dans `main` ne perd que son NOM, pas son contenu ; (b) arbre propre et 0 fichier non suivi (`git status
+--porcelain`, `git ls-files --others --exclude-standard`) ; (c) `git fsck --no-progress --dangling` pour les
+objets orphelins, invisibles au statut. Le rapport nomme celles des trois mesures qui ont ete faites.
 Les pages du **wiki** ne sont pas dans `docs/` : elles vivent dans le clone du wiki
 (`%LOCALAPPDATA%\hermes\wiki-github`, remote `<repo>.wiki.git`, branche `master`) — le `wiki/` du
 runtime est la base de connaissances L1, autre chose. Une demande qui nomme `docs/ANIMA-*.md` ou
@@ -243,7 +262,11 @@ l'edition laisse la version fausse en ligne, et c'est la release que le monde li
    `git rev-parse <tag>^{commit}` a `git rev-parse HEAD`, dire l'ecart, et nommer ce qui sert encore
    l'ANCIEN texte — release GitHub creee apres coup, archive `git checkout <tag>`, documentation
    auto-generee. Une release creee APRES la correction le dit dans son corps ou cite le commit corrige,
-   plutot que de laisser croire que le tag porte la version corrigee.
+   plutot que de laisser croire que le tag porte la version corrigee. Le corps se construit alors depuis le
+   blob CORRIGE (`git show <sha>:<chemin>`), pas depuis le fichier de travail : prouver l'egalite des deux
+   (`diff <(git show <sha>:<chemin>) <chemin>`) AVANT de concatener le preambule et le CHANGELOG dans le
+   fichier de notes — un ecart signifie que l'arbre a avance depuis le commit cite, et le CORPS publie ne
+   serait plus celui qu'on annonce.
 4. La page wiki corrigee n'exige une regeneration de `index.md` que si le
    **resume** a change : la ligne du catalogue vient du titre ou de la premiere
    phrase du corps, pas du paragraphe retouche. Refaire tourner `verify_wiki.py`
