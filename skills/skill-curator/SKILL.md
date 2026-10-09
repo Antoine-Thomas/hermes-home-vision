@@ -208,6 +208,10 @@ Une lecon tiree d'une session se pose UNE fois, pas dans chaque skill qu'elle ef
 1. **Inventorier ce qui a bouge avant d'ecrire** : `git status --porcelain` filtre sur `skills/` (+ `git
 diff --stat HEAD -- skills/`) — une session parallele a souvent deja ecrit la meme lecon (fichiers ` M`
 dont le mtime n'est pas celui de la session courante), et la fusionner vaut mieux que la redupliquer.
+   Caveat d'attribution : un fichier `skills/` frais peut etre l'ecriture de TON PROPRE hook
+d'auto-amelioration (ligne « Self-improvement review: Skill '<x>' written/patched » dans le log de
+session), PAS celle d'une session parallele — verifier l'origine dans le log avant d'attribuer, et
+rapporter la vraie origine (corriger une attribution fausse deja faite).
 2. **Chercher la lecon dans TOUTE la bibliotheque**, pas dans le seul dossier qui l'a fait naitre :
 `git grep -l "<motif>" -- '*.md'` sur un terme distinctif du mecanisme (nom de la fonction, du groupe, du
 parametre). Les fichiers qui traitent le meme sujet se listent ainsi en une commande.
@@ -253,3 +257,4 @@ Un skill officiel de vendor arrive distribué pour Claude Code (`claude plugin m
 - `scripts/check_skills_snapshot.py` — sonde lecture seule : snapshot de prompt à jour ou non, et si un skill donné est bien vu sur disque
 - `references/consolidation-techniques.md` — techniques code-level : split verbatim par `##`, split topical ≤ 15 Ko d'un fichier CRLF (pièges de regex/lecture + asserts de non-perte), check de refs cassées sans faux positifs, génération de router SKILL.md, détection de doublons
 - `scripts/scan_references.py` — balayage lecture seule des citations `references|scripts|templates/*.md` des SKILL.md actifs : tableau skill/citation/statut/correction + liste des entrees d'inventaire perimees
+- `references/stock-version-alignment.md` — aligner la ligne `version:` d'un skill custom sur le stock bundled : ou vit le stock (`hermes-agent/skills/...`), lecture fiable de la version stock, piege Windows de `hermes skills diff` (crash d'affichage rich, diff deja ecrit), usage de `hermes skills inspect` avec identifiant complet, edition chirurgicale (1 ligne, `git diff --numstat` = 1/1), interdiction de `reset --restore`
