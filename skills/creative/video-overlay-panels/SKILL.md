@@ -29,6 +29,9 @@ Panneaux poses sur une video en creneaux horaires (fondus, fondu enchaine, anima
 d'images), en POP-UP (calque transparent pose sur le sujet) ou en PLEIN ECRAN (calque opaque qui
 masque le sujet) : voir `references/montage-overlay-ffmpeg.md`.
 
+Avatar reactif a la voix (overlay transparent qui pulse avec la piste voix, rendu par un outil Node +
+ffmpeg, pieges d'alpha et de piste audio au montage) : voir `references/avatar-reactif-voix.md`.
+
 ## Gabarit de figure
 
 ```python
