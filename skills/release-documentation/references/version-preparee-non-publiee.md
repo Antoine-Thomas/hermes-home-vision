@@ -55,6 +55,37 @@ valeurs (catalogue et mesure du jour) apparaissent dans le document — l'ecart 
 une erreur a masquer. Si la mesure implique un appel payant, le dire dans le rapport avec son cout
 (regle de bascule : prevenir avant de depenser).
 
+## Passer de « preparee » a « publiee » (second passage)
+
+Deux formes, et c'est l'operateur qui tranche — **demander, ne pas choisir** :
+
+- **Statut « publiee » dans le MEME commit que le tag (forme de ce depot quand la redaction et la
+  publication se font dans la meme session).** Le document nait directement `> Statut : publiee.` avec
+  sa phrase « tag annote `vX` sur `main` (pose dans le meme commit que ce changelog) », le commit du lot
+  part, le tag suit immediatement, et il n'y a **AUCUN commit post-publication**. Rien n'est jamais
+  publie en `preparee`.
+- **Passage de statut dans un commit `docs:` separe, APRES la publication**, quand le lot a deja ete
+  pousse en `preparee` (tag et push d'abord, sinon la page d'accueil annonce livree une version que le
+  depot ne porte pas encore).
+
+Dans les deux cas, meme discipline que le premier pass : recenser les sites, indexer les chemins un par
+un, aucun `git add -A`.
+
+Sites a reprendre — les **recenser par mesure**, jamais de memoire :
+`grep -in "preparee\|apres validation" README.md docs/CHANGELOG-<v>.md`.
+
+| Site | Avant | Apres |
+|---|---|---|
+| entete du CHANGELOG | `> Statut : preparee.` + la phrase annoncant commit et tag a venir | `> Statut : publiee.` + le tag et sa cible (`tag vX -> <sha>`) |
+| bandeau du README | `<v> (preparee, non publiee)` | `<v> (publiee)` ; la version precedente passe en « stable publiee anterieure » |
+| tableau des versions | statut « Preparee », colonne tag « tag `vX` (apres validation) » | statut « Publiee », colonne tag « tag `vX` » |
+| phrase des N versions telechargeables | « la X sur `main` (tag `vX`, apres validation) » | « la X sur `main` (tag `vX`) » — et le COMPTE annonce avance de 1 |
+| paragraphe « branche par defaut » | porte la X preparee et la Y publiee | porte la X publiee (tag `vX`) ; l'ordre s'inverse |
+| tableau de documentation / « Voir aussi » | libelle « changelog de la X (preparee) » | « changelog de la X (publiee) » |
+
+Controles de sortie : `grep -c` ne rend plus aucun `preparee` desormais faux, le **compte annonce egale
+le nombre de lignes du tableau** de versions, et la preuve apres push se refait comme ci-dessous.
+
 ## Preuve apres push
 
 Deux lectures, parce qu'elles ne prouvent pas la meme chose :

@@ -99,12 +99,51 @@ puis `git stash push -m "wip: <fichier>" -- <fichier>` → `git pull` → `git s
 stash/pop : le marqueur `M` qui disparait ressemble a du travail perdu quand le contenu est deja dans
 le commit distant.
 
+**`git pull --rebase` sur le home runtime : assainir l'arbre d'abord, et nommer ce qu'on met de cote.**
+Le rebase refuse au preflight (`error: cannot pull with rebase: You have unstaged changes.`) et son
+critere n'est pas « les fichiers qu'il va toucher » mais **l'arbre entier** : la derive chronique du
+runtime (`config.yaml`, `cron/jobs.json`, `cron/usage_audit.jsonl`, `memories/*`, `profiles/**`,
+`skills/.usage.json`, `skills/.curator_state`) suffit a bloquer, meme quand les commits du lot viennent
+d'etre faits et que les 3 commits couvrent tout le travail. Ne pas lire ce refus comme un echec de la
+mission : rien n'a bouge, aucun rebase n'a demarre (le verifier — `.git/rebase-merge` et
+`.git/rebase-apply` absents — avant de parler d'avort ou de conflit). Compter les entrees bloquantes
+(`git status --porcelain --untracked-files=no` : fichiers modifies **et** suppressions suivies), puis
+poser UNE question : (a) recommande — `git stash push -m "wip: gel avant rebase" -- <chemins suivis>`
+(jamais `-u` : les non-suivis restent en place), `git pull --rebase`, `git stash pop`, en GARDANT
+l'entree de stash tant que le pop n'a pas ete verifie (conflit attendu sur un fichier que l'amont a
+aussi modifie) ; (b) geler la derive dans un commit dedie — decision de l'operateur, jamais une
+initiative d'agent.
+
+**Une fois le GO donne, enchainer stash et rebase dans la MEME commande.** Le runtime reecrit ses
+fichiers d'etat (`cron/jobs.json`, `*usage_audit.jsonl`, `*.usage.json`, `context_length_cache.yaml`)
+toutes les minutes : un arbre « propre » est une fenetre de quelques secondes, et `pull --rebase` refuse
+de nouveau si un writer est repasse entre les deux. Juste apres le stash, relire
+`git status --porcelain --untracked-files=no` et **etendre le stash** si des fichiers sont revenus : la
+revue d'arriere-plan ecrit dans la minute qui suit une ecriture de session, et ses fichiers de CONTENU
+(skills/) se garent dans le meme stash que la derive de runtime — un preflight refuse de nouveau est un
+gel a completer, pas un motif d'arret. Le conflit se lit ensuite dans `git status` : il tombe rarement ou
+la consigne l'annonce (ici un journal append-only du wiki, pas `config.yaml`).
+
 **Si la premisse de la demande est fausse** (l'artefact a copier n'est pas ce que son nom ou son
 message annonce, la branche par defaut citee n'existe plus) : s'arreter AVANT d'ecrire, rapporter les
 sorties brutes, preparer le fichier corrige dans `$LOCALAPPDATA/hermes/cache/scratch` avec son diff,
 puis poser UNE question (option recommandee en premier). Ne jamais « appliquer la consigne litterale »
 sur un artefact public : pousser du texte parasite sur une page d'accueil coute un commit de nettoyage
 et laisse une trace d'historique.
+
+**Une demande de « restauration » peut etre un NO-OP** : avant de restaurer une version que l'operateur
+croit perdue, mesurer qu'elle est bien absente. Cas mesure : un « remets le README v1.4 sur main » ou le
+fichier de travail, `main` local et `origin/main` portaient deja la v1.4 — meme blob
+(`git rev-parse HEAD:README.md` = `git rev-parse origin/main:README.md` = `git hash-object README.md`),
+`git status --porcelain -- README.md` vide, ligne de version relue dans le fichier au lieu de son sujet
+de commit. Trois mesures suffisent a trancher : l'empreinte du blob sur les DEUX branches, l'etat du
+fichier dans l'arbre, et la ligne de version lue dans le fichier.
+**Un numero de version « introuvable » est souvent celui d'un COMPOSANT, pas du produit** : avant de
+conclure qu'une vX.Y n'existe nulle part, enumerer les champs de version des composants
+(`grep -n '^version'` dans les `plugin.yaml`, en-tetes des scripts de supervision). Cas mesure : un
+« ANIMA 0.2 » jamais documente etait la `version: 0.2.0` d'un **plugin non suivi par git** — la version
+du produit restant 0.1 partout (README, `docs/`, wiki, sauvegardes). Un fichier non commite ne se trouve
+ni par `git log -S` ni par `git log --all` : seulement dans l'arbre de travail.
 
 **Pass de coherence du depot** (les faits que le README enonce sur le depot lui-meme) :
 
@@ -156,12 +195,28 @@ runtime est la base de connaissances L1, autre chose. Une demande qui nomme `doc
 confirme en une commande, et `cache/scratch/wiki_verify/` en contient des copies de verification a ne
 pas prendre pour la source.
 
+**Ce clone est un depot imbrique : ses pages ne partent pas dans le commit de `main`.** Le depot
+principal ne le voit que comme un repertoire non suivi (`?? wiki-github/` — une des entrees du
+`git status` du runtime, facile a confondre avec la derive), et `git add wiki-github/<page>` y indexe un
+gitlink, pas un fichier. Un GO qui liste « `docs/…` **+ les pages du wiki** » en UN seul commit n'est
+donc pas executable tel quel : publier ce qui est nomme sur `main` avec le message prescrit, puis
+rendre le wiki comme un **cycle separe** (`git -C wiki-github add/commit/push origin master`) soumis a
+son propre GO — ces pages sont publiques, et une consigne qui dit `git push origin main` n'autorise pas
+le remote `.wiki.git`. Ses fichiers apparaissent en `M` dans `git -C wiki-github status`, pas dans le
+porcelain du depot principal : un lot « committe » lu au seul statut du runtime peut laisser trois
+pages modifiees et non publiees, sans que rien ne le signale.
+
 ### Documenter une version PREPAREE, non publiee
 
 Bandeau avec mention de statut, ligne de tableau dont la colonne tag dit « aucun tag », section
 bloqueurs avant la licence, et **aucun tag ni release dans ce pass**. Recette complete (forme des 5
-elements, re-mesure des valeurs que le document affirme — y compris dans ses commandes — et preuve
-apres push) : `references/version-preparee-non-publiee.md`.
+elements, re-mesure des valeurs que le document affirme — y compris dans ses commandes —, **les deux
+formes du passage de statut** et preuve apres push) : `references/version-preparee-non-publiee.md`.
+
+**Si la version est publiee dans la MEME session, demander ou va le passage `preparee` -> `publiee` :**
+dans le commit qui porte le tag, ou dans un commit `docs:` separe apres le push. Trancher sans le dire
+laisse le document en desaccord avec l'etat reel du depot (page d'accueil annoncant « preparee » une
+version deja taguee, ou l'inverse).
 
 ## Retoucher un lot deja publie
 
@@ -183,6 +238,12 @@ l'edition laisse la version fausse en ligne, et c'est la release que le monde li
    passes, l'arbre s'est enrichi de fichiers d'execution ou de curateur hors
    sujet, et `git add -A` les embarquerait dans un commit cense etre documentaire.
    Les signaler comme non indexes dans le rapport.
+   **Le tag ne bouge pas : il reste sur le commit d'origine, donc EN ARRIERE du commit de correction.**
+   C'est voulu (re-taguer pour aligner est interdit) et cela se DECLARE : comparer
+   `git rev-parse <tag>^{commit}` a `git rev-parse HEAD`, dire l'ecart, et nommer ce qui sert encore
+   l'ANCIEN texte — release GitHub creee apres coup, archive `git checkout <tag>`, documentation
+   auto-generee. Une release creee APRES la correction le dit dans son corps ou cite le commit corrige,
+   plutot que de laisser croire que le tag porte la version corrigee.
 4. La page wiki corrigee n'exige une regeneration de `index.md` que si le
    **resume** a change : la ligne du catalogue vient du titre ou de la premiere
    phrase du corps, pas du paragraphe retouche. Refaire tourner `verify_wiki.py`
@@ -194,6 +255,18 @@ pour leur date. Tout fait posterieur s'ajoute dans une section `## Mise a jour p
 nouvelle ligne s'ajoutant a la suite ; un ecart avec une limite certifiee s'y **signale** (« ecart avec
 la limite n° 1 — signale, non corrige ») au lieu de reecrire la phrase d'origine, meme quand la mesure
 rend la phrase fausse.
+
+**Le meme interdit frappe l'ETIQUETTE de version — c'est le piege principal d'un bump.** Remplacer
+`ANIMA 0.1` par `ANIMA 0.2` dans un document de certification DATE fait dire au document que la **0.2**
+est certifiee, alors qu'aucune re-certification n'a eu lieu : la ligne `- **Version** : …` et le verdict
+(« … est certifiee DEGRADED ») portent la meme date que les mesures, et les renommer transforme un fait
+date en affirmation fausse — meme quand c'est, mot pour mot, ce que la demande reclame. Traitement :
+bumper l'etiquette demandee ET ajouter au document une mention datee qui rend la provenance
+(« bascule documentaire vers <v> le <date> ; aucune re-certification ; les mesures ci-dessus datent du
+<date> et font foi pour cette date ; etat mesure le <date> = X »), puis **declarer l'ajout dans le
+rapport** : c'est une ecriture que la consigne ne demandait pas, et l'operateur peut vouloir la revoir.
+Meme regle pour un document de specification (module non implemente) : le bump de l'etiquette y est
+sans risque, le bump d'une phrase de STATUT ne l'est pas.
 
 ## Regles (toujours applicables)
 
@@ -231,6 +304,39 @@ rend la phrase fausse.
   d'indexer : si un fichier hors sujet apparait, le signaler dans le rapport (ou
   indexer explicitement les chemins du lot). Ne pas laisser croire que le commit
   est purement documentaire s'il porte autre chose.
+- **Un chemin prescrit sous un dossier ignore ne s'indexe pas.** `git add data/rag/indexer.py` sur un
+  `data/` ignore rend `The following paths are ignored by one of your .gitignore files` et **n'indexe
+  rien** (verifier `git ls-files <dossier>` : 0 ligne = jamais suivi). Ne pas rattraper par `git add
+  -f` : sur un depot public cela cree une SECONDE copie divergente du canon, a reconcilier a chaque
+  version. Localiser le canon versionne (`git ls-tree -r origin/<branche> --name-only <zone>`) — ici
+  le code RAG vit dans `scripts/rag_hybride/`, pas dans `data/rag/` —, montrer que le fichier live
+  porte bien le travail (mtime + fonction nouvelle absente de la copie d'amont), et poser la question
+  ne pas forcer. **Trois** corollaires une fois le GO donne : (1) **diffuser live vs canon AVANT
+  d'ecraser** (`git diff --no-index <canon> <live>`) — le diff doit se limiter au delta annonce ; une
+  divergence plus large signifie que l'amont porte des correctifs absents du live, donc STOP, on n'ecrase
+  pas ; (2) le canon peut n'arriver qu'**avec le rebase** (il vient du commit d'amont) : ce commit se fait
+  alors APRES le rebase et non a la place prevue, et l'ecart d'ordre se declare dans le rapport ;
+  (3) **le jumeau versionne peut etre en RETARD sur le live, independamment du travail en cours** — ce
+  depot publie sous `docs/scripts/` des copies de code qui vit ailleurs (un `data/…` ignore, un
+  `plugins/…` non suivi). Apres resynchronisation, verifier la version PROPRE du jumeau : un canon reste
+  en `0.1.0` alors que le live est en `0.2.0` rend faux, pour tout lecteur du depot, un CHANGELOG qui
+  annonce la nouvelle version. Le dire est un point a trancher, pas une correction a faire en silence.
+- **Indexer une liste blanche de plusieurs dizaines de chemins sans la taper** : generer la liste
+  (statut porcelain filtre par classe, exclusions explicites) dans un fichier du scratch, puis
+  `git add --pathspec-from-file=<fichier>` (un chemin par ligne ; les dossiers sont developpes, les
+  fichiers ignores a l'interieur restent dehors). Controle non destructif a passer AVANT :
+  `git add --dry-run --pathspec-from-file=<fichier>` (`exit 0` = rien de refuse), puis les deux gates
+  habituels (`git diff --cached --name-only` filtre `.bak|cache|.pyc|__pycache__`, et le scan de
+  secrets sur le diff indexe).
+- **`git check-ignore -v` sur un DOSSIER (barre oblique finale) peut rendre un faux positif** — motif
+  vide sur une ligne quelconque d'un `.gitignore` en CRLF — alors que les fichiers du dossier ne sont
+  PAS ignores. Trancher sur un FICHIER dedans (`git check-ignore -v <dossier>/<fichier>`) ou par
+  `git add --dry-run` : sinon on retire du commit des dossiers parfaitement versionnables.
+- **Une ecriture sur un fichier DEJA indexe fait diverger l'index de l'arbre** : l'index porte la
+  version relue et validee, l'arbre une version posterieure (`git status` rend `MM`), et le commit
+  emporte la seconde. Pendant une fenetre gatee ou le lot est deja indexe, ne pas toucher un fichier du
+  lot (une skill, une doc, un patch) pour y consigner une lecon : viser un fichier HORS lot ou differer
+  l'ecriture. Controle avant de committer : `git diff -- <fichier du lot>` doit etre VIDE.
 - **`config.yaml` n'entre pas dans un commit `docs:`** : s'il apparait modifie,
   ne jamais l'indexer, et distinguer l'origine : reecriture chronique par le runtime
   (`cron/jobs.json`, `skills/.usage.json` derivent de meme) => la seule presence dans `git status`
@@ -245,20 +351,50 @@ rend la phrase fausse.
   - fichiers annonces presents en amont :
     `git ls-tree origin/main --name-only <chemins>` ;
   - `origin/main` = HEAD local apres push (`git rev-parse HEAD origin/main`).
+  - **message de commit committe = fichier valide** : comparer l'OBJET, jamais `git log --format=%B` —
+    `%B` ajoute son propre saut de ligne final et rend un sha256 a N+1 octets ; un ecart d'UN octet
+    n'est pas une alteration. Preuve : `git cat-file commit HEAD`, couper au premier `\n\n`, comparer
+    le corps au fichier (egalite d'octets ET meme sha256) ; commande corrigee pour l'operateur :
+    `git log -1 --format=%B | head -c -1 | sha256sum`.
+  - **tag annote : le ref distant pointe l'OBJET tag, pas le commit.** `git rev-parse <tag>` rend l'objet,
+    `git rev-parse <tag>^{}` le commit, et `git ls-remote --tags origin` liste les DEUX lignes
+    (`refs/tags/<tag>` et `refs/tags/<tag>^{}`) : comparer la ligne qui correspond au controle fait,
+    sinon un tag correct est declare en ecart. Second canal :
+    `gh api repos/<o>/<r>/git/tags/<sha-objet> --jq '{tag,message,target_sha:.object.sha}'`.
+  - **Relire le CONTENU, pas seulement les SHA** :
+    `gh api "repos/<o>/<r>/contents/<chemin>?ref=<branche>" --jq '.name,.size'`, taille comparee au
+    fichier local — `origin/main` = HEAD ne prouve que le pointeur, pas que le fichier a voyage.
 - **Chaque chiffre et chaque chemin cites doivent exister dans le depot.** Si une
   valeur fournie par la demande contredit la source mesuree (latence, cout,
   nombre de pages), ecrire ce qui est demande ET signaler l'ecart avec la source
   dans le rapport : ni correction silencieuse, ni recopie silencieuse. Une valeur
   mesuree se reprend d'un fichier de mesures reel, jamais d'un souvenir :
   rechercher le chiffre dans le depot (`search_files`, ou `grep` en ligne de
-  commande) avant de l'ecrire ou de la corriger.
+  commande) avant de l'ecrire ou de la corriger. **Deux pieges de cette recherche :**
+  (a) un `grep -rn` sur toute la racine du runtime ne rend pas la main — `site-packages`, `node_modules`,
+  `tools/`, `installs/`, `cache/` pesent des Go ; cadrer avec `rg` et des exclusions explicites
+  (`-g '!**/venv/**' -g '!**/site-packages/**' -g '!**/node_modules/**' -g '!**/cache/**'
+  -g '!**/tools/**' -g '!**/installs/**'`) ; si le lot depasse quand meme le timeout, ecrire la sortie
+  dans un fichier du scratch plutot que l'imprimer ;
+  (b) **le runtime recopie l'enonce de la session dans ses propres fichiers** — `.hermes_history`,
+  `pastes/`, `logs/agent.log`, `logs/errors.log`, et le journal du routeur
+  (`data/route_ia_fix/jev_routing.jsonl`) contiennent la question telle qu'elle a ete posee. Une
+  recherche du motif demande renvoie donc des occurrences qui ne sont que l'ECHO de la demande, et un
+  motif introuvable ailleurs **parait trouve**. Classer les hits par FICHIER avant de conclure et
+  ecarter ces cinq sources : une chaine qui n'apparait que la n'apparait nulle part.
 - **Un message de commit prescrit par l'operateur se corrige quand la mesure le contredit** : avant de
   figer une affirmation, la mesurer (`hermes --version` + `grep -m1 _config_version config.yaml` pour
   la version, `netstat -ano | grep :<port>` pour un port, `Get-ScheduledTask` pour le nom reel des
   taches planifiees). Une affirmation perimee figee dans un message de commit y reste pour toujours :
-  ecrire le **fait mesure** et le signaler. Corollaire : une affirmation fausse n'est pas forcement
+  ecrire le **fait mesure** et le signaler. **Re-mesurer les chiffres cites par le message APRES la
+  derniere passe d'edition :** une correction tardive (ligne d'en-tete fusionnee, ligne retiree) deplace
+  les comptes (`wc -l`) deja ecrits dans le message et rend faux le `sha256` fige — refaire le fichier,
+  le reafficher integralement et donner le NOUVEAU hash a valider, plutot que de committer un chiffre
+  perime. Corollaire : une affirmation fausse n'est pas forcement
   une invention — etablir ce que la chose **est** avant d'ecrire qu'elle n'existe pas (un port annonce
-  « inexistant » etait le port documente d'un service a l'arret depuis des mois).
+  « inexistant » etait le port documente d'un service a l'arret depuis des mois). Pour un **compte de
+  fragments RAG**, la mesure vit dans `data/rag/manifeste.json` (champ `par_source`) compare au manifeste
+  de l'index d'A/B : c'est ce qui transforme « +N fragments » en fait verifie, et non recopie.
 - **Une lecon apprise deux fois se FUSIONNE, elle ne s'empile pas** : quand deux passages d'un meme
   fichier disent la meme chose (une passe concurrente et la session), reduire a **un seul** traitement
   canonique et ne laisser sur l'autre site qu'un **renvoi** d'une phrase. Controler par
@@ -293,8 +429,77 @@ rend la phrase fausse.
   valide tout. Et un arbre propre n'est qu'un **etat de quelques minutes** : la revue d'arriere-plan
   repasse en moyenne toutes les ~15 min, donc on **gele l'ENSEMBLE** des entrees a un moment choisi
   (fin de session, avant un push important), jamais passe par passe.
+- **Un conflit sur un journal append-only se resout par UNION, pas par un camp** : un fichier qui ne
+  fait qu'ajouter des entrees datees (journal du wiki, CHANGELOG, log) garde les DEUX blocs, dans
+  l'ordre chronologique — c'est la seule resolution qui ne perde rien. Retirer les marqueurs un par un,
+  puis `grep -nE '^(<<<<<<<|=======|>>>>>>>)' <fichier>` = vide AVANT `git add`. Le commit rejoue porte
+  alors un numstat plus petit que l'original (l'amont fournissait deja une partie du contenu) : c'est
+  normal, ne pas « rattraper » le compte.
+- **Fin d'un rebase quand `git rebase --continue` refuse a tort, et recuperation d'un stash droppe :**
+  recette verifiee dans `references/rebase-et-stash-recuperation.md`.
 - **Ne pas ecraser un fichier existant** sans le signaler ; ne pas modifier
   `README.md`, `docs/README.md` ou les tags si la demande ne les cite pas.
+
+## Inspection ciblee avant d'indexer (lecture seule)
+
+Quand le lot est annonce comme un ENSEMBLE DE CHEMINS precis (« ces N fichiers, rien d'autre »), l'etape
+qui precede l'ecriture est une inspection en lecture seule, et son rapport se rend **fichier par
+fichier**. Six mesures, dans cet ordre :
+
+1. **Identifier le checkout et situer le lot dans la derive.** `git rev-parse --show-toplevel`,
+   `git log -1 --format='%H %d %s'`, `git tag -l`, `git status -sb`, puis
+   `git status --porcelain | wc -l` : le lot est un sous-ensemble d'un arbre souvent tres sale, et le
+   rapport dit combien d'entrees restent HORS lot. Confronter le couple « commit + tag » du mandat a la
+   mesure : `git cat-file -t <sha>`, puis **`git rev-parse <tag>^{commit}`** — jamais `git rev-parse
+   <tag>` seul, qui sur un tag ANNOTE rend le hash de l'OBJET tag, et l'ecrire comme « le tag pointe
+   <hash> » publie une affirmation fausse, jusque dans le CHANGELOG et le corps du commit — et
+   `git cat-file -p <tag>` qui nomme sa cible (`object <sha>`). Les deux tiennent en une ligne :
+   `git for-each-ref --format='%(refname) %(objectname) %(objecttype) %(*objectname)' refs/tags/<tag>`.
+   **Un tag de version peut pointer le commit de la FONCTIONNALITE** (dont le message de tag porte le nom
+   de la version) aussi bien qu'un commit de cloture posterieur : ne pas presumer l'un ou l'autre,
+   mesurer. Un commit post-tag peut deja etre pousse. Le rapport dit l'ecart, il ne « corrige » pas la
+   premisse en silence.
+2. **Verifier l'arithmetique du perimetre.** Un dossier annonce « tout le dossier » embarque sa
+   `__pycache__` (`find <dossier> -type f -printf '%s\t%p\n' | sort -k2`) : compter les fichiers SOURCE
+   et faire tomber juste avec le nombre d'entrees que le mandat annonce — c'est cette egalite qui autorise
+   a dire quels fichiers sont exclus (les `.pyc`). Un total qui ne tombe pas juste est un ecart de
+   perimetre a trancher, pas un detail de forme.
+3. **Fin de ligne, par fichier, et dire LAQUELLE des deux on rapporte.** Sur CHAQUE fichier du lot (une
+   boucle, pas un fichier temoin) : `tr -dc '\r' < <f> | wc -c` et `tr -dc '\n' < <f> | wc -c`. Quand le
+   depot declare `* text=auto eol=lf` (`git check-attr text eol -- <f>`) et que `git ls-files --eol` rend
+   `i/lf w/crlf`, l'arbre de travail est en CRLF et l'OBJET versionne en LF — l'avertissement
+   `warning: CRLF will be replaced by LF` a l'`add` le confirme. Les deux mesures se rapportent
+   SEPAREMENT (« arbre de travail : N CR / N LF » et « blob HEAD : 0 CR ») : annoncer « LF only » sur la
+   foi de l'index alors que le fichier sur disque est en CRLF est le mensonge classique de ce controle.
+   Sur ce parc, une reecriture de masse des objets (reparation d'ACL, `takeown`) fait revenir des fichiers
+   texte a 100 % CRLF alors que les blobs restent LF : ecart a declarer, puis decision (normaliser sur
+   disque, ou laisser git normaliser a l'index) — jamais un silence.
+   **Ce controle se rejoue APRES l'`add`, sur l'INDEX, sinon il ne repond pas a la question posee :**
+   `git ls-files --eol -- <les fichiers du lot>` doit rendre `i/lf` pour chacun, et la preuve
+   independante du blob indexe est le comptage d'octets CR sur `git show :<f>` (attendu : 0). **Un
+   fichier anne a `eol=crlf` (`.ps1`, `.cmd`, `.bat`) rend lui aussi `i/lf`** : l'attribut ne gouverne
+   que l'EXTRACTION, l'objet du depot reste normalise en LF — attendre `i/crlf` y fabrique une fausse
+   alerte, et ce qui se cite alors est l'attribut (`git check-attr text eol -- <f>`), pas un echec. Un
+   `i/crlf` reel sur un fichier declare `text=auto eol=lf` est, lui, un vrai ecart.
+4. **Renvois : resolus sur disque ne veut pas dire versionnes** (cf. le piege des renvois ci-dessus).
+   `scripts/inspection_pre_push.py <chemins> --refs` rend les deux verdicts par renvoi.
+5. **Secrets : masques, classes, jamais imprimes.** Compter par fichier `N brut / N reel` et classer les
+   hits — aucune valeur, meme partielle, dans le rapport, le journal ou le scratch ; seulement la
+   structure (longueur, alphabet, prefixe de 8 caracteres au plus). **Un motif de DOCUMENTATION
+   n'appartient pas au jeu « reel »** : `token\s*[:=]` matche tous les exemples d'un README et fait
+   croire a 7 secrets reels dans un fichier qui n'en porte aucun ; un `sk-` non ancre mord dans des mots
+   composes (`delegate-task-...`, `disk-space...`). Regle de classement deja etablie : une valeur
+   plausible porte **au moins un chiffre ou une majuscule**. Un hit reel = STOP, aucune redaction.
+6. **Ecarts de perimetre : les rendre comme decisions, un par un**, avant le STOP. (a) fichiers cites par
+   les fichiers du lot mais non suivis et HORS liste (les omettre publie des liens morts, les ajouter
+   sort du perimetre autorise) ; (b) artefacts d'execution que la liste embarquerait (`.pyc`, caches) ;
+   (c) un controle demande qui n'a PAS de cible (« verifier que les 4 references sont presentes au §X »
+   alors que ce paragraphe n'en liste aucune) ; (d) une numerotation de section qui ne correspond pas au
+   fichier reel (le paragraphe vise vit dans une autre section).
+
+**Le rapport sert les reponses demandees d'abord, les ecarts ensuite**, chacun avec la decision qu'il
+attend, puis le STOP. Une inspection en lecture seule ne redige RIEN : brouillon de CHANGELOG, patches de
+README et message de commit attendent le GO, meme quand le mandat les decrit dans le meme message.
 
 ## Rapport final
 
@@ -334,7 +539,12 @@ diff integral : l'operateur veut savoir quelle section bouge, pas relire le fich
 - **`grep` sur une phrase mise en gras ne matche pas** : « Depot public » ne trouve pas `Dépôt
   **public**` — le balisage est dans la ligne. Grep un fragment sans markdown (l'URL, un mot nu) ou
   afficher la tete du fichier servi (`... | base64 -d | sed -n '1,15p'`) ; un grep qui ne renvoie rien
-  n'est pas une preuve d'absence.
+  n'est pas une preuve d'absence. **Le meme piege frappe une cible de REMPLACEMENT prescrite** : un
+    `--avant` fourni par l'operateur qui rend `0 occurrence` parce que la phrase est en gras dans le
+    fichier n'est pas une cible absente — chercher la variante balisee, remplacer le VRAI texte en
+    conservant les marqueurs (`**…**`), et **declarer l'ecart** dans le rapport (la cible annoncee ne
+    pouvait pas matcher tel quel). S'arreter sec sur un `0 occurrence` alors que la phrase est dans le
+    fichier a la ligne voisine coute un tour et laisse croire a un fichier different.
 - **Ne pas corriger en silence un ecart de fait du README** (visibilite annoncee « privee » sur un
   depot public, section d'audit plus vieille que la version courante, comptage de pages faux) :
   mesurer, ecrire la valeur mesuree, et signaler l'ecart.
@@ -343,16 +553,46 @@ diff integral : l'operateur veut savoir quelle section bouge, pas relire le fich
   et le `git push -u origin main` attendu par l'operateur echoue. Confirmer ensuite le CONTENU distant complet
   plutot que se fier au seul « new branch -> main » :
   `gh api "repos/<owner>/<repo>/git/trees/main?recursive=1" --jq '.tree[].path' | sort`.
+- **Un push de tag refuse par un `[remote rejected] <tag> (failed)` NU se REJOUE avant tout diagnostic.**
+  Sans `(non-fast-forward)` ni `(already exists)`, et avec `gh api repos/<o>/<r>/rulesets` vide,
+  l'hypothese d'une protection ne tient sur rien : relancer la MEME commande donne le verdict
+  (`git push --porcelain origin <tag>` : `*` = ref cree, `!` = refuse). Ne jamais repondre a un refus par
+  `--force`, et ne pas rapporter une cause (protection, hook, droit manquant) que la mesure n'a pas montree.
+- **`hermes skills list-modified` mesure contre le manifeste des skills bundled, PAS contre git.** Une
+  cible « skill <x> » d'un GO peut n'avoir aucun diff a committer (`git status --short -- <chemin>` muet) :
+  son ecart est contre la version amont. Le fichier reellement modifie est souvent un `references/`
+  voisin — non liste, donc a signaler et non a indexer. Controler chaque cible avant l'`add` et rapporter
+  celles qui n'indexent rien.
+- **Un `SKILL.md` qui cite des `references/` non suivis publie des liens casses.** Avant d'indexer un
+  fichier de skill, confronter ses renvois au `git status --porcelain` : les non-suivis sont exactement
+  ceux qui manqueront au depot public. **Exister sur le disque ne prouve rien** : le verdict se prend sur
+  l'OBJET versionne (`git cat-file -e HEAD:<chemin>` ; ou `git ls-tree -r HEAD --name-only <dossier>`
+  pour tout un dossier), sinon un renvoi vers un fichier present localement mais jamais committe se lit
+  « resolu » — une verification par le disque rend un faux vert, et c'est le lien de la version publiee
+  qui est mort. Un renvoi peut aussi viser le dossier d'une AUTRE skill (`scripts/<x>.py` decrit dans le
+  texte comme appartenant a `devops/<y>`) : resoudre depuis la racine de `skills/`, jamais depuis le seul
+  dossier citant. Si la liste des cibles autorisees ne contient pas ces fichiers, les SIGNALER comme
+  references pendantes (commit de complement) au lieu de les rattacher en silence — et le dire AVANT le
+  GO : un perimetre valide peut publier N liens morts. Verificateur pret a lancer :
+  `scripts/inspection_pre_push.py <chemins> --refs`.
 
 ## Voir aussi
 
 - Skill `github` (authentification, releases, `gh`), skill `llm-wiki` (compilation
   non-agentique du wiki). La recette locale du wiki et de SiYuan est dans
-  `references/wiki-l1-et-siyuan.md`, le verificateur dans `scripts/verify_wiki.py`. Les trois controles bloquants de publication, la mesure de ce qui part reellement dans un push, la recette de figeage de la derive (exclusions
+  `references/wiki-l1-et-siyuan.md`, le verificateur dans `scripts/verify_wiki.py`. L'inspection en lecture seule d'un lot de chemins
+(tailles, CR/LF de l'arbre contre l'objet versionne, suivi/versionnement, renvois, secrets masques) est
+dans `scripts/inspection_pre_push.py`. Les trois controles bloquants de publication, la mesure de ce qui part reellement dans un push, la recette de figeage de la derive (exclusions
 locales, lecture des colonnes de `git status --porcelain`, preuve du tip distant) et le
 rafraichissement d'un clone en retard, et l'**ecriture concurrente de la revue d'arriere-plan** (elle
   ecrit dans les 2 min qui suivent une ecriture de session : attendre ~3 min, prouver la stabilite par
   empreinte du lot entier (md5 + mtime + taille) relevee deux fois, s'orienter dans `skills/.curator_ledger.jsonl`, ne pas confondre
-  `pending/memory/*.json` avec une ecriture) sont dans `references/publication-push-gate.md`. Le skill
+  `pending/memory/*.json` avec une ecriture) sont dans `references/publication-push-gate.md`. La mecanique de fin de rebase sur ce depot (resolution
+de conflit, `--continue` qui refuse avec un index propre, `stash pop` bloque, stash droppe recuperable)
+est dans `references/rebase-et-stash-recuperation.md`. L'**enumeration des sources a interroger avant
+de declarer qu'une version ou un artefact n'existe pas** (historique `-S` tous fichiers, tags, branches,
+stash, clone frere, arbre de travail y compris NON suivi, sauvegardes, remote), les deux pieges qui font
+conclure a tort (le numero est celui d'un composant ; le runtime recopie la demande dans ses journaux)
+et la recette `rg` bornee sont dans `references/prouver-absence-version.md`. Le skill
   `github` est un bundle (non modifiable) : les recettes GitHub propres a ce depot vivent donc ici,
   section « Rendre la version visible sur la page d'accueil ».
