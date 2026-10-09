@@ -130,6 +130,24 @@ controle apres chaque lot avec `git diff --cached --name-only | wc -l`. Garde-fo
 committer : `git diff --cached --name-only | grep -E "^(installs|tools)/"` vide, et les plus gros
 blobs indexes lus en `sort -rn` sur leur taille.
 
+**Lire un DEPLACEMENT dans l'index, sinon une avance correcte se lit « rien n'est indexe ».** Un fichier
+deplace a contenu identique (archivage d'une skill, `mv` d'une reference) produit **une seule entree
+`R100`** : dans `git diff --cached --name-only` seul le **chemin de DESTINATION** apparait, et la
+**source n'est ni `A` ni `D`** — le compte `| wc -l` sous-estime donc de N, et l'on croit a des
+suppressions oubliees ou non indexees. Lire `git diff --cached --name-status`, qui rend
+`R100 <source> <destination>`, et compter les **chemins** (source + destination), pas les lignes. Cote
+porcelain, un `D ` **de premiere colonne** est deja indexe : l'annoncer « non indexe » transforme une
+avance correcte en fausse alerte — c'est la lecture a faire du couple `D `/` D` avant de conclure.
+Identite du deplacement a joindre : `git hash-object <destination>` == `git rev-parse HEAD:<source>`
+(voir « Un ` M` sur un fichier identique a HEAD » ci-dessus) — egalite = archive identique a l'objet
+deplace, donc une copie, pas une reecriture ; l'ecart de taille sur disque n'est que le CRLF de l'arbre.
+
+**`git rm` sur un chemin deja absent de l'arbre de travail est une suite normale, pas une erreur.** La
+commande reussit (exit 0) et indexe la suppression ; un **second** `git rm` sur le meme chemin echoue
+(`fatal: pathspec ... did not match any files`) parce que git ne resout plus ce chemin depuis l'arbre :
+c'est attendu, il n'y a rien a reparer. Le verdict se prend sur l'index
+(`git diff --cached --name-status`), jamais sur le code de retour de la commande.
+
 **Une liste de fichiers annoncee n'est pas un contrat.** Entre deux releves espaces de 5 min,
 `cron/jobs.json` est revenu modifie (`completed` +1, `last_run_at` et `next_run_at` avances par le
 planificateur) et l'ecriture que la session vient de faire pour un cycle ulterieur reste dans le
