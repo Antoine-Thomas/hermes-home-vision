@@ -103,6 +103,25 @@ lancer sur tel sous-systeme, voir `hermes-stack-audit` et `windows-path-handling
   rollback est l'annulation des N passages decrits.
   Ne jamais editer a la main un fichier qu'un service reecrit (jobs du planificateur, config geree
   par le CLI) : passer par l'outil ou la CLI dediee.
+- **Une application conteneurisee se sauvegarde par MONTAGE, pas par dossier.**
+  `docker inspect <conteneur> --format '{{range .Mounts}}{{.Type}} {{.Name}}{{.Source}} -> {{.Destination}}{{"\n"}}{{end}}'`
+  separe les BIND-MOUNTS (la source de verite est un fichier de l'HOTE : c'est lui que la sauvegarde doit
+  porter, et une correction faite dans le conteneur est recopiee/ecrasee au redemarrage par l'entrypoint)
+  des VOLUMES NOMMES (aucune copie hote) :
+  `docker run --rm -v <vol>:/data:ro -v <dest>:/backup busybox tar czf /backup/<vol>.tar.gz -C /data .`,
+  un volume a la fois. Chiffrer le poids (`docker system df -v`) et RELIRE chaque archive
+  (`tar tzf <f> | wc -l`) avant d'ecrire « sauvegarde complete » — un dossier de sauvegarde cree n'est
+  pas une sauvegarde. Et parallelement aux copies de config, comparer les SHA256 sur les TROIS plans
+  (fichier vivant dans le conteneur == copie exportee == bind-mount hote) : c'est cette egalite, pas
+  l'`exit 0` d'un `docker cp`, qui rend la restauration verifiable.
+  **Le dossier de sauvegarde d'une stack porte des secrets en clair** (compose, `.env`, configs
+  applicatives) : le declarer sensible dans le rapport et ne pas le deplacer sur un support partage.
+  **Une copie prise sur un service EN MARCHE se declare « a chaud »** : utilisable pour revenir sur de la
+  configuration, pas comme instantane coherent d'une base — le dire, plutot que de laisser croire a une
+  restauration a l'identique. Et un arret se fait par `docker compose stop`, jamais `docker kill`.
+- **Une non-modification se MESURE.**
+  `docker exec <conteneur> sh -c 'find <dir> -newermt "<heure de debut>" -type f'` : aucune ligne = aucune
+  ecriture depuis le debut de l'etape. A joindre au `MODIFICATIONS: 0` d'une etape en lecture seule.
 - **Journal de chantier en AJOUT SEUL** (`data/route_ia_fix/chantier_<NOM>.log`) : une entree
   horodatee par etape, aucune ligne existante modifiee.
   **L'emplacement du journal obeit au mandat, pas a cette convention.** Quand le mandat exclut les dossiers
@@ -111,8 +130,21 @@ lancer sur tel sous-systeme, voir `hermes-stack-audit` et `windows-path-handling
   (`C:\Users\<user>\<mission>_<AAAAMMJJ>\`), y poser aussi le script d'append et les blocs de texte, et
   le copier vers l'emplacement final a la derniere etape — en l'annoncant. Jamais `cache/scratch` : il est
   elague apres 24 h d'inactivite, alors qu'une mission gatee attend un GO humain, donc des jours, et
-  l'historique des etapes disparait avant la fin. Prouver l'ajout (comptage de lignes + SHA
+  l'historique des etapes disparait avant la fin.
+  **Quand le mandat IMPOSE ce chemin** (il nomme un `ROLLBACK.md` ou un journal dans `cache\scratch`),
+  la conformite litterale l'emporte : ecrire le fichier a l'emplacement demande ET une copie identique
+  dans le dossier durable, citer les deux chemins et leurs SHA256 dans le rapport, et annoncer l'ecart de
+  duree de vie (le fichier demande, lui, disparaitra). Un livrable de ROLLBACK laisse uniquement dans
+  `cache/scratch` n'est pas un livrable : la mission suivante n'aura plus de quoi revenir en arriere.
+  Prouver l'ajout (comptage de lignes + SHA
   avant/apres) et sauvegarder le journal avant l'ajout s'il existe deja.
+  **Une valeur ESTIMEE n'entre pas dans un journal en ajout seul.** Un horodatage, un compte ou une duree
+  qu'on n'a pas converti/mesure se CALCULE d'abord (un timestamp d'epoch se convertit, il ne s'approxime
+  pas) : y ecrire une estimation grave un faux chiffre dans la seule source d'historique qui ne se
+  corrige pas. Si une valeur erronee y a deja ete ecrite, apposer un **ERRATUM horodate en fin de
+  journal** : l'entree fautive est nommee, la valeur MESUREE donnee, et il est dit que la precedente
+  etait estimee. Ne jamais reecrire la ligne fautive (l'ajout seul est la propriete qui rend le journal
+  opposable) et mentionner l'erratum dans le rapport plutot que de le laisser decouvrir.
   **Un journal NEUF s'aligne sur l'encodage des journaux voisins** (les journaux de `data/rag/` sont en
   CRLF) : l'outil d'ecriture cree en LF, donc normaliser UNE fois avant la premiere entree (remplacement
   des octets `\n` -> `\r\n`, puis comptage `CRLF` / `LF` en Python) — un journal a fins de ligne
@@ -146,6 +178,52 @@ lancer sur tel sous-systeme, voir `hermes-stack-audit` et `windows-path-handling
   `confirme` ou `refute` avec la mesure qui le fonde. Une premisse refutee ne se corrige pas en
   silence et ne s'execute pas « quand meme » : le rapport dit ce qui a ete refute, nomme la cause
   REELLEMENT mesuree, et propose la suite sur cette base.
+- **L'etape de controle verifie le PERIMETRE, pas seulement ses cibles.** Quand le mandat enumere un
+  lot (« ces N fichiers, rien d'autre »), le rapport de l'etape en lecture seule porte DEUX blocs
+  distincts : les reponses aux controles demandes, puis les ecarts de perimetre — chacun avec la
+  decision qu'il attend. Un ecart de perimetre est un fichier que les cibles CITENT sans qu'il soit dans
+  la liste (les publier = liens morts ; les omettre = le lot se contredit), un artefact d'execution que
+  la liste embarquerait (`.pyc`, cache), ou un controle demande qui n'a aucune cible dans le fichier
+  reel. Les taire fait valider par le GO un perimetre incomplet : c'est exactement ce que l'etape
+  suivante executerait.
+- **Dans une fenetre « aucun git avant mon GO », `git add` est une etape d'INSPECTION, pas une
+  execution.** Un mandat qui interdit tout `git` et demande dans le meme souffle un controle « apres
+  `git add` » (EOL de l'index, comptage) designe la seule operation autorisee : indexer, controler,
+  rapporter le compte d'entrees indexees et le statut par fichier — `commit`, `tag` et `push` restent
+  geles jusqu'au GO. Le rapport dit en clair ce qui est indexe et que rien n'est committe, sinon la
+  question « as-tu deja committe ? » se paie d'un tour.
+- **Un texte que l'operateur doit valider (message de commit, corps de release) se livre DEUX fois :
+  integral dans la reponse, et en fichier du scratch avec son chemin exact et son `sha256`.** C'est ce
+  fichier qui entre dans la commande (`git commit -F <fichier>`, `gh release edit --notes-file
+  <fichier>`) — jamais un heredoc : `<<'MSG'` est une syntaxe de shell POSIX qui casse dans le
+  PowerShell ou l'operateur peut retaper la commande. Verifier que le fichier ne part pas dans le
+  commit (`git check-ignore -v <fichier>`, `cache/` etant ignore) et que le texte est complet
+  (`wc -l`, `wc -c`, 0 octet CR si le depot est en LF). **Toute correction du texte se reaffiche
+  integralement** pour validation avant l'execution : relire les chemins et les noms de composants —
+  une coquille figee dans un message de commit y reste pour toujours. **Le controle du hash APRES le
+  `commit` se fait sur l'OBJET, jamais par `git log --format=%B` :** `%B` ajoute son propre saut de ligne
+  final et rend un sha256 different de celui du fichier valide (N+1 octets) — un ecart d'UN OCTET n'est
+  pas une alteration, et le presenter comme tel bloque une publication saine. Preuve a rendre :
+  `git cat-file commit HEAD`, couper au premier `\n\n`, comparer le corps au fichier (egalite d'octets et
+  meme sha256), puis donner la commande corrigee (`git log -1 --format=%B | head -c -1 | sha256sum`).
+- **Les jetons a double souligne se mettent entre accents graves dans le rapport.** Un rendu Markdown
+  lit `__init__.py` comme un delimiteur de GRAS et affiche « init.py » : le nom d'un fichier du lot se
+  lit alors comme une contradiction avec une autre section du rapport, et l'operateur bloque la mission
+  sur un ecart inexistant. Verifier a la source (`ls -b <dossier>`, octets du nom par
+  `find <dossier> -maxdepth 1 -type f -printf '%f\n' | od -c`, import reel du module) avant de
+  repondre : c'est un artefact d'AFFICHAGE, pas un fichier different.
+- **Un controle demande se renforce quand sa forme est plus faible que son but, et l'ecart se declare.**
+  « Compter les CRLF et les LF » sur l'arbre de travail ne dit pas ce qui sera publie : quand le depot
+  impose `eol=lf` et que git normalise a l'index, la mesure utile est le couple arbre DE TRAVAIL contre
+  OBJET versionne. Meme chose pour un renvoi verifie par le disque : la question reelle est « ce fichier
+  part-il dans le depot ». Executer le controle demande ET le controle qui repond, rapporter les deux
+  valeurs separement, et nommer l'ecart de forme dans le rapport plutot que de rendre un verdict sur la
+  mesure faible. **Et un controle a critere GLOBAL valide sur des sites que la demande n'a pas listes :**
+  un `grep -c "<motif>" = 0` porte sur TOUT le fichier, pas sur les N sites enumeres — recenser les sites
+  par mesure (`grep -n`) AVANT d'editer, corriger aussi ceux hors liste, et les annoncer comme des ajouts
+  a la liste du mandat. Une liste de sites incomplete fait echouer un controle que l'operateur a
+  lui-meme ecrit, et croire le controle satisfait sur la seule liste suffit a livrer un fichier non
+  conforme.
 - **Verdicts normalises** : `READY` / `DEGRADED` / `FAILED` / `BLOCKED`, et une ligne
   `MODIFICATIONS: 0` quand l'etape etait en lecture seule.
 - **Ne rien supprimer** : une fonction obsolete se documente et se propose en retrait de perimetre,
@@ -217,6 +295,33 @@ lancer sur tel sous-systeme, voir `hermes-stack-audit` et `windows-path-handling
       declenchement, journal applicatif intact), chemins d'alerte, et lecteurs historiques du fichier
       touche. Un correctif qui franchit son perimetre se declare, il ne se decouvre pas a l'etape d'apres.
 
+- **Une sonde qui ne rend RIEN n'est pas une mesure.** Un bloc de verification (codes HTTP, hashes) qui
+  n'imprime ni valeur ni erreur, et dont les fichiers de sortie n'existent pas, est un ECHEC DE SONDE, pas
+  un resultat : ne jamais le compter comme vert ni comme rouge. La rejouer en avant-plan sous la forme la
+  plus simple (sans fichier de sortie, sortie sur stdout) avant de rendre un verdict — et dire dans le
+  rapport que la premiere passe a ete refaite, avec la raison mesuree. Corollaire : une commande longue
+  (lancer, attendre, re-verifier) qui depasse le plafond d'avant-plan part en processus d'arriere-plan
+  promu, ou les redirections de fichier peuvent echouer en silence.
+  **Et quand la commande muette CHANGE l'etat** (installation, desinstallation, redemarrage), l'echec muet
+  se traite comme un no-op a PROUVER : avant de la rejouer, etablir qu'aucun effet de bord n'a eu lieu
+  (aucun journal de l'outil cree, aucun evenement dans le journal Windows de l'installeur, cible et
+  service strictement dans l'etat d'avant), puis rejouer et le DECLARER. Un code de sortie vide ou absent
+  n'est ni un succes ni un echec : c'est l'absence de mesure.
+- **Une etape qui ecrit dans un fichier lu par un outil se valide par CET outil avant l'etape suivante.**
+  Une edition d'octets ou une substitution de ligne peut casser le fichier sans changer sa taille ni son
+  nombre de lignes (indentation perdue, separateur avale) : enchainer l'ecriture avec le parseur de
+  l'outil concerne (`docker compose config -q` pour un compose, validation YAML pour un yaml) et reparer
+  depuis le `.bak` — l'incident se declare dans le rapport, meme s'il est repare avant tout effet.
+- **Un GO peut nommer une action qui ne peut pas produire le resultat qu'il enonce.** Quand la decision
+  ecrite (« filebeat doit prendre le nouveau mot de passe ») est irrealisable par la commande nommee
+  (`docker restart` ne reapplique pas l'environnement d'un conteneur), executer la forme qui realise la
+  DECISION — de preference une commande que le mandat autorise deja (`docker compose`) — et le declarer
+  en tete du compte-rendu avec la mesure qui fonde le remplacement, sans attendre un nouveau GO :
+  s'en tenir a la lettre produirait exactement la panne que le GO interdit. Et **verifier que la forme
+  retenue a bien produit l'effet** : une commande qui rend « Running » sans rien changer (recréation
+  demandee sur un service dont seule une donnee montee a bouge) laisse la plateforme intacte — la preuve
+  est l'ETAT du service apres coup, jamais l'absence d'erreur ni le succes de la commande.
+
 ## Pieges
 
 - **Attribution des horodatages.** Un `jobs.json`, un `health.json` ou un `state.db` reecrit pendant
@@ -229,6 +334,21 @@ lancer sur tel sous-systeme, voir `hermes-stack-audit` et `windows-path-handling
   plus. Un `LastTaskResult` de `267009` sur une tache longue est une instance en cours, pas un echec.
 - **Un service decrit dans le README n'est pas un service vivant.** Verifier que la sous-commande ou
   le binaire lance existe encore (aide du CLI, `--help`) avant de conclure « attendu mais absent ».
+- **Une commande prescrite par le plan se valide contre l'interface REELLE du script avant d'etre
+  lancee.** Un drapeau invente (`--once` sur un script dont `main(argv)` ne connait que `--resume`)
+  n'est pas refuse : `main` l'ignore et le script part sur sa branche PAR DEFAUT — ici un vidage JSON
+  complet au lieu du resume attendu, donc une sortie illisible au lieu d'une erreur. Lire le bloc
+  `if __name__ == "__main__"` et la signature de `main` (ou `--help`) avant de lancer, utiliser le
+  drapeau reel, et **declarer l'ecart** dans le rapport (« `--once` n'existe pas, interface reelle
+  `--resume` »).
+- **Un artefact prescrit (URL, format de fichier, modele) peut ne pas convenir a la cible.** Un asset
+  absent d'une release GitHub ne rend PAS un 404 : il rend **HTTP 200 avec un corps de 9 octets**
+  (« Not Found ») — le telechargement « reussit » et le fichier est inutilisable. Comparer la taille et
+  l'en-tete aux metadonnees de la release (`assets[].size` de l'API, octets magiques `PK`/`MZ`) avant de
+  batir dessus, jamais le seul code de retour. Et quand le format prescrit est inadapte a l'outil vise
+  (des poids `.pth` PyTorch la ou l'application ne charge que des modeles NCNN `.bin`+`.param`),
+  executer la consigne ET fournir l'equivalent utilisable, en disant pourquoi le format demande ne
+  marchera pas seul.
 - **Un masquage trop large detruit la preuve** : un motif `sk-…` matche a l'interieur d'un nom de
   dossier et remplace un chemin reel par `[REDACTED]`. Ancrer le motif, exiger une longueur realiste,
   et masquer par NOM DE CLE plutot que par contenu — relire le journal avant de le publier.
@@ -245,6 +365,14 @@ lancer sur tel sous-systeme, voir `hermes-stack-audit` et `windows-path-handling
   (`~/.omniroute/call_logs/**`). Mesure : 650 Ko de sortie, tronquee, et le vrai resultat perdu. Borner
   le parcours en Python avec une liste `SKIP_DIRS` + extensions utiles, et ne rapporter que les fichiers
   qui portent une decision (code, lanceur, job, config, doc).
+  **Le motif cherche vient souvent de la DEMANDE elle-meme.** Cherche-t-on une chaine que la consigne
+  vient d'ecrire (nom de version, phrase du mandat, identifiant a localiser), les artefacts d'ECHO de la
+  session la rendent en clair : `.hermes_history`, `pastes/paste_*.txt`, `logs/agent.log`,
+  `logs/errors.log`, et les journaux d'usage qui recopient la question
+  (`data/route_ia_fix/jev_routing.jsonl`, `data/rag/recherches.log`). Classer les hits AVANT de compter :
+  annoncer « N occurrences » alors que les N sont la question posee fait conclure a l'existence d'un
+  artefact qui n'existe nulle part, puis batir un plan dessus. Retirer ces chemins, puis exiger qu'un
+  hit restant soit un artefact DOCUMENTAIRE (doc, code, config) et le citer avec son chemin.
 - **Un composant se classe en CONSOMMATEUR, PRODUCTEUR ou RESIDU — les trois ne se valent pas.**
   Aucun appel sortant vers le service (aucun client, script, job, plugin) = aucun consommateur : c'est
   la seule preuve qui autorise « obsolete ». Un script d'installation ou de restauration qui recree la
@@ -319,3 +447,7 @@ lancer sur tel sous-systeme, voir `hermes-stack-audit` et `windows-path-handling
   deja fait » : localisation de la cible, amend par `-F` (message en fichier hors depot),
   `--cleanup=verbatim`, preuve de non-changement par egalite des hash d'arbre, porte de push /
   `--force-with-lease`, point de rollback et pieges (index stage, commit non-HEAD).
+- `references/verifier-correctif-sans-executer.md` — prouver qu'un correctif sur un script a EFFETS DE
+  BORD (sonde qui ecrit un fichier d'etat, ligne de base) fonctionne sans declencher ces effets :
+  neutraliser l'ecrivain, patcher le module GLOBAL pour une lecture de base, alimenter le vrai parseur,
+  appeler la VRAIE fonction, et construire un CONTRE-CAS qui doit encore echouer.
