@@ -24,6 +24,7 @@ Orchestre : tts-voice-cloning -> talking-head-video-8gb -> video-assembly
 Reference : C:\Users\searc\Desktop\hermes_tuto_v4\pipeline_video.py
 Branches  : talking-head-video-8gb (A=LatentSync, B=LivePortrait/SadTalker, C=LTX)
 Sortie    : Desktop\hermes tuto\<nom>_FINAL.mp4
+Aval      : youtube-captions-shorts (SRT/VTT + Shorts 9:16 + packaging)
 ```
 
 ## Procedure
