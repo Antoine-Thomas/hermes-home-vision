@@ -38,6 +38,16 @@ utiliser deux profils Hermes distincts (pas deux entrées `channel_directory.jso
 - `gateway.log` doit montrer `telegram connected`, `polling confirmed healthy`, `set_my_commands OK 60 cmds`, `Gateway running 2 platforms`.
 - `Channel directory built: 0 target(s)` au premier démarrage est normal — le DM s'appaire au premier message reçu.
 
+### Lorsqu'un profil est servi par le gateway multiplexé
+
+Lorsque plusieurs profils partagent un même gateway (configuration par défaut), les commandes suivantes permettent de vérifier l'état :
+
+- `hermes gateway status` : affiche le PID du gateway principal et la liste des profils qu'il sert.
+- `hermes gateway list` : montre l'état de chaque profil (tous servis par le même multiplexer).
+- `hermes -p <profil> gateway status` : indique que le profil est servi par le gateway du profil par défaut (ex: `hermes -p watch gateway status`).
+- Les logs du gateway (`logs/gateway.log`) montrent `telegram connected` et `polling confirmed healthy` pour chaque bot configuré.
+- Le script de santé (`scripts/check_gateways.ps1`) signale les profils non surveillés lorsqu'ils n'ont pas de tâche planifiée dédiée (ce qui est normal en mode multiplexing).
+
 ## Pitfalls
 
 - Éditer `profiles/watch/channel_directory.json` à la main pour injecter le DM est écrasé au redémarrage (`Channel directory built: 0 target(s)` reconstruit depuis le state DB). Envoyer `/ping` depuis Telegram (ID dans `TELEGRAM_ALLOWED_USERS`) pour appairer ; le fichier se remplit seul.
