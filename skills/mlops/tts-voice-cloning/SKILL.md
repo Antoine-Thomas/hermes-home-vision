@@ -457,6 +457,19 @@ de sonde, API, mesures et pieges : `references/chatterbox-narration.md`.
   Segmenter par 6-12 phrases / 75-80 mots : **un segment trop long casse** (147 mots -> 0,708, phrases
   reordonnees et boucle en fin). Ne jamais fusionner le reliquat dans le dernier segment pour lui
   eviter d'etre court — lui donner son propre segment court.
+- **Le debit n'est pas un critere de qualite : scorer la DICTION avant de remplacer un tirage.**
+  Un re-tirage declenche par le seul mots/s a remplace un tirage a 1,88 mots/s par un tirage a
+  2,20 mots/s qui disait « une RTX 3077-DISTI, un i7-30-30-60K et 24 Godramme » (verifie Whisper).
+  Scorer chaque tirage sur (jetons porteurs de CHIFFRES ou sigles retrouves, puis similarite
+  canonique), le debit n'intervenant qu'en dernier : sur 3 tirages d'un segment dense en config
+  hardware, le meilleur n'atteignait que 5/9 jetons critiques — le re-tirage ne repare PAS la classe
+  « nombres », il faut le dire dans le rapport plutot que boucler.
+- **La cle de classement d'un tirage doit contenir un PLANCHER de similarite et un detecteur de
+  BOUCLE, sinon un tirage qui repete une phrase entiere gagne.** Mesure : une cle « sigles rendus ->
+  similarite -> debit » a adopte pour un segment une prise qui repetait la phrase complete (similarite
+  0,893 -> 0,188) parce qu'elle rendait un sigle de plus. Disqualifier d'abord `boucle` (n-gramme de 8
+  mots vu >= 2 fois) et `similarite < 0,75`, classer ensuite. L'archive `_avant_diction.wav` permet de
+  revenir en arriere : la garder jusqu'a la validation.
 - **Garder le MEILLEUR tirage, jamais le dernier, et le scorer AVANT de remplacer.** Mesure sur 11
   segments : regenerer a degrade 6 segments sur 11 (moyenne prise 1 = 0,835, prise 2 = 0,840) et un
   pipeline qui ecrase la prise 1 sans comparer detruit les bonnes (0,957 -> 0,879). Copier le WAV de

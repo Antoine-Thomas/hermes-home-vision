@@ -216,6 +216,155 @@ Ce qui s'en deduit :
   des mots manquants ; un transcript plus long = une phrase inventee en fin de segment (observe :
   `Merci d'avoir regardé cette vidéo !`, `Le problème, il hallucinait sur le français.`).
 
+## Narration Witcher 3 (96 segments / 2 703 mots) — mesures du 07/10/2026
+
+Chaine : segments de 200-250 caracteres (moyenne 168, soit ~28 mots) issus du texte brut, un WAV
+par segment dans UN seul processus, `ffmpeg -f concat -c copy`, puis
+`loudnorm=I=-16:TP=-1.5:LRA=11 -ar 48000 -ac 1`.
+
+| Mesure | Valeur |
+|---|---|
+| LOAD du modele | 11,9 s |
+| VRAM pic (segments de 200-250 car) | 4 802 Mo / 8 192 |
+| GPU total, 96 segments / 1 191,9 s d'audio | 2 433,4 s (40 min 33 s) |
+| Debit mesure | 2,36 mots/s = **140,9 mots/min** |
+| Durc totale | 1 150,88 s = 19,181 min a 48 kHz mono |
+| Silence de tete / de queue (fichier assemble) | 0,106 s / 0,010 s |
+| RMS / crete / echantillons ecretes | -15,87 dBFS / 0,8415 / 0 |
+
+- **Chatterbox ne padde PAS la queue de ses segments, contrairement a XTTS.** Sur 96 segments :
+  silence de queue median **15 ms**, max 0,531 s, total 7,5 s sur 1 191,9 s (**0,6 %**). Le concat
+  `-c copy` est donc utilisable tel quel, **aucun trimming n'est necessaire** — ne pas transposer le
+  piege XTTS des 575 ms par jointure a Chatterbox.
+- **Planifier a ~140 mots/min, pas 150.** L'estimation a 150 mots/min annoncait 18,0 min ; la mesure
+  reelle donne 19,2 min (2 703 mots). Un script cale sur 15 min a 150 mots/min sort a ~19 min. Verifier
+  le nombre de mots AVANT de lancer 40 min de GPU, pas apres.
+- **Le detecteur mots/s attrape les tirages qui trament, et il est gratuit.** Mediane 2,30 mots/s
+  (dispersion 1,66-3,17) ; 2 segments sortis a 0,93 et 1,02 mots/s etaient des tirages qui trainaient,
+  avec de la PAROLE CONTINUE (0 silence interne, RMS -15,8 dBFS) — donc ni un probleme de silence, ni
+  un debit lent legitime.
+- **Re-tirage d'abord, decoupage ensuite — dans cet ordre et mesure a chaque fois.** seg 026
+  (1,02 -> 2,16 mots/s, 40,00 s -> 18,96 s, garde) ; seg 007 a re-traine (0,93 -> 0,82, tirage ecarte)
+  et a ete **coupe a la frontiere de phrase** : 0,93 -> **2,13 mots/s**, 35,44 s -> 15,48 s.
+  Un tirage qui traine DEUX fois de suite est le texte/le tirage, pas la chance.
+- **Recoller les deux moities en UN SEUL fichier de segment** (module `wave`, memes parametres) quand
+  l'indexation est deja figee : un segment insere en fin de plan se retrouverait a la fin de l'audio.
+  Le nom de fichier et l'index restent ceux du plan, `concat.txt` reste valide.
+- **74/96 segments ont force l'EOS au moins une fois** (87 forcages au total, max 2 par segment) — y
+  compris des segments qui passent : confirme que c'est un signal de risque et non une preuve de
+  defaut. 10 segments sont legerement sous la bande saine (1,66-1,99 mots/s) : c'est du rythme, pas
+  un tirage a refaire, le decrochage net se joue sous 1,1 mots/s.
+
+## Script TTS pre-traite (v3, 73 segments / 2 112 mots) — mesures du 07/10/2026
+
+Script ou les acronymes sont ECRITS EN PHONETIQUE avant synthese (« R T X », « D L S S »,
+« C D Projekt Red », « mille quatre cent quarante p », « vingt-quatre gigaoctets de memoire vive »),
+segments de 200-250 car (moyenne 170,3), integration verifiee par re-concatenation ET par multiset de
+caracteres (0 perdu, 0 ajoute). GPU 2 117 s pour 932,0 s d'audio, puis 15 segments retouches.
+
+| Mesure | Valeur |
+|---|---|
+| Duree finale | 859,88 s = **14,331 min** (cible 13-17) |
+| Debit mesure | 147,4 mots/min |
+| Sortie | 48 kHz mono pcm_s16le, 82 548 558 o |
+| RMS / crete | -15,99 dBFS / 0,8414 (-1,50 dBFS) / 0 ecretage |
+| Silences internes >= 0,30 s | 85, soit 41,16 s (4,79 %) |
+| Forcages d'EOS | 66/73 segments, 88 forcages |
+
+### Ce que le moteur rend des graphies epellees (verifie par Whisper `medium` sur 26 segments)
+
+| Graphie demandee | Rendu | Verdict |
+|---|---|---|
+| `R T X` | `RTX` (7 segments sur 8) ; `eart` sur 1 | rendu en lettres |
+| `G T A O` | `GTA O` | rendu |
+| `Direct X douze` | `direct X12` | rendu |
+| `C D Projekt Red` | `cd projekt red` / `CD Projekt, Red` | rendu apres re-tirage ; 1 segment en `cd project rud` |
+| `G O G` | `Geo, je` -> `gog` apres re-tirage | rendu apres re-tirage |
+| `D L C` | `DLC` / `de lc` | rendu |
+| `P S cinq` | `PS5` | rendu |
+| `V R R` | `VTR Heure` -> `VRR` / `vr air` | partiel |
+| `P S S R` | `PSS` / `PS1 R` / `ps1 air` | **partiel, le R se perd** |
+| `D L S S` | `deux LSS` / `dls` / `2 lss` sur les 4 segments ou il apparait | **defaut systematique : le D sort en « deux »** |
+| `trente-neuf dollars quatre-vingt-dix-neuf` | `39,99 $` | rendu (Whisper renormalise) |
+| `vingt-quatre gigaoctets de memoire vive` | `24 Go de memoire vive` | rendu |
+| `mille quatre cent quarante p` | `1440p` / `1440 pas` | rendu |
+| `i sept treize mille sept cents K` | `i7 13700K` / `Ni7 13700K` | rendu |
+
+- **Un echec repete sur TOUS les segments est la graphie, pas le tirage** : `D L S S` est sorti
+  « deux LSS » sur les 4 segments ou il apparait, a chaque tirage. La regle « remplacer le mot » du
+  SKILL.md s'applique — mais un brief qui interdit de retoucher la version TTS se contente de le
+  SIGNALER.
+- **La similarite s'effondre quand le script ecrit les nombres en toutes lettres, et ce n'est pas un
+  defaut.** Mesure : un segment a 0,6407 de similarite ou Whisper a reecrit `mille quatre cent
+  quarante p -> 1440 pas`, `R T X trois mille soixante-dix -> RTX 3070 DT`, `i sept treize mille sept
+  cents K -> Ni7 13700K`, `24 gigaoctets de memoire vive -> 24 Go` : la diction etait JUSTE. Ne jamais
+  re-tirer sur la seule similarite d'un segment dense en nombres ; classer d'abord par « lecteurs de
+  nombres corrects », la similarite ensuite.
+- **Chatterbox peut TRONQUER un segment au lieu de le lire** : une prise de 24 mots est sortie en
+  **0,80 s** (30,00 mots/s, RMS -13,3 dBFS) — un souffle inintelligible, pas un debit rapide. C'est la
+  borne HAUTE du detecteur mots/s qui l'attrape ; le re-tirage l'a ramene a 2,61 mots/s.
+- **Le plafond ~40 s se repete** : un segment est sorti a **40,00 s pile** pour 34 mots (0,85 mots/s),
+  comme dans le run v2 (39,16 s puis 40,00 s).
+- **`transcribe()` de faster-whisper renvoie un GENERATEUR** : `len(segs)` leve `TypeError`. Faire
+  `segs = list(segs)` des le retour, sinon le script de controle meurt apres la premiere transcription.
+- **Un run de tirages en avant-plan est tue au plafond de l'outil (~420 s)** : il meurt au milieu du
+  lot. Ecrire le JSON d'avancement APRES CHAQUE segment (pas a la fin) et relancer en tache de fond en
+  FUSIONNANT les entiers deja calcules, sinon les tirages deja produits sont perdus.
+
+## Chapitres YouTube cales sur la timeline REELLE (ne pas garder les estimations du brief)
+
+L'estimation de structure fournie avec un brief (ici jusqu'a 16:15) est toujours fausse : le WAV fait
+14:19. Recalculer depuis les durees des segments : `start[i] = somme des durees 0..i-1` est EXACT aux
+frontieres (concat sans trou, loudnorm ne change pas la duree — verifier que `analyse.brut.duree_s ==
+analyse.final.duree_s`).
+
+- **Un titre de section peut etre colle a la FIN d'un segment** : le chunker fusionne tout reliquat de
+  moins de 60 caracteres avec le segment precedent, donc un titre court (« Verdict », 7 car) n'ouvre
+  pas son segment. Prendre le debut du segment pour un tel chapitre le place jusqu'a 18 s trop tot.
+  Le resoudre en transcrivant CE SEUL segment avec `word_timestamps=True` et en cherchant, par
+  fenetre glissante + `difflib`, la position du premier mot du titre (cout ~15 s de CPU par chapitre).
+- **Detecter les titres comme « paragraphe court sans point final »** : les paragraphes narratifs
+  finissent tous par `.`, donc `len(p) <= 90 and not p.endswith('.')`. Un filtre qui exclut aussi `?`
+  rate les titres interrogatifs (« Le contexte : pourquoi un remaster, et pourquoi gratuit ? »).
+- **Padder les minutes** (`%02d:%02d`) : `%d:%02d` sur 59,56 s ecrit `0:60`, qui n'est pas un format
+  YouTube valide.
+- **Ne pas laisser de ligne de texte juste apres le dernier timestamp** (un `FIN` se fait absorber
+  dans l'intitule du dernier chapitre) : YouTube ne garde que des lignes `MM:SS intitule`.
+
+## Narration Witcher 3 v2 (67 segments / 1 968 mots) — mesures du 07/10/2026
+
+Article Markdown -> texte parle (balisage retire, titres H1/H2 conserves), segments de 200-250 car
+(moyenne 173), integration verifiee par re-concatenation. Modele charge en 14,3 s, VRAM pic 4 802 Mo,
+2 327 s de GPU pour 890,0 s d'audio, puis 14 segments hors bande retouches (232 s de GPU).
+
+| Mesure | Valeur |
+|---|---|
+| Duree finale | 809,68 s = **13,495 min** (cible 13-17 min) |
+| Debit mesure | 2,43 mots/s = **145,8 mots/min** |
+| Sortie | 48 kHz mono pcm_s16le, 77 729 358 o |
+| RMS / crete (apres loudnorm) | -15,96 dBFS / 0,8415 (-1,50 dBFS) / 0 ecretage |
+| Silence de tete / de queue | 0,037 s / 0,032 s |
+| Silences internes >= 0,30 s | 83, soit 39,38 s (4,86 %), max 1,08 s |
+| Forcages d'EOS | 47/67 segments, 54 forcages |
+
+- **Chatterbox plafonne autour de 40 s** : les deux tirages qui trainaient sont sortis a 39,16 s et
+  **40,00 s exactement**. Un segment a ~40 s est un tirage borne par le decodeur, pas un debit lent
+  legitime — le re-tirage ou le decoupage le regle (0,95 -> 2,39 mots/s apres recollage).
+- **`wave.getparams()` inclut `nframes`** : comparer `(nchannels, sampwidth, framerate, comptype,
+  compname)` pour recoller deux moities. Le test naif `pa == pb` echoue toujours et fait perdre le run
+  au moment du recollage, apres les generations.
+- **Un segment d'UNE seule phrase ne peut pas passer par le fallback decoupage** (titre de section,
+  phrase courte) : il reste sous 2,0 mots/s. Le consigner comme reserve, pas boucler dessus — 5 des 14
+  segments retouches sont restes entre 1,59 et 1,98 mots/s, tous mono-phrase ou a tirage moyen.
+- **Deux venvs, deux etapes** : le venv chatterbox n'a pas faster-whisper. Generer les tirages dans
+  l'un (`_draw`), scorer/transcrire dans l'autre (venv hermes-agent, faster-whisper CPU `small`) — ne
+  rien installer dans le venv du moteur pour un controle ponctuel.
+- Verdict de diction sur les 14 segments retouches : 12/14 contenu intact (similarite canonique >=
+  0,97 apres triage des artefacts `-s` muet, `trois` -> `3`, `pre-requis` -> `pre requis`). Les deux
+  vrais defauts sont des passages de NOMBRES : « 1440p a 60 FPS ... RTX 3070 Ti, i7-13700K » et
+  « 39,99 a 49,99 dollars ». Le second a ete repare par un tirage choisi sur la diction ; le premier
+  resiste a 3 tirages.
+
 ## Politique de texte
 
 Aucun numero de port, aucune URL dans le texte PARLE : ils vont a l'ecran et dans la description
