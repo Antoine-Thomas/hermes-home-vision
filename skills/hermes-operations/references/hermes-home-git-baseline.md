@@ -113,6 +113,17 @@ motifs : `\b[0-9]{8,12}:[A-Za-z0-9_-]{30,45}\b` (bot Telegram), `sk-[A-Za-z0-9_-
 - Rapporter **fichier + longueur + `sha256[:12]`** — jamais la valeur.
 - Faux positifs attendus : `tokenizer=`, `user_password=`, `ENV_API_KEY =`, `AIRTABLE_API_KEY` — des
   **noms de variables** dans des scripts et des docs.
+- **Dans un fichier de CODE, c'est le membre de DROITE qui decide : un hit n'est reel que s'il porte un
+  LITTERAL.** Un motif `token\s*[:=]` matche toutes les variables de pagination d'un client d'API
+  (`token = None`, `if token:`, `token = d.get("nextPageToken")`) : `None`, un identifiant nu, un acces
+  dict/attribut ou une lecture d'environnement (`os.environ[...]`) sont du CODE, pas une valeur. Le
+  classement « au moins un chiffre ou une majuscule » suffit pour la prose, jamais pour du code (`None`
+  porte une majuscule). Avant de lever un STOP sur une alerte : quatre corroborations independantes — le
+  motif litteral du fournisseur avec sa longueur reelle (`AIza` + >= 20 caracteres), l'endroit ou la
+  cle est REELLEMENT lue (`.env`, `os.environ`, argument de ligne de commande), l'inventaire des
+  litteraux de chaine longs (>= 24 caracteres : URL de base, chaines de format, messages d'erreur),
+  et le statut des hits des `.md` (documentation d'un format, commande de masquage). Un faux positif
+  ainsi classe se NOMME dans le message de commit, avec ses lignes citees et masquees.
 - Le vrai piege : un **exemple `curl` dans une doc de skill** peut contenir une cle reelle
   (`-d '{"key":"sk-…"}'`). Une meme doc est dupliquee sous `skills/`, `profiles/*/skills/` et
   `.archive/` : masquer l'exemple dans **toutes** les copies, sinon la fuite revient au commit suivant.
@@ -204,6 +215,37 @@ Sur **chaque** depot, dans cet ordre — un seul rouge arrete la publication :
 - **La sauvegarde `.git` d'un depot qu'on reecrit se pose HORS du depot.** Un `cp -r .git
   backups/…` a l'interieur du depot apparait en non-suivi, et un `git add -A` peut ensuite indexer
   des dizaines de Mo d'objets git qui contiennent les secrets qu'on venait de purger.
+
+### 3 sexies. Indexer un lot de travail accumule (mesurer, grouper, gater)
+
+Quand le travail local s'est accumule en plusieurs themes (des dizaines d'entrees au `git status`), le
+traiter **lot par lot** : un theme = un commit, un rapport par lot, STOP entre les deux.
+
+- **Un fichier appartient a UN seul lot, et un lot est ATOMIQUE des qu'un fichier du lot en cite un
+  autre.** Une `SKILL.md` modifiee qui cite une `references/<x>.md` NON SUIVIE part dans le MEME commit :
+  l'omettre publie un lien mort. Le controle des renvois se fait donc en DEFINISSANT le lot, pas
+  seulement avant l'`add` — et le verdict se prend sur l'OBJET (`git cat-file -e HEAD:<chemin>`), pas
+  sur le disque.
+- **Deux comptes differents, a nommer separement.** `git status --porcelain | wc -l` compte les
+  ENTREES (modifiees + non suivies + supprimees) ; `git diff --stat` ne compte que les fichiers SUIVIS
+  modifies. **Un dossier non suivi compte pour UNE entree** (`?? skills/x/y/`), pas une par fichier :
+  committer N nouveaux fichiers d'un dossier fait baisser le compte de 1, pas de N.
+- **Quand un compte predit tombe faux, chercher l'ENTREE NOUVELLE, pas refaire l'arithmetique.**
+  Lister les entrees triees par mtime (`stat -c '%y %n' <fichier>`) et nommer celle qui vient
+  d'apparaitre : une passe concurrente ecrit dans `skills/` pendant la session et ajoute une entree
+  HORS lot (a rapporter, jamais a absorber). Un ecart d'une entree est un fait a localiser, pas une
+  erreur de calcul a corriger en silence.
+- **Un controle qui attend un bit executable (`100755`) sur un script est faux sur ce parc.**
+  `core.filemode` vaut `false` sous Windows : git ne suit pas le `+x`. Mesurer la convention avant de
+  declarer un ecart — `git ls-files --stage -- 'skills/**/*.py' | awk '{print $1}' | sort | uniq -c`
+  (tous `100644`, zero `100755`) et `git config --get core.filemode` — puis relire l'invocation
+  documentee par le script (`python <fichier>` n'a pas besoin du bit). Le `100644` est la convention,
+  pas une anomalie.
+- **Archiver avant de supprimer un dossier : `tar -f` avec un chemin `C:/…` est lu comme
+  `hote:chemin`** (`tar (child): Cannot connect to C: resolve failed`, puis `Broken pipe`) — sous MSYS,
+  donner un `-f` **RELATIF** depuis le cwd (`cd <scratch> && tar -czf <nom>.tar.gz -C <parent>
+  <dossier>`) ou `--force-local`. Prouver l'archive avant toute suppression (`tar -tzf <f> | wc -l`,
+  `sha256sum`) et l'ecrire sous `cache/scratch/` : ignore par git, donc hors de tout lot.
 
 ### 3 quinquies. Apres le push : prouver la synchronisation, et dire ce qui reste en avance
 

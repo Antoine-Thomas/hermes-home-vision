@@ -181,7 +181,9 @@ Voir [references/memory-bookkeeping.md](references/memory-bookkeeping.md).
   binaires, tickers cron), le fichier `nul` qui fait échouer `git add -A`, le scan par empreinte (yc le
   piège de la clé réelle cachée dans un exemple `curl` d'une doc de skill), **l'audit de TOUT
   l'historique et la purge en une passe**, les **contrôles bloquants avant un push** (fichiers
-  sensibles, contenu, > 50 Mo, `.gitattributes`), le piège `.env.*` qui avale `.env.example`, la
+  sensibles, contenu, > 50 Mo, `.gitattributes`), **l'indexation d'un lot de travail accumulé** (§3
+  sexies : lots atomiques par thème, deux comptes d'entrées, mode `100644` sous Windows, archivage
+  `tar` avant suppression), le piège `.env.*` qui avale `.env.example`, la
   **restauration sur une autre machine** (installeur Hermes d'abord, puis `git init`/`fetch`/`checkout`
   par-dessus — jamais `git clone` dans un dossier non vide) et la **fusion de deux dépôts en un seul**
   (clone de travail puis `--ff-only`, collisions précalculées, rangement sous `docs/`).

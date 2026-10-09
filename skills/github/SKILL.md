@@ -125,6 +125,18 @@ Ready-to-use templates for common GitHub artifacts:
 
 - **[scripts/gh-env.sh](scripts/gh-env.sh)** — source this for autodetection of gh auth + token extraction
 
+## Committer un lot de travail local (protocole lot par lot)
+
+Quand du travail local s'est accumule en plusieurs themes (ou porte des hunks d'un tiers), traiter **un lot = un commit** et prouver chaque lot avant de l'indexer.
+
+1. **Mesurer le statut REEL de chaque cible ; ne jamais croire le brief.** `git status --porcelain -- <chemin>` rend le statut (` M` suivi-modifie, `??` non suivi, ` D` supprime) et `git ls-files --error-unmatch <chemin>` dit si le fichier est deja versionne. Un inventaire qui annonce « nouveau » sur un fichier en realite suivi fait figer un « (nouveau) » faux dans un message de commit, et invalide tout controle bati sur cette hypothese (ex. « sera indexe en i/lf via .gitattributes »).
+2. **Deux comptes distincts, nommes separement** : `git status --porcelain | wc -l` compte les ENTREES (modifies + non suivis + supprimes), `git diff --stat` compte les FICHIERS suivis modifies. Les deux divergent legitimement (35 entrees contre 21 fichiers) : publier chacun avec son libelle, sinon le rapport se contredit d'un paragraphe a l'autre.
+3. **Un lot est atomique des qu'un fichier en cite un autre** : une `SKILL.md` modifiee qui cite une `references/<x>.md` non suivie part dans le MEME commit — sinon un clone frais recoit un lien mort. Controler en extrayant les chemins cites (`grep -oE '(references|scripts|templates)/[A-Za-z0-9._-]+'`) et en verifiant l'existence de chacun.
+4. **Un renvoi inter-skills se resout a la RACINE du depot**, jamais dans le dossier du fichier : `<autre-skill>/scripts/<x>.py` se verifie tel quel, sinon on annonce une « reference morte » qui n'en est pas une (faux positif qui coute un aller-retour).
+5. **Prouver le perimetre indexe avant de committer** : apres les `git add <chemin>` nommes, `git diff --cached --name-only | wc -l` doit egaler le nombre de chemins annonces, et un `grep -vc <fragment-du-lot>` doit rendre 0 (aucun fichier d'un autre lot). C'est la seule mesure qui distingue « j'ai indexe mon lot » de « j'ai indexe un dossier ».
+6. **Un fichier portant des hunks non committes d'un TIERS ne s'indexe pas sans decision explicite** : l'indexer emporte ce contenu sous ton message. Le nommer dans le message (ou s'arreter et le rapporter) ; un lot redige par une autre session se committe par elle, ou avec un message qui NOMME ce qu'il contient.
+7. **Integrite du message : la preuve porte sur l'OBJET, jamais sur `%B`.** `git cat-file commit HEAD`, couper au premier `\n\n`, comparer octet a octet au fichier de message. `git log -1 --format=%B` ajoute un saut de ligne final : un sha256 qui differe d'UN octet n'est pas une alteration. Fichier de message en **LF pur** dans le scratch (ignore par git), et texte renvoye INTEGRALEMENT au rapport pour validation avant execution.
+
 ## Pitfalls
 
 - **GitHub disabled password auth for git** — use a personal access token AS the password, or switch to SSH
