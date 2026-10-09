@@ -450,6 +450,13 @@ deja ete reecrits (et inversement), l'ordre de parcours n'etant pas documente.
   sur les dossiers, echantillon sur les fichiers) et publier le partage. Prouver l'ARRET par une
   empreinte : hasher la liste des ACE d'un jeu FIXE de chemins, deux fois a quelques minutes d'ecart,
   et comparer — sans cela « propagation finie » et « propagation en cours » se ressemblent.
+- **La cause la plus banale d'une propagation interrompue est une commande tuee par le plafond de l'outil :
+  le parametre de timeout du tool `terminal` s'appelle `timeout` (en secondes), PAS `timeout_s`.** Un nom
+  inconnu est ignore EN SILENCE et le plafond par defaut s'applique (180 s) : la session croit avoir pose
+  un delai large et la passe de masse est coupee a mi-course (mesure : 1,2 M d'objets d'un home reecrits
+  partiellement). Une passe d'ACL qui depasse ce plafond se lance en PROCESSUS D'ARRIERE-PLAN
+  (`background=true` + notification) ou par lots d'un dossier a la fois ; le verdict reste le compteur
+  d'acces avant/apres, jamais l'absence d'echec affichee.
 - **Un fichier qui resiste a la lecture : distinguer le VERROU de l'ACL en un test.** Ouvrir en lecture
   seule (partage par defaut), puis en lecture avec partage lecture/ecriture : si la seconde reussit,
   c'est un autre processus qui tient le fichier (`state.db`, `.lock` d'un service vivant) et l'ACL est
