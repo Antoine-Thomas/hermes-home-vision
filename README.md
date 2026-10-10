@@ -533,3 +533,11 @@ GitHub. Usage personnel. Les composants tiers (Hermes Agent, OmniRoute, SiYuan, 
 sous leurs licences respectives.
 
 Contact : Antoine-Thomas — <https://github.com/Antoine-Thomas>
+
+---
+
+## Skills available for purchase
+
+The production-ready skills in this project are also available as standalone
+packages on Agensi.io:
+→ https://www.agensi.io/@thomas-leroyer
