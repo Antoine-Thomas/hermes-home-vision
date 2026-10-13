@@ -36,6 +36,33 @@ python "%LOCALAPPDATA%\hermes\data\rag\router_memoire.py" "question"
   establish what the thing **is** before writing that it does not exist. Report the size delta against
   the alert threshold, and name the doubtful neighbours on the same line instead of fixing them in the
   same pass.
+- **Curation ciblee — mesurer AVANT d'ecrire, chiffrer la marge reelle.** Calculer par entree la
+  longueur avant/apres, sommer les gains et projeter la taille finale face au seuil avant la premiere
+  ecriture. Les invariants cites dans le brief (« ne pas retirer ce chemin », « ne pas toucher a cette
+  entree ») sont le PLANCHER de la compression : quand ils rendent la cible inatteignable, livrer le
+  gain reel, chiffrer l'ecart et nommer les seuls arbitrages qui restent — jamais sacrifier un
+  invariant pour atteindre le nombre. Un brief peut aussi se tromper sur le volume « deja duplique »
+  avec un skill : chercher les jetons reels dans ce skill avant de retirer quoi que ce soit ; s'ils n'y
+  sont pas, la regle « conserver tout ce qui n'est pas dans le skill » l'emporte sur la cible.
+- **Editer une memoire par `patch` sur les lignes visees, jamais par une reecriture du fichier.** Le
+  reste du fichier doit rester identique a l'octet (CRLF, absence de saut final) — seules les entrees
+  visees bougent. Corollaire de verification : un `git diff` large sur MEMORY.md est de la derive
+  preexistante (le fichier est souvent deja modifie non commite), donc il ne prouve RIEN sur ton
+  travail ; prouver son propre delta par le diff rendu par `patch` et par le mtime du fichier.
+- **Archiver une entree retiree dans un fichier dedie, pas seulement dans SiYuan.** Convention du
+  parc : `memories/archive_MEMORY_E<NN>_<sujet>_<AAAAMMJJ>.txt`, avec un en-tete (date, raison de
+  l'archivage, ligne de remplacement laissee dans MEMORY.md), puis `--- TEXTE INTEGRAL RETIRE ---`
+  et le texte EXACT. Y consigner aussi la DIVERGENCE constatee au moment de l'archivage : une note
+  de memoire qui contredit un skill s'archive comme HISTORIQUE (avec la reference du skill et la
+  consigne « ne pas reutiliser »), elle ne se reecrit pas en silence. Numeroter `E<NN>` a la suite du
+  dernier archive present dans `memories/`.
+- **Une passe de curation se termine par le rapport, sans commit** : delta chiffre + verdict
+  (`APPLIQUER` / `AJUSTER` / `STOP`), l'utilisateur valide ensuite. Le depot memoire ne se committe
+  que sur son ordre. Quand le brief fixe PLUSIEURS seuils (une taille ET un pourcentage), rendre un
+  verdict PAR seuil — un objectif atteint ne masque pas l'autre. Apres application, re-mesurer le
+  gain de chaque levier : l'estimation faite avant ecriture est souvent fausse de quelques
+  caracteres, et « objectif non atteint de N octets » se dit tel quel au lieu de se rattraper en
+  coupant un invariant.
 - **Obsolescence**: Apply the `> À revérifier: YYYY-MM-DD` convention to SiYuan documents.
 
 ## Staged writes — the write-approval queue

@@ -47,8 +47,9 @@ Condensation manuelle, dans cet ordre :
    separateurs `\r\n§\r\n` avant/apres : le nombre d'entrees ne doit pas bouger.
 4. Verifier : `check_memory.ps1` repasse sous le seuil **et** le nombre de separateurs est inchange.
    Ne pas conclure sur un `len(open(f).read())` : universal newlines lit 2 caracteres par ligne de moins.
-5. Archiver le texte retire **a cote du `.bak`** (`archive_<FICHIER>_<entree>.txt`) quand SiYuan ne
-   doit pas etre touche ; la voie scriptee, elle, archive dans SiYuan — c'est la seule difference.
+5. Archiver le texte retire **a cote du fichier** quand SiYuan ne doit pas etre touche ; la voie
+   scriptee, elle, archive dans SiYuan — c'est la seule difference. Nommage et contenu de cette
+   archive locale : section « Curation ciblee » ci-dessous (convention `archive_MEMORY_E<nn>_...`).
 
 ## Sécurité (ordre strict)
 1. **Toujours archiver dans SiYuan avant de modifier MEMORY.md.**
@@ -85,3 +86,44 @@ api('/api/filetree/createDocWithMd', {
 })
 ```
 `desaturer_memoire.py` fait exactement cet appel (jeton SIYUAN_TOKEN lu dans `%LOCALAPPDATA%\hermes\.env`).
+
+## Curation ciblee (quelques entrees nommees, archive LOCALE hors SiYuan)
+
+Quand la demande porte sur un petit lot d'entrees precisees par le brief — et non sur la desaturation
+globale — l'archive reste **a cote du fichier** : SiYuan peut etre volontairement hors perimetre.
+
+### Convention d'archive locale
+`memories/archive_MEMORY_E<nn>_<sujet>_<AAAAMMJJ>.txt`, numero **a la suite** des archives existantes
+(lire `ls memories/archive_MEMORY_*` et prendre le numero suivant, p.ex. E08 → E09). Trois parties :
+1. en-tete : date, raison de l'archivage, et la LIGNE DE REMPLACEMENT laissee dans MEMORY.md ;
+2. si l'entree retiree **contredit** un skill (une consigne technique revue depuis), un bloc
+   `ATTENTION` citant la divergence avec le `fichier:ligne` du skill, conclu par « archivee comme
+   HISTORIQUE (ne pas reutiliser) ». Sans ce bloc, la ligne archivee sera un jour relue comme une
+   consigne valide — c'est le seul garde-fou contre la reutilisation d'une consigne perimee ;
+3. le marqueur `--- TEXTE INTEGRAL RETIRE ---` puis le texte exact, copie sans reformatage.
+
+### Mesurer avant d'ecrire (le plancher, c'est le brief)
+- Longueurs par entree : `awk '{print NR, length($0)}' memories/MEMORY.md` — une entree = une ligne,
+  les lignes `§` sont des separateurs (2 caracteres chacune). Taille en octets = contenu + un saut
+  par ligne (un fichier sans saut final rend `wc -c` superieur a la somme des longueurs).
+- Chiffrer chaque candidat AVANT la premiere ecriture. Pour ces chaines (chemins Windows pleins
+  d'antislashs) passer par `execute_code` plutot qu'un heredoc bash : une chaine brute qui se termine
+  par `\` est une erreur de syntaxe, et une chaine brute trop permissive masque les echappements.
+- Projeter `taille_avant - somme(gains)` face a la cible et rapporter l'ecart restant.
+- **Les invariants du brief forment le plancher de compression.** Les chemins obligatoires d'une
+  entree d'environnement pesent a eux seuls ~160 caracteres : la cible de compression de cette entree
+  est alors inatteignable quel que soit le style. Chiffrer, l'ecrire, et proposer les seuls arbitrages
+  restants (les entrees dont le contenu n'est duplique nulle part) au lieu de les appliquer.
+- Un brief peut surestimer le « deja duplique » : chercher les jetons reels (noms de depot, chemins)
+  dans le skill cite avant de retirer. S'ils ne s'y trouvent pas, la regle « conserver tout ce qui
+  n'est pas dans le skill » l'emporte sur la cible de taille.
+
+### Ecrire
+- **`patch` ligne par ligne, jamais une reecriture du fichier entier** : le reste doit rester
+  identique a l'octet (CRLF, absence de saut final). Un `write_file` sur `memories/MEMORY.md` est en
+  outre refuse par le garde-fou de lecture (« partial view »).
+- Verifier par le diff rendu par `patch` + le mtime, **pas** par `git diff` : MEMORY.md porte souvent
+  une derive preexistante non commitee, dont le diff vs HEAD noie ton propre delta.
+- Rapporter : taille avant/apres, gain, chemins critiques preserves (tester leur presence par
+  `grep -qF` un par un), fichier archive cree, et un verdict `APPLIQUER` / `AJUSTER` / `STOP`. Jamais
+  de commit dans la passe.
