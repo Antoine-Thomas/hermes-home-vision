@@ -35,6 +35,25 @@ RAG → mémoire native) via JEV (repli regex) et le plugin `anima-memoire-route
 
 Flux E2E : message → profil → routeur (JEV/regex) → LLM (combo) → RAG → JEV → réponse.
 
+---
+
+## ANIMA Reactor 0.3 — orchestration réactive (Couche 5)
+
+Couche 5 du système ANIMA : supervision passive → **supervision autonome**.
+Le watcher (`scripts/anima_watcher.py`) lit `health_anima_state.json` toutes les
+30 s, détecte les transitions `READY/DEGRADED → FAILED/BLOCKED` et émet un
+signal MARI traçable (`POST /fire` sur le bridge, port 55553). Décision locale,
+action traçable — il signale, il ne répare pas.
+
+- [Architecture Reactor](docs/ARCHITECTURE_REACTOR.md) — 9 sections, ports, contrats, sécurité, limites.
+- [Installation / relance](docs/REACTOR_INSTALL.md) — prérequis, 13 checks, kill-switch `C:/mari-poc/DISABLE`.
+- [Changelog v1.7](docs/CHANGELOG-v1.7.md) — Keep a Changelog.
+- [Concept wiki](wiki/concepts/mari-reactor.md) — définition, flux, quand utiliser.
+- [Skill MARI](skills/software-development/mari-orleans-integration/) — intégration .NET 8 / Orleans (POC).
+
+Le bridge C# reste dans `C:/mari-poc/` (hors dépôt) ; le watcher est non
+persistant et n'effectue aucune action de remédiation active.
+
 ## Choisir sa version
 
 | Version | Statut | Branche / Tag | Documentation |

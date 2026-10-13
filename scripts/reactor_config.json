@@ -1,0 +1,17 @@
+{
+  "ports": {
+    "silo": 55551,
+    "gateway": 55552,
+    "rest": 55553
+  },
+  "paths": {
+    "state_file": "C:/Users/searc/AppData/Local/hermes/data/route_ia_fix/health_anima_state.json",
+    "remediation_dir": "C:/mari-poc/remediation",
+    "log": "C:/mari-poc/journal/watcher.log",
+    "disable_file": "C:/mari-poc/DISABLE"
+  },
+  "thresholds": {
+    "window_seconds": 60,
+    "state_freshness_minutes": 15
+  }
+}
