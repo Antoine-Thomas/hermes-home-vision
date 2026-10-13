@@ -1,0 +1,13 @@
+Entree E09 retiree de MEMORY.md le 2026-10-13 (curation Vague 2, scenario prudent).
+Raison : section ANIMA v7 (LatentSync) = historique de session (segment 1 du 04/10) ;
+le contenu technique durable est desormais porte par le skill media/anima-video-pipeline.
+Ligne de remplacement dans MEMORY.md : "ANIMA v7 (LatentSync) : archive E09, cf skill anima-video-pipeline."
+
+ATTENTION : S8 affirmait '+2 frames/segment via -c copy -frames:v N'
+alors que media/anima-video-pipeline/SKILL.md:127-129 dit
+'-frames:v tronque l'audio, borner avec -t, jamais -frames:v'.
+Cette section est archivee comme HISTORIQUE (ne pas reutiliser).
+
+--- TEXTE INTEGRAL RETIRE ---
+
+ANIMA v7 (LatentSync 1.5): 11,1x reel, RAM pic 31,2 Go; +2 frames/segment via `-c copy -frames:v N`; pipeline = skill media/anima-video-pipeline.

@@ -1,17 +1,23 @@
-RTX 3070 Ti 8 Go: SDXL LoRA non viable (spill WDDM); validé SD 1.5 512px: 1,8 s/pas, 3,5 Go VRAM, 0 spill, 1800 pas/53 min. Aucun reset GPU depuis 16/09.
+HW: RTX 3070 Ti 8 Go (SD1.5 OK; SDXL LoRA spill); hiberfil off.
 §
-Hermes v0.21.5+3779.g8f897d2 (config v46).
+Hermes v0.21.7 (config v50). Bot @Hermes_assistante_2026_bot (8956868107).
 §
-SiYuan 3.8.2 (6806), workspace C:\Users\searc\SiYuan\hermes-projects, 6 notebooks. RAG data\rag: chercher, indexer, router_memoire, audit_rag, scan_secrets, serveur_rag (8200); e5-base, cache TTL 24h, ~2300 frag. Routeur: hiérarchie 1→4, budget tokens, fraîcheur, contradictions.
+Env: Gateway=tools\python-3.14.7+installs; CLI=hermes-agent\venv, cf HERMES_VENVS.md; cron `script`=<HERMES_HOME>\scripts\; HERMES_HOME=AppData\Local\hermes; SiYuan 3.8.6:6806; RAG data\rag; C:\Users\searc\.hermes=ancien home, NE PAS SUPPRIMER.
 §
-Audit LoRA/vidéo: venv dédié data\video_youtube\LatentSync\venv; rapport data\sdxl_lora\docs\LORA_VISAGE_RUN_2026-09-17.md
+Git: %LOCALAPPDATA%\hermes = depot (main); worktree hermes-docs = cwd profil docs-writer. Regles: transformers<5; pviol/mclk avant bench; info -> SiYuan.
 §
-Skills: 98 actifs (7 désactivés). Bots: default=@Hermes_assistante_2026_bot (chat 8956868107), veille=@Hermesveille1_veille_bot, watch=@Omaths2_watch_bot (désactivé).
+IA/OmniRoute: Gemini 2 comptes (primary=gemini-account-2, sec=GOOGLE_API_KEY); Groq banni; DB ~/.omniroute/storage.sqlite; config via `hermes config set`.
 §
-Depuis 0.21.5+3779 les lanceurs gateway (gateway-service\*.cmd|.vbs) pointent tools\python-3.14.7 + venv runtime stagé sous installs\ (VIRTUAL_ENV n'est plus hermes-agent\venv); hermes-agent\venv reste la voie du CLI (PATH). Détail docs\HERMES_VENVS.md
+Video/Audio: XTTS v2+SadTalker (fr); ref data\xtts\voix_reference.wav; schemas ANIMA\schemas\; final FFmpeg talk+schemas+music+subs.
 §
-Git: dépôt canonique %LOCALAPPDATA%\hermes (remote Antoine-Thomas/hermes-home-vision, public, main); clone de lecture C:\Users\searc\Projets\hermes-home-vision, (rafraîchir après push). installs/ et tools/ (~2,5 Go) exclus via .git/info/exclude.
+Shell bash; cmd /c (pas //c); PS via .ps1 -File; PS `$l`==`$L`; Start-Process <nom nu> en enfant eleve ne lance RIEN -> chemin complet + Start-Transcript. curl=Schannel (pas subject:/issuer:). Wazuh=Docker single-node-wazuh.
 §
-Règles: transformers < 5. Vérifier pviol + mclk au repos avant benchmark IA. Jamais de téléchargement sans validation; info nouvelle → SiYuan.
+ANIMA v7 (LatentSync) : archive E09, cf skill anima-video-pipeline.
 §
-Préférences: français, concis, ciblé, expliquer chaque changement. Documenter dans SiYuan, pas MEMORY.md. Vérifier avant d'affirmer, mesurer plutôt que supposer.
+Plugin auto-context-reset actif (skill devops/auto-context-reset).
+§
+Ollama local: qwen2.5:7b reserve a Wazuh (data\security-monitoring), ne pas partager/supprimer. Hermes=cloud.
+§
+GitHub (Antoine-Thomas): hermes-skills + hermes-wordpress-skills PRIVES (vendus Agensi); *-showcase + hermes-home-vision publics (doc/portfolio). Jamais de token en chat.
+§
+Campagne candidature: Desktop\candidature-spontanee\envoi_candidature.py; portes/flags = skill email/campaign-presend-qa (`--force-resend` dispo); optout.csv=4 STOP; destinataires_vague2.csv filtree tech.
