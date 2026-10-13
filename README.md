@@ -180,14 +180,32 @@ Détail complet, fichiers concernés et notes de migration : [`docs/CHANGELOG-v1
 ║   CodexSandboxUsers  hors du dépôt         allowlist à jour                           ║
 ║   retirée            (hermes-secrets-                                                     ║
 ║                       backup\)                                                            ║
+╚═════════════════════════════════════════╪═════════════════════════════════════════════════╝
+                                          │
+╔═════════════════════════════════════════▼═════════════════════════════════════════════════╗
+║ COUCHE 5 — RÉACTEUR (ANIMA Reactor 0.3)                                                   ║
+║                                                                                           ║
+║   ANIMA 0.2 (state.json) ──► Watcher ──► Bridge MARI REST (55553)                         ║
+║      (lecture 30 s)         anima_watcher.py   GET /status · /diag · POST /fire           ║
+║                                  │                                                        ║
+║                                  ▼                                                        ║
+║                  Signal ─► Porte AND ─► Trigger ─► Séquence ─► VGrain                     ║
+║                                                                                           ║
+║   Ports : 55551 silo · 55552 gateway · 55553 REST  —  hors plage Wazuh 54985-55084        ║
+║   Kill-switch : C:/mari-poc/DISABLE · Bridge C# hors dépôt · signale, ne répare pas       ║
 ╚═══════════════════════════════════════════════════════════════════════════════════════════╝
 ```
 
-**Les quatre couches.** ① **Profils** — cinq environnements isolés (`default`, `watch`, `veille`,
-`docs-writer`, `security`), chacun son `config.yaml`, son `.env` et ses credentials. ② **Routage** — OmniRoute
+> Règle d'or : la Couche 5 est hors runtime Hermes. Elle lit les fichiers
+> des Couches 3-4 mais n'écrit jamais dans %LOCALAPPDATA%\hermes.
+
+**Les cinq couches.** ① **Profils** — cinq environnements isolés (`default`, `watch`, `veille`,
+`docs-writer`, `security`), chacun son `config.yaml`, son `.env` et ses identifiants. ② **Routage** — OmniRoute
 (20128) et le proxy NIM (20200) : gratuit d'abord, payant en dernier, bascules tracées. ③ **Cerveau** —
 RAG (8200), SiYuan (6806), JEV (décision typée via OpenRouter) et Laya (accélérateur
 ONNX local). ④ **Sécurité** — ACL minimales, secrets hors git, Wazuh, plages de ports Windows.
+⑤ **Réacteur** — ANIMA Reactor 0.3 : supervision passive → autonome, watcher Python + bridge MARI
+(Signaux → Portes → Déclencheurs → Séquences → VGrains), hors runtime Hermes.
 
 Détail complet, limites mesurées et commandes de vérification :
 [`docs/ARCHITECTURE_AEGIS.md`](docs/ARCHITECTURE_AEGIS.md).
