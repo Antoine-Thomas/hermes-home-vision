@@ -313,7 +313,7 @@ sans risque, le bump d'une phrase de STATUT ne l'est pas.
   fuite.** Avant de rapporter l'échec du gate (ou de le déclarer vert en silence), lister les lignes qui
   matchent (`git diff --cached | grep -inE '<motifs>'`) et les classer mot pour mot : un motif court vit
   dans un nom de skill ou de référence (le `sk-` de `<motif>` se retrouve au milieu d'un mot composé),
-  dans un sigle de jeton d'API cité par une commande de vérification, ou dans un mot anglais courant.
+  dans un sigle de jeton d'API cité par une commande de vérification, dans un mot anglais courant, ou dans un identifiant de code d'un exemple documenté (`CancellationToken` d'un extrait C#, une variable d'exemple).
   Traitement : **reformuler la doc** pour que seuls de vrais secrets puissent matcher (paraphrase du nom
   du skill ou de la référence, « un jeton d'API (préfixe `ey`) » à la place du sigle), puis re-passer le
   gate pour un vrai 0. Les noms exacts paraphrasés se **déclarent** dans le rapport : un gate vert
@@ -355,6 +355,17 @@ sans risque, le bump d'une phrase de STATUT ne l'est pas.
   vide sur une ligne quelconque d'un `.gitignore` en CRLF — alors que les fichiers du dossier ne sont
   PAS ignores. Trancher sur un FICHIER dedans (`git check-ignore -v <dossier>/<fichier>`) ou par
   `git add --dry-run` : sinon on retire du commit des dossiers parfaitement versionnables.
+- **Avant tout `git mv`, verifier que la cible n'est pas ignoree.** Un fichier deplace sous une cible
+  ignoree (`git check-ignore -v <cible>` : sortie NON vide) disparait silencieusement du depot suivi —
+  il reste sur le disque mais n'est plus versionne, et le prochain clone ne l'a pas. Ne pas rattraper par
+  `git add -f` (seconde copie divergente du canon). Apres le `mv`, prouver le suivi par
+  `git ls-files <nouveau-dossier>` (0 ligne = jamais suivi) et controler l'index
+  (`git diff --cached --name-status`) : un `R100` est un deplacement pur, un couple `D` + `A` separe est
+  une reecriture. Cas reel (commit `030ac53`) : `docs/backups/rapports/` ignore par
+  `.gitignore:74:**/backups/` alors que des fichiers y sont deja suivis (ajoutes avant la regle) —
+  cible retenue `docs/_archive/rapports/`. Cibles d'archivage verifiees non ignorees : `docs/_archive/`,
+  `docs/_archive/rapports/`, `docs/snapshot/rapports/`. Voir `references/publication-push-gate.md`
+  (lecture d'un renommage `R100`).
 - **Une ecriture sur un fichier DEJA indexe fait diverger l'index de l'arbre** : l'index porte la
   version relue et validee, l'arbre une version posterieure (`git status` rend `MM`), et le commit
   emporte la seconde. Pendant une fenetre gatee ou le lot est deja indexe, ne pas toucher un fichier du
@@ -541,6 +552,7 @@ diff integral : l'operateur veut savoir quelle section bouge, pas relire le fich
 
 ## Pitfalls
 
+- **Un controle « `<tag-precedent>..HEAD` = 1 commit » peut echouer sans qu'aucun commit etranger ne parte.** Le tag de la version precedente n'est pas forcement le parent de la suivante : des commits de maintenance (docs, archivage curateur, skills) s'intercalent, souvent deja pousses. Le referentiel de « ce qui partirait au push » est `origin/main..HEAD` (`git status -sb` affiche `[ahead N]`) ; celui du seul commit en cours est `HEAD~1..HEAD` — jamais le tag precedent. Mesurer `git rev-list --count origin/main..HEAD` et `git diff --stat origin/main..HEAD` : si le compte du tag est plus large, c'est un ecart de REFERENTIEL a declarer (le commit lui-meme est propre : `git show --name-only --format="" HEAD | wc -l`), pas un commit etranger — et on ne repointe jamais le tag pour le « corriger ».
 - **Ecrire le CHANGELOG ne suffit pas a documenter la version** : la release
   GitHub porte encore la note courte jusqu'a `gh release edit --notes-file`.
 - **Un `--notes-file` absent donne un corps de release vide** : verifier que le
@@ -581,6 +593,7 @@ diff integral : l'operateur veut savoir quelle section bouge, pas relire le fich
   l'hypothese d'une protection ne tient sur rien : relancer la MEME commande donne le verdict
   (`git push --porcelain origin <tag>` : `*` = ref cree, `!` = refuse). Ne jamais repondre a un refus par
   `--force`, et ne pas rapporter une cause (protection, hook, droit manquant) que la mesure n'a pas montree.
+- **Un push de BRANCHE rejete par `! [rejected] main -> main (fetch first)` dit que le distant a avance, pas qu'un droit manque.** Reponse : `git fetch origin`, puis `git status -sb` (attend `[ahead 1, behind 1]`), lire le commit d'amont qui s'intercale (`git log -1 --format='%h %an %s' <sha-distant>` et `git diff --stat HEAD~1..<sha-distant>` pour ecarter un conflit), enfin integrer par `git pull --rebase --autostash origin main` — jamais `--force`. L'`--autostash` fait le stash/reapply de l'arbre runtime chroniquement sale (verifier `Created autostash` puis `Applied autostash` dans la sortie) ; garder la recette stash/pop manuelle quand une verification doit s'intercaler entre les deux. L'historique de ce depot est lineaire : rebaser, pas merger. **Un rebase change le hash du commit et laisse le tag ANNOTE sur l'ancien** : le repointer par `git tag -f -a <tag> -m <msg> <nouveau-sha>` et verifier la cible par `git rev-parse <tag>^{commit}` (jamais `<tag>` seul). Prouver que l'ANCIEN commit n'a jamais atteint le distant (`git ls-remote origin | grep <ancien-sha>` vide : un commit rebase non pousse ne laisse rien d'orphelin en amont). Pousser la branche PUIS le tag.
 - **`hermes skills list-modified` mesure contre le manifeste des skills bundled, PAS contre git.** Une
   cible « skill <x> » d'un GO peut n'avoir aucun diff a committer (`git status --short -- <chemin>` muet) :
   son ecart est contre la version amont. Le fichier reellement modifie est souvent un `references/`
