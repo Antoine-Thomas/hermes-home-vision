@@ -46,7 +46,10 @@ python "%LOCALAPPDATA%\hermes\data\rag\router_memoire.py" "question"
   sont pas, la regle « conserver tout ce qui n'est pas dans le skill » l'emporte sur la cible.
 - **Editer une memoire par `patch` sur les lignes visees, jamais par une reecriture du fichier.** Le
   reste du fichier doit rester identique a l'octet (CRLF, absence de saut final) — seules les entrees
-  visees bougent. Corollaire de verification : un `git diff` large sur MEMORY.md est de la derive
+  visees bougent. L'outil d'ecriture de fichiers refuse d'ailleurs l'overwrite d'une memoire
+  (`stale_write_blocked`, « was last read with offset/limit pagination ») meme juste apres une lecture
+  complete du fichier : c'est le comportement attendu, on enchaine sur des `patch` cibles au lieu de
+  tenter une reecriture. Corollaire de verification : un `git diff` large sur MEMORY.md est de la derive
   preexistante (le fichier est souvent deja modifie non commite), donc il ne prouve RIEN sur ton
   travail ; prouver son propre delta par le diff rendu par `patch` et par le mtime du fichier.
 - **Archiver une entree retiree dans un fichier dedie, pas seulement dans SiYuan.** Convention du
