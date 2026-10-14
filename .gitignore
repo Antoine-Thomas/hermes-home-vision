@@ -8,6 +8,11 @@ auth.json
 *.pem
 *.key
 
+# Mémoire persistante locale (chemins, identifiants, contexte
+# personnel) — hors dépôt public. Rejoint .env, state.db,
+# sessions/, auth.json.
+/memories/
+
 # ── Dépôt imbriqué / volumes externes ────────────────────────────────────────
 /hermes-agent/
 data/
